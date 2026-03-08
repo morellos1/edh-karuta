@@ -3,6 +3,7 @@
   "dropExpireSeconds": 60,
   "dropCooldownSeconds": 120,
   "colordropCooldownSeconds": 43200,
+  "maxWishlistSlots": 10,
   "autoDropIntervalSeconds": 1800,
   "dropRarity": {
     "commonChance": 0.5,

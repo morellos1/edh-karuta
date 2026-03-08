@@ -18,6 +18,9 @@ import { tagrenameCommand } from "./commands/tagrename.js";
 import { tagCommand } from "./commands/tag.js";
 import { tagsCommand } from "./commands/tags.js";
 import { untagCommand } from "./commands/untag.js";
+import { wishaddCommand } from "./commands/wishadd.js";
+import { wishremoveCommand } from "./commands/wishremove.js";
+import { wlCommand } from "./commands/wl.js";
 import { handleClaimButton, CLAIM_BUTTON_PREFIX } from "./interactions/claimButton.js";
 import { handleCollectionPageButton } from "./interactions/collectionButton.js";
 import { handleCardPrintButton, CARD_PRINT_PREFIX } from "./interactions/cardPrintButton.js";
@@ -51,7 +54,10 @@ const commands = [
   tagrenameCommand,
   tagCommand,
   tagsCommand,
-  untagCommand
+  untagCommand,
+  wishaddCommand,
+  wishremoveCommand,
+  wlCommand
 ];
 const commandMap = new Collection<string, SlashCommand>();
 for (const command of commands) {

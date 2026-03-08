@@ -6,6 +6,7 @@ import { getDropChannelId } from "../repositories/botConfigRepo.js";
 import { buildDropCollage } from "./collageService.js";
 import { createDropRecord, attachDropMessage } from "./dropService.js";
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
+import { buildWishlistNotification } from "./wishlistService.js";
 
 const BOT_DROP_INTERVAL_MS = gameConfig.autoDropIntervalSeconds * 1000;
 const DROP_SIZE = 3;
@@ -44,8 +45,17 @@ export function startBotDropScheduler(client: Client) {
       const attachment = new AttachmentBuilder(collage, { name: "drop.webp" });
       const components = await buildDropComponents(drop.id);
 
+      const dropLine = "I'm dropping 3 cards!";
+      const wishNotification = await buildWishlistNotification(
+        guildId,
+        cards.map((c) => c.name)
+      );
+      const content = wishNotification
+        ? `${wishNotification}\n\n${dropLine}`
+        : dropLine;
+
       const message = await channel.send({
-        content: "I'm dropping 3 cards!",
+        content,
         files: [attachment],
         components
       });

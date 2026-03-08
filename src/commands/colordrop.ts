@@ -10,6 +10,7 @@ import { getColordropCooldownRemainingMs, setColordropUsed } from "../repositori
 import { buildDropCollage } from "../services/collageService.js";
 import { attachDropMessage, createDropRecord } from "../services/dropService.js";
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
+import { buildWishlistNotification } from "../services/wishlistService.js";
 
 const DROP_SIZE = 3;
 const COLOR_SYMBOL_MAP: Record<string, DropColorSymbol> = {
@@ -77,7 +78,15 @@ export const colordropCommand: SlashCommand = {
       const attachment = new AttachmentBuilder(collage, { name: "drop.webp" });
       const components = await buildDropComponents(drop.id);
 
-      const content = `<@${interaction.user.id}> is dropping 3 cards! (${colorChoice})`;
+      const dropLine = `<@${interaction.user.id}> is dropping 3 cards! (${colorChoice})`;
+
+      const wishNotification = await buildWishlistNotification(
+        interaction.guildId,
+        cards.map((c) => c.name)
+      );
+      const content = wishNotification
+        ? `${wishNotification}\n\n${dropLine}`
+        : dropLine;
 
       const message = await interaction.editReply({
         content,
