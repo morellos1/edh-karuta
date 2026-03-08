@@ -155,9 +155,13 @@ client.on("interactionCreate", async (interaction: Interaction) => {
 
 async function registerCommandsOnStartup() {
   const rest = new REST({ version: "10" }).setToken(env.DISCORD_TOKEN);
-  await rest.put(Routes.applicationGuildCommands(env.DISCORD_CLIENT_ID, env.DISCORD_GUILD_ID), {
-    body: commands.map((c) => c.data.toJSON())
-  });
+  const body = commands.map((c) => c.data.toJSON());
+
+  if (env.DISCORD_GUILD_ID) {
+    await rest.put(Routes.applicationGuildCommands(env.DISCORD_CLIENT_ID, env.DISCORD_GUILD_ID), { body });
+  } else {
+    await rest.put(Routes.applicationCommands(env.DISCORD_CLIENT_ID), { body });
+  }
 }
 
 async function bootstrap() {
