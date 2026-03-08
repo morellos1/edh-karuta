@@ -32,7 +32,7 @@ export const dropCommand: SlashCommand = {
       const remainingMs = await getDropCooldownRemainingMs(interaction.user.id);
       if (remainingMs > 0) {
         await interaction.reply({
-          content: `<@${interaction.user.id}>, you must wait ${formatCooldownRemaining(remainingMs)} before dropping more cards.`,
+          content: `<@${interaction.user.id}>, you can drop again ${formatCooldownRemaining(remainingMs)}.`,
           ephemeral: true
         });
         return;

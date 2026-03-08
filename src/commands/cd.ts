@@ -9,7 +9,7 @@ function formatCooldownLine(label: string, remainingMs: number): string {
   if (remainingMs <= 0) {
     return `**${label}** is currently available.`;
   }
-  return `**${label}** is available in ${formatCooldownRemaining(remainingMs)}.`;
+  return `**${label}** is available ${formatCooldownRemaining(remainingMs)}.`;
 }
 
 export const cdCommand: SlashCommand = {

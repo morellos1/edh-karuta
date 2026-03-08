@@ -102,7 +102,7 @@ export async function handleClaimButton(interaction: ButtonInteraction) {
     if (result.reason === "cooldown") {
       const remainingMs = result.remainingMs ?? 0;
       await interaction.reply({
-        content: `<@${interaction.user.id}>, you must wait ${formatCooldownRemaining(remainingMs)} before claiming another card.`,
+        content: `<@${interaction.user.id}>, you can claim another card ${formatCooldownRemaining(remainingMs)}.`,
         ephemeral: true
       });
       return;
