@@ -149,6 +149,16 @@ function commanderWhereFilter(): Prisma.CardWhereInput {
         typeLine: { contains: "Legendary" },
         AND: { typeLine: { contains: "Creature" } }
       },
+      // Legendary vehicles (have power/toughness inherently)
+      {
+        typeLine: { contains: "Legendary" },
+        AND: { typeLine: { contains: "Vehicle" } }
+      },
+      // Legendary spacecraft (have power/toughness inherently)
+      {
+        typeLine: { contains: "Legendary" },
+        AND: { typeLine: { contains: "Spacecraft" } }
+      },
       // Planeswalkers that can be your commander
       {
         typeLine: { contains: "Planeswalker" },
