@@ -3,7 +3,7 @@ import { findCardByQuery, findCardPrintsByName } from "../repositories/cardRepo.
 import { getCardCirculationCount } from "../repositories/userCardRepo.js";
 import { getWishlistCardCount } from "../repositories/wishlistRepo.js";
 import type { SlashCommand } from "./types.js";
-import { formatColorCircles, formatBaseGold, formatRarity } from "../utils/cardFormatting.js";
+import { formatColorCircles, formatBaseGold, formatRarity, getCardImageUrl } from "../utils/cardFormatting.js";
 import { buildCardPrintComponents } from "../interactions/cardPrintButton.js";
 
 export const cardCommand: SlashCommand = {
@@ -33,7 +33,7 @@ export const cardCommand: SlashCommand = {
       getCardCirculationCount(showCard.id),
       getWishlistCardCount(showCard.name)
     ]);
-    const image = showCard.imagePng ?? showCard.imageLarge ?? showCard.imageNormal ?? showCard.imageSmall;
+    const image = getCardImageUrl(showCard);
     const cardCode = `${showCard.setCode.toUpperCase()} #${showCard.collectorNumber.toUpperCase()}`;
     const setLabel = showCard.setName ? `${showCard.setName} ${cardCode}` : cardCode;
     const scryfallUrl = `https://scryfall.com/card/${showCard.setCode}/${showCard.collectorNumber}?utm_source=edh_karuta`;

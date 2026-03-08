@@ -1,7 +1,6 @@
 import { prisma } from "../db.js";
 
 const PAGE_SIZE = 10;
-const ALBUM_PAGE_SIZE = 9;
 
 export type CollectionSort = "recent" | "color" | "price_asc" | "price_desc" | "rarity";
 

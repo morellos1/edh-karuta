@@ -3,7 +3,7 @@ import { EmbedBuilder } from "discord.js";
 import { getUserCardById, deleteUserCard } from "../repositories/userCardRepo.js";
 import { addGold } from "../repositories/inventoryRepo.js";
 import { getGoldValue } from "../services/conditionService.js";
-import { getCheapestPrintPricesByNames, getDefaultBasePriceUsd } from "../repositories/cardRepo.js";
+import { getCardImageUrl, resolveBasePrice } from "../utils/cardFormatting.js";
 import { BURN_CONFIRM_PREFIX, BURN_CANCEL_PREFIX } from "../commands/burn.js";
 
 export async function handleBurnConfirmButton(interaction: ButtonInteraction) {
@@ -20,18 +20,9 @@ export async function handleBurnConfirmButton(interaction: ButtonInteraction) {
     return;
   }
 
-  const baseUsd =
-    userCard.card.usdPrice != null && Number.isFinite(Number(userCard.card.usdPrice))
-      ? Number(userCard.card.usdPrice)
-      : (await getCheapestPrintPricesByNames([userCard.card.name])).get(userCard.card.name) ??
-        getDefaultBasePriceUsd();
+  const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name);
   const gold = getGoldValue(String(baseUsd), userCard.condition);
-
-  const image =
-    userCard.card.imagePng ??
-    userCard.card.imageLarge ??
-    userCard.card.imageNormal ??
-    userCard.card.imageSmall;
+  const image = getCardImageUrl(userCard.card);
 
   await deleteUserCard(userCardId);
   await addGold(interaction.user.id, gold);
@@ -78,18 +69,9 @@ export async function handleBurnCancelButton(interaction: ButtonInteraction) {
     return;
   }
 
-  const baseUsd =
-    userCard.card.usdPrice != null && Number.isFinite(Number(userCard.card.usdPrice))
-      ? Number(userCard.card.usdPrice)
-      : (await getCheapestPrintPricesByNames([userCard.card.name])).get(userCard.card.name) ??
-        getDefaultBasePriceUsd();
+  const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name);
   const gold = getGoldValue(String(baseUsd), userCard.condition);
-
-  const image =
-    userCard.card.imagePng ??
-    userCard.card.imageLarge ??
-    userCard.card.imageNormal ??
-    userCard.card.imageSmall;
+  const image = getCardImageUrl(userCard.card);
 
   const embed = new EmbedBuilder()
     .setTitle("Burn Card")

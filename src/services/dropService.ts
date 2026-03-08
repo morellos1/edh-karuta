@@ -243,18 +243,6 @@ export async function attachDropMessage(dropId: number, messageId: string) {
   });
 }
 
-export async function getDropByMessage(messageId: string) {
-  return prisma.drop.findUnique({
-    where: { messageId },
-    include: {
-      slots: {
-        include: { card: true },
-        orderBy: { slotIndex: "asc" }
-      }
-    }
-  });
-}
-
 export async function getDropById(dropId: number) {
   return prisma.drop.findUnique({
     where: { id: dropId },

@@ -24,6 +24,29 @@ export type CardLookup = {
   oracleText: string | null;
 };
 
+function toCardLookup(card: Card): CardLookup {
+  return {
+    id: card.id,
+    scryfallId: card.scryfallId,
+    name: card.name,
+    setCode: card.setCode,
+    setName: card.setName,
+    collectorNumber: card.collectorNumber,
+    lang: card.lang,
+    usdPrice: card.usdPrice,
+    rarity: card.rarity,
+    colors: card.colors,
+    colorIdentity: card.colorIdentity,
+    imagePng: card.imagePng,
+    imageSmall: card.imageSmall,
+    imageNormal: card.imageNormal,
+    imageLarge: card.imageLarge,
+    manaCost: card.manaCost,
+    typeLine: card.typeLine,
+    oracleText: card.oracleText
+  };
+}
+
 type RarityTarget = "common" | "uncommon" | "rare" | "mythic";
 export type DropColorSymbol = "W" | "U" | "B" | "R" | "G";
 
@@ -119,26 +142,7 @@ export async function getRandomDroppableCards(
     cards.push(candidate);
   }
 
-  return cards.map((card) => ({
-    id: card.id,
-    scryfallId: card.scryfallId,
-    name: card.name,
-    setCode: card.setCode,
-    setName: card.setName,
-    collectorNumber: card.collectorNumber,
-    lang: card.lang,
-    usdPrice: card.usdPrice,
-    rarity: card.rarity,
-    colors: card.colors,
-    colorIdentity: card.colorIdentity,
-    imagePng: card.imagePng,
-    imageSmall: card.imageSmall,
-    imageNormal: card.imageNormal,
-    imageLarge: card.imageLarge,
-    manaCost: card.manaCost,
-    typeLine: card.typeLine,
-    oracleText: card.oracleText
-  }));
+  return cards.map(toCardLookup);
 }
 
 function commanderWhereFilter(): Prisma.CardWhereInput {
@@ -195,26 +199,7 @@ export async function getRandomCommanderCards(
     cards.push(candidate);
   }
 
-  return cards.map((card) => ({
-    id: card.id,
-    scryfallId: card.scryfallId,
-    name: card.name,
-    setCode: card.setCode,
-    setName: card.setName,
-    collectorNumber: card.collectorNumber,
-    lang: card.lang,
-    usdPrice: card.usdPrice,
-    rarity: card.rarity,
-    colors: card.colors,
-    colorIdentity: card.colorIdentity,
-    imagePng: card.imagePng,
-    imageSmall: card.imageSmall,
-    imageNormal: card.imageNormal,
-    imageLarge: card.imageLarge,
-    manaCost: card.manaCost,
-    typeLine: card.typeLine,
-    oracleText: card.oracleText
-  }));
+  return cards.map(toCardLookup);
 }
 
 export async function findCardByQuery(query: string): Promise<CardLookup | null> {

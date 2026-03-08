@@ -125,52 +125,32 @@ async function flushBatch(batch: ScryfallCard[]) {
     const manaCost = card.mana_cost ?? firstFace?.mana_cost ?? null;
     const colorsFromMana = extractColorsFromManaCost(manaCost).join(",");
 
+    const fields = {
+      name: card.name,
+      setCode: card.set.toLowerCase(),
+      setName: card.set_name ?? null,
+      collectorNumber: card.collector_number.toLowerCase(),
+      releasedAt: card.released_at ?? null,
+      lang: card.lang ?? null,
+      usdPrice: card.prices?.usd ?? null,
+      manaCost,
+      typeLine: card.type_line ?? firstFace?.type_line ?? null,
+      oracleText: card.oracle_text ?? firstFace?.oracle_text ?? null,
+      colors: colorsFromMana,
+      colorIdentity: (card.color_identity ?? []).join(","),
+      imagePng: image.png ?? null,
+      imageSmall: image.small ?? null,
+      imageNormal: image.normal ?? null,
+      imageLarge: image.large ?? null,
+      isBasicLand: isBasicLand(card),
+      isCommanderLegal: card.legalities?.commander === "legal",
+      rarity: card.rarity ?? null
+    };
+
     await prisma.card.upsert({
       where: { scryfallId: card.id },
-      create: {
-        scryfallId: card.id,
-        name: card.name,
-        setCode: card.set.toLowerCase(),
-        setName: card.set_name ?? null,
-        collectorNumber: card.collector_number.toLowerCase(),
-        releasedAt: card.released_at ?? null,
-        lang: card.lang ?? null,
-        usdPrice: card.prices?.usd ?? null,
-        manaCost,
-        typeLine: card.type_line ?? firstFace?.type_line ?? null,
-        oracleText: card.oracle_text ?? firstFace?.oracle_text ?? null,
-        colors: colorsFromMana,
-        colorIdentity: (card.color_identity ?? []).join(","),
-        imagePng: image.png ?? null,
-        imageSmall: image.small ?? null,
-        imageNormal: image.normal ?? null,
-        imageLarge: image.large ?? null,
-        isBasicLand: isBasicLand(card),
-        isCommanderLegal: card.legalities?.commander === "legal",
-        rarity: card.rarity ?? null,
-        randomWeight: 1
-      },
-      update: {
-        name: card.name,
-        setCode: card.set.toLowerCase(),
-        setName: card.set_name ?? null,
-        collectorNumber: card.collector_number.toLowerCase(),
-        releasedAt: card.released_at ?? null,
-        lang: card.lang ?? null,
-        usdPrice: card.prices?.usd ?? null,
-        manaCost,
-        typeLine: card.type_line ?? firstFace?.type_line ?? null,
-        oracleText: card.oracle_text ?? firstFace?.oracle_text ?? null,
-        colors: colorsFromMana,
-        colorIdentity: (card.color_identity ?? []).join(","),
-        imagePng: image.png ?? null,
-        imageSmall: image.small ?? null,
-        imageNormal: image.normal ?? null,
-        imageLarge: image.large ?? null,
-        isBasicLand: isBasicLand(card),
-        isCommanderLegal: card.legalities?.commander === "legal",
-        rarity: card.rarity ?? null
-      }
+      create: { scryfallId: card.id, ...fields, randomWeight: 1 },
+      update: fields
     });
   }
 }

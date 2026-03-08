@@ -1,6 +1,6 @@
 import { gameConfig, CONDITION_MULTIPLIERS } from "../config.js";
 
-export type CardCondition = "poor" | "good" | "mint";
+type CardCondition = "poor" | "good" | "mint";
 
 const CONDITIONS: CardCondition[] = ["poor", "good", "mint"];
 

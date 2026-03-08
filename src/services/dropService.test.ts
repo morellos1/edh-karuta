@@ -45,6 +45,7 @@ test("one-per-drop persistence enforces unique user+drop claim", async () => {
 
     await prisma.userCard.create({
       data: {
+        displayId: `test1-${unique}`.slice(0, 6),
         userId: "collector-test",
         cardId,
         dropId
@@ -54,6 +55,7 @@ test("one-per-drop persistence enforces unique user+drop claim", async () => {
     await assert.rejects(() =>
       prisma.userCard.create({
         data: {
+          displayId: `test2-${unique}`.slice(0, 6),
           userId: "collector-test",
           cardId,
           dropId

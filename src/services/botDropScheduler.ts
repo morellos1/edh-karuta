@@ -18,7 +18,7 @@ export function startBotDropScheduler(client: Client) {
       if (!channelId) return;
 
       const channel = await client.channels.fetch(channelId);
-      if (!channel?.isTextBased() || !("send" in channel)) {
+      if (!channel?.isTextBased() || !("send" in channel) || !("guildId" in channel)) {
         return;
       }
       const guildId = channel.guildId;
