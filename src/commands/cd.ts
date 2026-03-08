@@ -3,13 +3,13 @@ import { gameConfig } from "../config.js";
 import type { SlashCommand } from "./types.js";
 import { getDropCooldownRemainingMs, getCommanderdropCooldownRemainingMs, getColordropCooldownRemainingMs } from "../repositories/botConfigRepo.js";
 import { getRemainingCooldownMs } from "../services/cooldownService.js";
+import { formatCooldownRemaining } from "../utils/cooldownFormatting.js";
 
 function formatCooldownLine(label: string, remainingMs: number): string {
   if (remainingMs <= 0) {
     return `**${label}** is currently available.`;
   }
-  const minutes = Math.ceil(remainingMs / 60_000);
-  return `**${label}** is available in **${minutes}** minute${minutes !== 1 ? "s" : ""}.`;
+  return `**${label}** is available in ${formatCooldownRemaining(remainingMs)}.`;
 }
 
 export const cdCommand: SlashCommand = {

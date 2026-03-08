@@ -11,6 +11,7 @@ import { buildDropCollage } from "../services/collageService.js";
 import { attachDropMessage, createDropRecord } from "../services/dropService.js";
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
 import { buildWishlistNotification } from "../services/wishlistService.js";
+import { formatCooldownRemaining } from "../utils/cooldownFormatting.js";
 
 const DROP_SIZE = 3;
 
@@ -30,9 +31,8 @@ export const dropCommand: SlashCommand = {
     if (gameConfig.dropCooldownSeconds > 0) {
       const remainingMs = await getDropCooldownRemainingMs(interaction.user.id);
       if (remainingMs > 0) {
-        const minutes = Math.ceil(remainingMs / 60_000);
         await interaction.reply({
-          content: `<@${interaction.user.id}>, you must wait **${minutes}** minute${minutes !== 1 ? "s" : ""} before dropping more cards.`,
+          content: `<@${interaction.user.id}>, you must wait ${formatCooldownRemaining(remainingMs)} before dropping more cards.`,
           ephemeral: true
         });
         return;

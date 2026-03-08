@@ -11,6 +11,7 @@ import { buildDropCollage } from "../services/collageService.js";
 import { attachDropMessage, createDropRecord } from "../services/dropService.js";
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
 import { buildWishlistNotification } from "../services/wishlistService.js";
+import { formatCooldownRemaining } from "../utils/cooldownFormatting.js";
 
 const DROP_SIZE = 3;
 const COLOR_SYMBOL_MAP: Record<string, DropColorSymbol> = {
@@ -49,9 +50,8 @@ export const colordropCommand: SlashCommand = {
 
     const remainingMs = await getColordropCooldownRemainingMs(interaction.user.id);
     if (remainingMs > 0) {
-      const minutes = Math.ceil(remainingMs / 60_000);
       await interaction.reply({
-        content: `Color Drop is on cooldown. Try again in **${minutes}** minute${minutes !== 1 ? "s" : ""}.`,
+        content: `Color Drop is on cooldown. Try again in ${formatCooldownRemaining(remainingMs)}.`,
         ephemeral: true
       });
       return;

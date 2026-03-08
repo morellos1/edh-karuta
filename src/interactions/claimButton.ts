@@ -8,6 +8,7 @@ import {
 import { gameConfig } from "../config.js";
 import { getDropById, markDropResolved, submitClaim } from "../services/dropService.js";
 import { getConditionClaimPhrase } from "../services/conditionService.js";
+import { formatCooldownRemaining } from "../utils/cooldownFormatting.js";
 
 export const CLAIM_BUTTON_PREFIX = "claim";
 const timeoutMap = new Map<number, NodeJS.Timeout>();
@@ -100,9 +101,8 @@ export async function handleClaimButton(interaction: ButtonInteraction) {
   if (!result.ok) {
     if (result.reason === "cooldown") {
       const remainingMs = result.remainingMs ?? 0;
-      const minutes = Math.ceil(remainingMs / 60_000);
       await interaction.reply({
-        content: `<@${interaction.user.id}>, you must wait **${minutes}** minute${minutes !== 1 ? "s" : ""} before claiming another card.`,
+        content: `<@${interaction.user.id}>, you must wait ${formatCooldownRemaining(remainingMs)} before claiming another card.`,
         ephemeral: true
       });
       return;
