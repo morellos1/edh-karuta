@@ -10,6 +10,7 @@ import { COLLECTION_BUTTON_PREFIX, COLLECTION_EXPORT_PREFIX, collectionCommand }
 import { cardCommand } from "./commands/card.js";
 import { lookupCommand } from "./commands/lookup.js";
 import { burnCommand } from "./commands/burn.js";
+import { bulkburnCommand, BULKBURN_CONFIRM_PREFIX, BULKBURN_CANCEL_PREFIX } from "./commands/bulkburn.js";
 import { marketCommand } from "./commands/market.js";
 import { buyCommand } from "./commands/buy.js";
 import { giveCommand } from "./commands/give.js";
@@ -27,6 +28,7 @@ import { handleClaimButton, CLAIM_BUTTON_PREFIX } from "./interactions/claimButt
 import { handleCollectionPageButton } from "./interactions/collectionButton.js";
 import { handleCardPrintButton, CARD_PRINT_PREFIX } from "./interactions/cardPrintButton.js";
 import { handleBurnConfirmButton, handleBurnCancelButton } from "./interactions/burnButton.js";
+import { handleBulkBurnConfirmButton, handleBulkBurnCancelButton } from "./interactions/bulkBurnButton.js";
 import {
   GIVE_ACCEPT_PREFIX,
   GIVE_DECLINE_PREFIX,
@@ -49,6 +51,7 @@ const commands = [
   cardCommand,
   lookupCommand,
   burnCommand,
+  bulkburnCommand,
   marketCommand,
   buyCommand,
   giveCommand,
@@ -104,6 +107,14 @@ client.on("interactionCreate", async (interaction: Interaction) => {
     }
     if (interaction.isButton() && interaction.customId.startsWith("burn_cancel:")) {
       await handleBurnCancelButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith(`${BULKBURN_CONFIRM_PREFIX}:`)) {
+      await handleBulkBurnConfirmButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith(`${BULKBURN_CANCEL_PREFIX}:`)) {
+      await handleBulkBurnCancelButton(interaction);
       return;
     }
     if (
