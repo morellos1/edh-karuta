@@ -31,7 +31,7 @@ export const commanderdropCommand: SlashCommand = {
     if (remainingMs > 0) {
       const minutes = Math.ceil(remainingMs / 60_000);
       await interaction.reply({
-        content: `Commanderdrop is on cooldown. Try again in **${minutes}** minute${minutes !== 1 ? "s" : ""}.`,
+        content: `Commander Drop is on cooldown. Try again in **${minutes}** minute${minutes !== 1 ? "s" : ""}.`,
         ephemeral: true
       });
       return;
@@ -47,7 +47,8 @@ export const commanderdropCommand: SlashCommand = {
         channelId: interaction.channelId,
         dropperUserId: interaction.user.id,
         expiresAt,
-        cards
+        cards,
+        dropType: "commanderdrop"
       });
 
       await setCommanderdropUsed(interaction.user.id);
@@ -81,7 +82,7 @@ export const commanderdropCommand: SlashCommand = {
       });
     } catch (error) {
       await interaction.editReply({
-        content: `Commanderdrop failed: ${(error as Error).message}`
+        content: `Commander Drop failed: ${(error as Error).message}`
       });
     }
   }

@@ -18,7 +18,7 @@ export async function getRemainingCooldownMs(userId: string, cooldownSeconds: nu
   }
 
   const latest = await prisma.userCard.findFirst({
-    where: { userId },
+    where: { userId, drop: { dropType: "regular" } },
     orderBy: { claimedAt: "desc" },
     select: { claimedAt: true }
   });
