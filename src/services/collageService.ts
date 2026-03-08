@@ -1,18 +1,11 @@
 import axios from "axios";
 import sharp from "sharp";
 import type { CardLookup } from "../repositories/cardRepo.js";
+import { getCardImageUrl } from "../utils/cardFormatting.js";
 
 const MAX_CANVAS_WIDTH = 4096;
 const PADDING = 12;
 const CARD_ASPECT_RATIO = 1.39375;
-
-/** Card dimensions for one row of 3 cards (same as drop). */
-function getDropRowCardDimensions() {
-  const columns = 3;
-  const cardWidth = Math.floor((MAX_CANVAS_WIDTH - (columns + 1) * PADDING) / columns);
-  const cardHeight = Math.round(cardWidth * CARD_ASPECT_RATIO);
-  return { cardWidth, cardHeight };
-}
 
 async function loadCardImage(url: string): Promise<Buffer> {
   const response = await axios.get<ArrayBuffer>(url, {
@@ -29,29 +22,27 @@ export async function buildDropCollage(cards: CardLookup[]): Promise<Buffer> {
   const canvasWidth = PADDING + columns * (cardWidth + PADDING);
   const canvasHeight = cardHeight + PADDING * 2;
 
-  const composites: sharp.OverlayOptions[] = [];
+  const imageUrls = cards.map((card) => {
+    const url = getCardImageUrl(card);
+    if (!url) throw new Error(`Card ${card.name} is missing image URLs.`);
+    return url;
+  });
 
-  for (let i = 0; i < cards.length; i += 1) {
-    const card = cards[i];
-    const x = PADDING + i * (cardWidth + PADDING);
-    const y = PADDING;
-    const imageUrl = card.imagePng ?? card.imageLarge ?? card.imageNormal ?? card.imageSmall;
+  // Download all card images in parallel instead of sequentially.
+  const imageBuffers = await Promise.all(imageUrls.map(loadCardImage));
 
-    if (!imageUrl) {
-      throw new Error(`Card ${card.name} is missing image URLs.`);
-    }
-
-    const imageBuffer = await loadCardImage(imageUrl);
-    const resized = await sharp(imageBuffer)
-      .resize(cardWidth, cardHeight, { fit: "cover" })
-      .toBuffer();
-
-    composites.push({
-      input: resized,
-      left: x,
-      top: y
-    });
-  }
+  const composites: sharp.OverlayOptions[] = await Promise.all(
+    imageBuffers.map(async (buf, i) => {
+      const resized = await sharp(buf)
+        .resize(cardWidth, cardHeight, { fit: "cover" })
+        .toBuffer();
+      return {
+        input: resized,
+        left: PADDING + i * (cardWidth + PADDING),
+        top: PADDING
+      };
+    })
+  );
 
   return sharp({
     create: {
@@ -88,28 +79,27 @@ export async function buildCollectionGrid(cards: CardLookup[]): Promise<Buffer> 
   const canvasWidth = GRID_PADDING + GRID_COLS * (cardWidth + GRID_PADDING);
   const canvasHeight = GRID_PADDING + GRID_ROWS * (cardHeight + GRID_PADDING);
 
-  const composites: sharp.OverlayOptions[] = [];
-
-  for (let i = 0; i < count; i++) {
-    const card = cards[i];
-    const imageUrl = card.imagePng ?? card.imageLarge ?? card.imageNormal ?? card.imageSmall;
-    const col = i % GRID_COLS;
-    const row = Math.floor(i / GRID_COLS);
-    const x = GRID_PADDING + col * (cardWidth + GRID_PADDING);
-    const y = GRID_PADDING + row * (cardHeight + GRID_PADDING);
-
-    if (imageUrl) {
+  // Download and resize all card images in parallel.
+  const compositeResults = await Promise.all(
+    cards.slice(0, count).map(async (card, i) => {
+      const imageUrl = getCardImageUrl(card);
+      if (!imageUrl) return null;
+      const col = i % GRID_COLS;
+      const row = Math.floor(i / GRID_COLS);
+      const x = GRID_PADDING + col * (cardWidth + GRID_PADDING);
+      const y = GRID_PADDING + row * (cardHeight + GRID_PADDING);
       try {
         const imageBuffer = await loadCardImage(imageUrl);
         const resized = await sharp(imageBuffer)
           .resize(cardWidth, cardHeight, { fit: "cover" })
           .toBuffer();
-        composites.push({ input: resized, left: x, top: y });
+        return { input: resized, left: x, top: y } as sharp.OverlayOptions;
       } catch {
-        // skip card if image fails to load
+        return null;
       }
-    }
-  }
+    })
+  );
+  const composites = compositeResults.filter((c): c is sharp.OverlayOptions => c !== null);
 
   return sharp({
     create: {
@@ -155,36 +145,30 @@ export async function buildMarketGrid(cards: CardLookup[], labels: string[]): Pr
   const canvasWidth = MARKET_PADDING + MARKET_COLS * (cardWidth + MARKET_PADDING);
   const canvasHeight = MARKET_PADDING + MARKET_ROWS * (cardHeight + MARKET_PADDING);
 
-  const composites: sharp.OverlayOptions[] = [];
-
-  for (let i = 0; i < count; i++) {
-    const card = cards[i];
-    const imageUrl = card.imagePng ?? card.imageLarge ?? card.imageNormal ?? card.imageSmall;
-    const col = i % MARKET_COLS;
-    const row = Math.floor(i / MARKET_COLS);
-    const x = MARKET_PADDING + col * (cardWidth + MARKET_PADDING);
-    const y = MARKET_PADDING + row * (cardHeight + MARKET_PADDING);
-
-    if (!imageUrl) {
-      continue;
-    }
-
-    try {
-      const imageBuffer = await loadCardImage(imageUrl);
-      const resized = await sharp(imageBuffer)
-        .resize(cardWidth, cardHeight, { fit: "cover" })
-        .toBuffer();
-      composites.push({ input: resized, left: x, top: y });
-
-      composites.push({
-        input: buildLetterBadge(labels[i]),
-        left: x + 10,
-        top: y + 10
-      });
-    } catch {
-      // skip card if image fails to load
-    }
-  }
+  // Download and resize all market card images in parallel.
+  const compositeResults = await Promise.all(
+    cards.slice(0, count).map(async (card, i) => {
+      const imageUrl = getCardImageUrl(card);
+      if (!imageUrl) return [];
+      const col = i % MARKET_COLS;
+      const row = Math.floor(i / MARKET_COLS);
+      const x = MARKET_PADDING + col * (cardWidth + MARKET_PADDING);
+      const y = MARKET_PADDING + row * (cardHeight + MARKET_PADDING);
+      try {
+        const imageBuffer = await loadCardImage(imageUrl);
+        const resized = await sharp(imageBuffer)
+          .resize(cardWidth, cardHeight, { fit: "cover" })
+          .toBuffer();
+        return [
+          { input: resized, left: x, top: y } as sharp.OverlayOptions,
+          { input: buildLetterBadge(labels[i]), left: x + 10, top: y + 10 } as sharp.OverlayOptions
+        ];
+      } catch {
+        return [];
+      }
+    })
+  );
+  const composites = compositeResults.flat();
 
   return sharp({
     create: {
@@ -223,8 +207,8 @@ export async function buildTradePairImage(left: CardLookup, right: CardLookup): 
   const rightX = arrowX + arrowWidth + PADDING;
   const rightY = PADDING;
 
-  const leftUrl = left.imagePng ?? left.imageLarge ?? left.imageNormal ?? left.imageSmall;
-  const rightUrl = right.imagePng ?? right.imageLarge ?? right.imageNormal ?? right.imageSmall;
+  const leftUrl = getCardImageUrl(left);
+  const rightUrl = getCardImageUrl(right);
   if (!leftUrl || !rightUrl) {
     throw new Error("Trade cards must have images.");
   }

@@ -5,7 +5,7 @@ import {
 import type { SlashCommand } from "./types.js";
 import { prisma } from "../db.js";
 import { getMarketSlot, getMarketCardsForSlot, MARKET_IDS, type MarketCardId } from "../services/marketService.js";
-import { getGold, addGold } from "../repositories/inventoryRepo.js";
+import { getGold } from "../repositories/inventoryRepo.js";
 import { generateDisplayId } from "../utils/displayId.js";
 
 function parseMarketId(input: string): MarketCardId | null {
@@ -66,14 +66,25 @@ export const buyCommand: SlashCommand = {
     }
 
     const botUserId = interaction.client.user?.id ?? "0";
-    let displayId = generateDisplayId();
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const existing = await prisma.userCard.findUnique({ where: { displayId }, select: { id: true } });
-      if (!existing) break;
-      displayId = generateDisplayId();
-    }
 
-    await prisma.$transaction(async (tx) => {
+    const displayId = await prisma.$transaction(async (tx) => {
+      // Verify balance inside the transaction to prevent race conditions.
+      const inv = await tx.userInventory.findUnique({
+        where: { userId },
+        select: { gold: true }
+      });
+      if ((inv?.gold ?? 0) < entry.priceGold) {
+        throw new Error("insufficient_gold");
+      }
+
+      // Generate unique displayId inside the transaction.
+      let id = generateDisplayId();
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const existing = await tx.userCard.findUnique({ where: { displayId: id }, select: { id: true } });
+        if (!existing) break;
+        id = generateDisplayId();
+      }
+
       const drop = await tx.drop.create({
         data: {
           guildId,
@@ -94,16 +105,23 @@ export const buyCommand: SlashCommand = {
       });
       await tx.userCard.create({
         data: {
-          displayId,
+          displayId: id,
           userId,
           cardId: entry.card.id,
           dropId: drop.id,
           condition: "mint"
         }
       });
-    });
 
-    await addGold(userId, -entry.priceGold);
+      // Deduct gold inside the same transaction.
+      await tx.userInventory.upsert({
+        where: { userId },
+        create: { userId, gold: 0 },
+        update: { gold: { increment: -entry.priceGold } }
+      });
+
+      return id;
+    });
 
     await interaction.reply({
       content: `You bought **${entry.card.name}** for **${entry.priceGold}** gold. Card ID: \`${displayId}\``,

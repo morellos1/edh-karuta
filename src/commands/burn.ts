@@ -8,8 +8,8 @@ import {
 } from "discord.js";
 import type { SlashCommand } from "./types.js";
 import { getLastCollectedCard, getUserCardByDisplayId } from "../repositories/userCardRepo.js";
-import { getCheapestPrintPricesByNames, getDefaultBasePriceUsd } from "../repositories/cardRepo.js";
 import { getGoldValue } from "../services/conditionService.js";
+import { getCardImageUrl, resolveBasePrice } from "../utils/cardFormatting.js";
 
 export const BURN_CONFIRM_PREFIX = "burn_confirm";
 export const BURN_CANCEL_PREFIX = "burn_cancel";
@@ -47,18 +47,10 @@ export const burnCommand: SlashCommand = {
       return;
     }
 
-    const baseUsd =
-      userCard.card.usdPrice != null && Number.isFinite(Number(userCard.card.usdPrice))
-        ? Number(userCard.card.usdPrice)
-        : (await getCheapestPrintPricesByNames([userCard.card.name])).get(userCard.card.name) ??
-          getDefaultBasePriceUsd();
+    const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name);
     const gold = getGoldValue(String(baseUsd), userCard.condition);
 
-    const image =
-      userCard.card.imagePng ??
-      userCard.card.imageLarge ??
-      userCard.card.imageNormal ??
-      userCard.card.imageSmall;
+    const image = getCardImageUrl(userCard.card);
 
     const embed = new EmbedBuilder()
       .setTitle("Burn Card")

@@ -26,7 +26,8 @@ export type CardLookup = {
 type RarityTarget = "common" | "uncommon" | "rare" | "mythic";
 export type DropColorSymbol = "W" | "U" | "B" | "R" | "G";
 
-function getRarityThresholds() {
+// Cached at module load since gameConfig is immutable at runtime.
+const rarityThresholds = (() => {
   const common = gameConfig.dropRarity.commonChance;
   const uncommon = gameConfig.dropRarity.uncommonChance;
   const rare = gameConfig.dropRarity.rareChance;
@@ -37,33 +38,19 @@ function getRarityThresholds() {
   const commonScaled = common * scale;
   const uncommonScaled = uncommon * scale;
   const rareScaled = rare * scale;
-  const mythicScaled = mythic * scale;
 
   return {
     commonThreshold: commonScaled,
     uncommonThreshold: commonScaled + uncommonScaled,
-    rareThreshold: commonScaled + uncommonScaled + rareScaled,
-    mythicThreshold: commonScaled + uncommonScaled + rareScaled + mythicScaled
+    rareThreshold: commonScaled + uncommonScaled + rareScaled
   };
-}
+})();
 
 function rollTargetRarity(): RarityTarget {
   const r = Math.random();
-  const {
-    commonThreshold,
-    uncommonThreshold,
-    rareThreshold,
-    mythicThreshold
-  } = getRarityThresholds();
-  if (r < commonThreshold) {
-    return "common";
-  }
-  if (r < uncommonThreshold) {
-    return "uncommon";
-  }
-  if (r < rareThreshold) {
-    return "rare";
-  }
+  if (r < rarityThresholds.commonThreshold) return "common";
+  if (r < rarityThresholds.uncommonThreshold) return "uncommon";
+  if (r < rarityThresholds.rareThreshold) return "rare";
   return "mythic";
 }
 

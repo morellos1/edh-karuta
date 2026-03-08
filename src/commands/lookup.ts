@@ -1,11 +1,11 @@
 import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
 import { getUserCardByDisplayId } from "../repositories/userCardRepo.js";
-import { getCheapestPrintPricesByNames, getDefaultBasePriceUsd } from "../repositories/cardRepo.js";
 import type { SlashCommand } from "./types.js";
 import {
   formatConditionLabel,
   formatConditionPrice
 } from "../services/conditionService.js";
+import { getCardImageUrl, resolveBasePrice } from "../utils/cardFormatting.js";
 
 export const lookupCommand: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -26,18 +26,10 @@ export const lookupCommand: SlashCommand = {
       return;
     }
 
-    const baseUsd =
-      userCard.card.usdPrice != null && Number.isFinite(Number(userCard.card.usdPrice))
-        ? Number(userCard.card.usdPrice)
-        : (await getCheapestPrintPricesByNames([userCard.card.name])).get(userCard.card.name) ??
-          getDefaultBasePriceUsd();
+    const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name);
     const displayPrice = formatConditionPrice(String(baseUsd), userCard.condition);
 
-    const image =
-      userCard.card.imagePng ??
-      userCard.card.imageLarge ??
-      userCard.card.imageNormal ??
-      userCard.card.imageSmall;
+    const image = getCardImageUrl(userCard.card);
     const claimedAt = userCard.claimedAt.toISOString().split("T")[0];
 
     const embed = new EmbedBuilder()
