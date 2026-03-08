@@ -10,6 +10,7 @@ import { getDropCooldownRemainingMs, setDropUsed } from "../repositories/botConf
 import { buildDropCollage } from "../services/collageService.js";
 import { attachDropMessage, createDropRecord } from "../services/dropService.js";
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
+import { buildWishlistNotification } from "../services/wishlistService.js";
 
 const DROP_SIZE = 3;
 
@@ -60,9 +61,17 @@ export const dropCommand: SlashCommand = {
       const components = await buildDropComponents(drop.id);
 
       const isBotDrop = interaction.user.id === interaction.client.user?.id;
-      const content = isBotDrop
+      const dropLine = isBotDrop
         ? "I'm dropping 3 cards!"
         : `<@${interaction.user.id}> is dropping 3 cards!`;
+
+      const wishNotification = await buildWishlistNotification(
+        interaction.guildId,
+        cards.map((c) => c.name)
+      );
+      const content = wishNotification
+        ? `${wishNotification}\n\n${dropLine}`
+        : dropLine;
 
       const message = await interaction.editReply({
         content,

@@ -22,6 +22,7 @@ const gameConfigPath = join(
 );
 
 const gameConfigSchema = z.object({
+  maxWishlistSlots: z.number().int().min(1).default(10),
   claimCooldownSeconds: z.number().int().min(0),
   dropExpireSeconds: z.number().int().min(1),
   dropCooldownSeconds: z.number().int().min(0),

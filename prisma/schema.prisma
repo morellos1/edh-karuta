@@ -110,6 +110,17 @@ model UserCardTag {
   @@id([userCardId, tagId])
 }
 
+model Wishlist {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  guildId   String
+  cardName  String   // exact card name (case-sensitive match from Card.name)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, guildId, cardName])
+  @@index([guildId, cardName])
+}
+
 model BotConfig {
   key   String @id
   value String
