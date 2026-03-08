@@ -234,3 +234,22 @@ export async function getCheapestPrintPricesByNames(
 export function getDefaultBasePriceUsd(): number {
   return DEFAULT_BASE_PRICE_USD;
 }
+
+/** Look up the type line for each card name (uses the earliest print). */
+export async function getTypeLinesByNames(
+  names: string[]
+): Promise<Map<string, string>> {
+  const unique = [...new Set(names.filter(Boolean))];
+  if (!unique.length) return new Map();
+  const cards = await prisma.card.findMany({
+    where: { name: { in: unique }, isCommanderLegal: true, lang: "en" },
+    orderBy: [{ releasedAt: "asc" }, { id: "asc" }],
+    select: { name: true, typeLine: true },
+    distinct: ["name"]
+  });
+  const map = new Map<string, string>();
+  for (const c of cards) {
+    if (c.typeLine && !map.has(c.name)) map.set(c.name, c.typeLine);
+  }
+  return map;
+}
