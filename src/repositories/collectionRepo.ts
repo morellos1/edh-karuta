@@ -90,6 +90,18 @@ export async function getCollectionPage(
   };
 }
 
+/** All user cards matching a tag (no pagination). */
+export async function getAllCardsByTag(userId: string, tagId: number) {
+  return prisma.userCard.findMany({
+    where: {
+      userId,
+      tags: { some: { tagId } }
+    },
+    include: { card: true },
+    orderBy: { claimedAt: "desc" }
+  });
+}
+
 /** All user cards with card for export (no pagination). */
 export async function getAllForExport(userId: string) {
   return prisma.userCard.findMany({
