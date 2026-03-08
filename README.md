@@ -7,6 +7,7 @@ Discord bot inspired by Karuta, focused on MTG cards for Commander-style collect
 - **Drops** — `/drop` posts a collage of 3 random commander-legal MTG cards (no basic lands). Users claim via buttons (one card per user per drop). Optional per-user cooldown and optional bot auto-drops in a configured channel.
 - **Colordrop** — `/colordrop <color>` drops 3 cards with a chosen color identity (white, blue, black, red, green), with a 12-hour cooldown per user.
 - **Commander Drop** — `/commanderdrop` drops 3 cards that are eligible as commanders, with a 24-hour cooldown per user.
+- **Land Drop** — `/landdrop` drops 3 random nonbasic land cards with rarity-weighted selection (50% common, 30% uncommon, 15% rare, 5% mythic), with a 2-hour cooldown per user.
 - **Conditions** — Claimed cards get a random condition (poor / good / mint) with configurable chances and **price multipliers** (see `game.config.json`). Gold value = base USD price × 100 × condition multiplier.
 - **Collection** — `/collection` shows paginated collection (instance ID, condition stars, gold value); sort by recent, color, price, or rarity. Supports list and album (grid) view modes. `/lookup <id>` shows a single card instance.
 - **Card info** — `/card <query>` shows card details, full-size image, total copies in circulation, wishlist count, and all available prints. Query: partial name or `setCode collectorNumber` (e.g. `mh3 123`). Cycle through prints with arrow buttons.
@@ -40,6 +41,7 @@ Game behavior (cooldowns, drop expiry, rarity and condition chances, condition p
 - `dropCooldownSeconds` — Per-user cooldown for `/drop` (default: 120)
 - `colordropCooldownSeconds` — Per-user cooldown for `/colordrop` (default: 43200 = 12h)
 - `commanderdropCooldownSeconds` — Per-user cooldown for `/commanderdrop` (default: 86400 = 24h)
+- `landdropCooldownSeconds` — Per-user cooldown for `/landdrop` (default: 7200 = 2h)
 - `maxWishlistSlots` — Max wishlist entries per user per server (default: 10)
 - `autoDropIntervalSeconds` — How often the bot auto-drops (default: 1800 = 30 min)
 - `dropRarity` — commonChance, uncommonChance, rareChance, mythicChance (0–1, scaled)
@@ -88,7 +90,8 @@ npm run dev
 | `/drop` | Drop 3 random MTG cards for claiming (2 min cooldown) |
 | `/colordrop <color>` | Drop 3 cards with chosen color identity — white, blue, black, red, or green (12h cooldown) |
 | `/commanderdrop` | Drop 3 commander-eligible cards (24h cooldown) |
-| `/cd` | View your current Grab, Drop, and Commanderdrop cooldowns |
+| `/landdrop` | Drop 3 random nonbasic land cards (2h cooldown) |
+| `/cd` | View your current Grab, Drop, Commanderdrop, and Landdrop cooldowns |
 | `/setdropchannel` | Set the current channel for automatic drops every 30 minutes |
 
 ### Viewing Cards & Collection
@@ -169,7 +172,8 @@ Cards appear in **drops** — a set of 3 random commander-legal MTG cards. Click
 - `/drop` — Drop 3 random cards. **2 min cooldown.**
 - `/colordrop white|blue|black|red|green` — Drop 3 cards of a specific color identity. **12 hour cooldown.**
 - `/commanderdrop` — Drop 3 commander-eligible cards. **24 hour cooldown.**
-- `/cd` — Check your remaining cooldowns for Grab, Drop, and Commanderdrop.
+- `/landdrop` — Drop 3 random nonbasic land cards. **2 hour cooldown.**
+- `/cd` — Check your remaining cooldowns for Grab, Drop, Commanderdrop, and Landdrop.
 
 You can only claim **one card per drop**, and you have **60 seconds** before the drop expires. The bot also **auto-drops cards every 30 minutes** in the designated channel — be ready!
 
@@ -242,6 +246,7 @@ You can filter your `/collection` by tag to quickly find grouped cards.
 | `/drop` | Drop 3 random cards (2 min cd) |
 | `/colordrop <color>` | Drop 3 cards by color (12h cd) |
 | `/commanderdrop` | Drop 3 commanders (24h cd) |
+| `/landdrop` | Drop 3 nonbasic lands (2h cd) |
 | `/cd` | Check your cooldowns |
 | `/collection` | View your cards |
 | `/lookup <id>` | View a specific card you own |
