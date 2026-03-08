@@ -98,11 +98,10 @@ export async function getMarketCardsForSlot(slotIndex: number): Promise<MarketCa
 
   const indices = names.map((_, i) => i);
   seededShuffle(indices, slotIndex);
-  const pickedNames = indices.slice(0, MARKET_CARD_COUNT).map((i) => names[i]);
 
   const entries: MarketCardEntry[] = [];
-  for (let i = 0; i < pickedNames.length; i++) {
-    const name = pickedNames[i];
+  for (let i = 0; i < indices.length && entries.length < MARKET_CARD_COUNT; i++) {
+    const name = names[indices[i]];
     const prints = await findCardPrintsByName(name);
     const withPrice = prints.filter((c) => c.usdPrice != null && Number(c.usdPrice) > 0);
     const card = withPrice.length
@@ -112,7 +111,7 @@ export async function getMarketCardsForSlot(slotIndex: number): Promise<MarketCa
     const usd = card.usdPrice != null ? Number(card.usdPrice) : 0;
     const priceGold = Number.isFinite(usd) && usd > 0 ? Math.round(usd * MARKET_PRICE_MULTIPLIER) : 0;
     entries.push({
-      id: MARKET_IDS[i],
+      id: MARKET_IDS[entries.length],
       name: card.name,
       card,
       priceGold
