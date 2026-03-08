@@ -18,6 +18,7 @@ type ScryfallCard = {
   object: string;
   name: string;
   set: string;
+  set_name?: string;
   collector_number: string;
   released_at?: string;
   mana_cost?: string;
@@ -110,6 +111,7 @@ async function flushBatch(batch: ScryfallCard[]) {
         scryfallId: card.id,
         name: card.name,
         setCode: card.set.toLowerCase(),
+        setName: card.set_name ?? null,
         collectorNumber: card.collector_number.toLowerCase(),
         releasedAt: card.released_at ?? null,
         lang: card.lang ?? null,
@@ -131,6 +133,7 @@ async function flushBatch(batch: ScryfallCard[]) {
       update: {
         name: card.name,
         setCode: card.set.toLowerCase(),
+        setName: card.set_name ?? null,
         collectorNumber: card.collector_number.toLowerCase(),
         releasedAt: card.released_at ?? null,
         lang: card.lang ?? null,

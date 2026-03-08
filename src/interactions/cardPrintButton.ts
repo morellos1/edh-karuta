@@ -20,10 +20,11 @@ async function buildCardEmbedAsync(card: CardLookup, printIndex: number, totalPr
     getWishlistCardCount(card.name)
   ]);
   const image = card.imagePng ?? card.imageLarge ?? card.imageNormal ?? card.imageSmall;
-  const cardCode = `${card.setCode.toUpperCase()}${card.collectorNumber.toUpperCase()}`;
+  const cardCode = `${card.setCode.toUpperCase()} #${card.collectorNumber.toUpperCase()}`;
+  const setLabel = card.setName ? `${card.setName} ${cardCode}` : cardCode;
   const scryfallUrl = `https://scryfall.com/card/${card.setCode}/${card.collectorNumber}?utm_source=edh_karuta`;
   const embed = new EmbedBuilder()
-    .setTitle(`${card.name} (${cardCode})`)
+    .setTitle(`${card.name} (${setLabel})`)
     .setURL(scryfallUrl)
     .setDescription(
       [card.manaCost ?? "", card.typeLine ?? "", card.oracleText ?? ""]

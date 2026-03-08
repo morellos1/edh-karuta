@@ -12,6 +12,7 @@ model Card {
   scryfallId      String     @unique
   name            String
   setCode         String
+  setName         String?
   collectorNumber String
   releasedAt     String?    // YYYY-MM-DD for ordering first print
   lang            String?
