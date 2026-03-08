@@ -25,20 +25,20 @@ export const cardCommand: SlashCommand = {
       return;
     }
 
-    const prints =
-      query.trim().match(/^[a-z0-9]{2,6}\s+[a-z0-9]+$/i) != null
-        ? [card]
-        : await findCardPrintsByName(card.name);
-    const showCard = prints[0] ?? card;
+    const prints = await findCardPrintsByName(card.name);
+    const printIndex = prints.findIndex((p) => p.id === card.id);
+    const showCard = printIndex >= 0 ? prints[printIndex] : prints[0] ?? card;
+    const showIndex = printIndex >= 0 ? printIndex : 0;
     const [circulation, wishlisted] = await Promise.all([
       getCardCirculationCount(showCard.id),
       getWishlistCardCount(showCard.name)
     ]);
     const image = showCard.imagePng ?? showCard.imageLarge ?? showCard.imageNormal ?? showCard.imageSmall;
-    const cardCode = `${showCard.setCode.toUpperCase()}${showCard.collectorNumber.toUpperCase()}`;
+    const cardCode = `${showCard.setCode.toUpperCase()} #${showCard.collectorNumber.toUpperCase()}`;
+    const setLabel = showCard.setName ? `${showCard.setName} ${cardCode}` : cardCode;
     const scryfallUrl = `https://scryfall.com/card/${showCard.setCode}/${showCard.collectorNumber}?utm_source=edh_karuta`;
     const embed = new EmbedBuilder()
-      .setTitle(`${showCard.name} (${cardCode})`)
+      .setTitle(`${showCard.name} (${setLabel})`)
       .setURL(scryfallUrl)
       .setDescription(
         [showCard.manaCost ?? "", showCard.typeLine ?? "", showCard.oracleText ?? ""]
@@ -53,7 +53,7 @@ export const cardCommand: SlashCommand = {
         { name: "Wishlisted by", value: `${wishlisted}`, inline: true },
         {
           name: "Print",
-          value: prints.length > 1 ? `1 / ${prints.length}` : "1 / 1",
+          value: prints.length > 1 ? `${showIndex + 1} / ${prints.length}` : "1 / 1",
           inline: true
         },
         { name: "Scryfall", value: `[View on Scryfall](${scryfallUrl})`, inline: false }
@@ -63,7 +63,7 @@ export const cardCommand: SlashCommand = {
       embed.setImage(image);
     }
 
-    const components = buildCardPrintComponents(showCard.id, 0, prints.length);
+    const components = buildCardPrintComponents(prints[0].id, showIndex, prints.length);
     await interaction.reply({ embeds: [embed], components, ephemeral: false });
   }
 };

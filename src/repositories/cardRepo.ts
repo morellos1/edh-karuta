@@ -8,6 +8,7 @@ export type CardLookup = {
   scryfallId: string;
   name: string;
   setCode: string;
+  setName: string | null;
   collectorNumber: string;
   lang: string | null;
   usdPrice: string | null;
@@ -123,6 +124,7 @@ export async function getRandomDroppableCards(
     scryfallId: card.scryfallId,
     name: card.name,
     setCode: card.setCode,
+    setName: card.setName,
     collectorNumber: card.collectorNumber,
     lang: card.lang,
     usdPrice: card.usdPrice,
@@ -175,6 +177,7 @@ const cardSelect = {
   scryfallId: true,
   name: true,
   setCode: true,
+  setName: true,
   collectorNumber: true,
   lang: true,
   usdPrice: true,
