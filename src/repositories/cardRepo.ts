@@ -65,7 +65,7 @@ function baseDroppableWhere(
     isCommanderLegal: true,
     lang: "en",
     imagePng: { not: null },
-    ...(filterColor ? { colorIdentity: { contains: filterColor } } : {})
+    ...(filterColor ? { colors: { contains: filterColor } } : {})
   };
 }
 

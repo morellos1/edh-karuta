@@ -37,11 +37,11 @@ export function formatBaseGold(usd: string | null | undefined): string {
   return `${Math.round(parsed * 100)} gold`;
 }
 
-export function formatColorCircles(colorIdentity: string | null | undefined): string {
-  if (!colorIdentity) {
+export function formatColorCircles(colors: string | null | undefined): string {
+  if (!colors) {
     return UNCOLORED_CIRCLE;
   }
-  const symbols = colorIdentity
+  const symbols = colors
     .split(",")
     .map((token) => token.trim().toUpperCase())
     .filter(Boolean);
@@ -51,12 +51,12 @@ export function formatColorCircles(colorIdentity: string | null | undefined): st
   return symbols.map((symbol) => COLOR_CIRCLE_BY_SYMBOL[symbol] ?? UNCOLORED_CIRCLE).join(" ");
 }
 
-export function formatColorColumn(colorIdentity: string | null | undefined): string {
-  if (!colorIdentity) {
+export function formatColorColumn(colors: string | null | undefined): string {
+  if (!colors) {
     return `${UNCOLORED_CIRCLE} . . . .`;
   }
   const set = new Set(
-    colorIdentity
+    colors
       .split(",")
       .map((token) => token.trim().toUpperCase())
       .filter(Boolean)
@@ -68,12 +68,12 @@ export function formatColorColumn(colorIdentity: string | null | undefined): str
 }
 
 /** For collection list: 5 slots — circle or ㅤ per WUBRG. Backticks on Discord make each char same width. */
-export function formatColorCollectionLine(colorIdentity: string | null | undefined): string {
-  if (!colorIdentity) {
+export function formatColorCollectionLine(colors: string | null | undefined): string {
+  if (!colors) {
     return UNCOLORED_CIRCLE + COLOR_PAD_CHAR.repeat(4);
   }
   const set = new Set(
-    colorIdentity
+    colors
       .split(",")
       .map((token) => token.trim().toUpperCase())
       .filter(Boolean)
@@ -86,12 +86,12 @@ export function formatColorCollectionLine(colorIdentity: string | null | undefin
 }
 
 /** Fixed-width ASCII for collection table alignment (W/U/B/R/G or -). Always 5 chars. */
-export function formatColorColumnPlain(colorIdentity: string | null | undefined): string {
-  if (!colorIdentity) {
+export function formatColorColumnPlain(colors: string | null | undefined): string {
+  if (!colors) {
     return "-    "; // colorless, 5 chars
   }
   const set = new Set(
-    colorIdentity
+    colors
       .split(",")
       .map((token) => token.trim().toUpperCase())
       .filter(Boolean)

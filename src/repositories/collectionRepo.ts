@@ -27,7 +27,7 @@ export async function getCollectionPage(
     const orderBy = sort === "recent"
       ? { claimedAt: "desc" as const }
       : sort === "color"
-        ? { card: { colorIdentity: "asc" as const } }
+        ? { card: { colors: "asc" as const } }
         : { card: { rarity: "desc" as const } };
 
     const skip = (safePage - 1) * pageSize;
