@@ -41,6 +41,28 @@ export async function setColordropUsed(userId: string): Promise<void> {
   });
 }
 
+function commanderdropCooldownMs(): number {
+  return gameConfig.commanderdropCooldownSeconds * 1000;
+}
+
+export async function getCommanderdropCooldownRemainingMs(userId: string): Promise<number> {
+  const row = await prisma.commanderdropCooldown.findUnique({
+    where: { userId },
+    select: { lastUsedAt: true }
+  });
+  if (!row) return 0;
+  const nextAllowed = row.lastUsedAt.getTime() + commanderdropCooldownMs();
+  return Math.max(0, nextAllowed - Date.now());
+}
+
+export async function setCommanderdropUsed(userId: string): Promise<void> {
+  await prisma.commanderdropCooldown.upsert({
+    where: { userId },
+    create: { userId, lastUsedAt: new Date() },
+    update: { lastUsedAt: new Date() }
+  });
+}
+
 function dropCooldownMs(): number {
   return gameConfig.dropCooldownSeconds * 1000;
 }
