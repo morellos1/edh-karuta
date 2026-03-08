@@ -4,6 +4,7 @@ import { dropCommand } from "./commands/drop.js";
 import { cdCommand } from "./commands/cd.js";
 import { setdropchannelCommand } from "./commands/setdropchannel.js";
 import { colordropCommand } from "./commands/colordrop.js";
+import { commanderdropCommand } from "./commands/commanderdrop.js";
 import { COLLECTION_BUTTON_PREFIX, COLLECTION_EXPORT_PREFIX, collectionCommand } from "./commands/collection.js";
 import { cardCommand } from "./commands/card.js";
 import { lookupCommand } from "./commands/lookup.js";
@@ -41,6 +42,7 @@ const commands = [
   cdCommand,
   setdropchannelCommand,
   colordropCommand,
+  commanderdropCommand,
   collectionCommand,
   cardCommand,
   lookupCommand,

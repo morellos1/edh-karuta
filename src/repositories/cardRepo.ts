@@ -141,6 +141,82 @@ export async function getRandomDroppableCards(
   }));
 }
 
+function commanderWhereFilter(): Prisma.CardWhereInput {
+  return {
+    OR: [
+      // Legendary creatures
+      {
+        typeLine: { contains: "Legendary" },
+        AND: { typeLine: { contains: "Creature" } }
+      },
+      // Planeswalkers that can be your commander
+      {
+        typeLine: { contains: "Planeswalker" },
+        oracleText: { contains: "can be your commander" }
+      }
+    ]
+  };
+}
+
+export async function getRandomCommanderCards(
+  count: number
+): Promise<CardLookup[]> {
+  const where: Prisma.CardWhereInput = {
+    ...baseDroppableWhere([]),
+    ...commanderWhereFilter()
+  };
+  const total = await prisma.card.count({ where });
+  if (total < count) {
+    throw new Error(`Not enough commander cards in pool to drop ${count} cards.`);
+  }
+
+  const cards: Card[] = [];
+  const pickedIds: number[] = [];
+  while (cards.length < count) {
+    const targetRarity = rollTargetRarity();
+    const strictWhere: Prisma.CardWhereInput = {
+      ...baseDroppableWhere(pickedIds),
+      ...commanderWhereFilter(),
+      rarity: targetRarity
+    };
+
+    let candidate = await pickRandomCard(strictWhere);
+    if (!candidate) {
+      candidate = await pickRandomCard({
+        ...baseDroppableWhere(pickedIds),
+        ...commanderWhereFilter()
+      });
+    }
+    if (!candidate) {
+      break;
+    }
+
+    pickedIds.push(candidate.id);
+    cards.push(candidate);
+  }
+
+  return cards.map((card) => ({
+    id: card.id,
+    scryfallId: card.scryfallId,
+    name: card.name,
+    setCode: card.setCode,
+    setName: card.setName,
+    collectorNumber: card.collectorNumber,
+    lang: card.lang,
+    usdPrice: card.usdPrice,
+    rarity: card.rarity,
+    colors: card.colors,
+    colorIdentity: card.colorIdentity,
+    imagePng: card.imagePng,
+    imageSmall: card.imageSmall,
+    imageNormal: card.imageNormal,
+    imageLarge: card.imageLarge,
+    manaCost: card.manaCost,
+    typeLine: card.typeLine,
+    oracleText: card.oracleText
+  }));
+}
+
 export async function findCardByQuery(query: string): Promise<CardLookup | null> {
   const trimmed = query.trim();
   const setAndCollector = /^([a-z0-9]{2,6})\s+([a-z0-9]+)$/i.exec(trimmed);

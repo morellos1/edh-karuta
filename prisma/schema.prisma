@@ -136,3 +136,8 @@ model DropCooldown {
   userId     String   @id
   lastUsedAt DateTime
 }
+
+model CommanderdropCooldown {
+  userId     String   @id
+  lastUsedAt DateTime
+}
