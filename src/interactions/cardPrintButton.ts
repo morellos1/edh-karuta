@@ -1,6 +1,7 @@
 import type { CardLookup } from "../repositories/cardRepo.js";
 import { findCardPrintsByName } from "../repositories/cardRepo.js";
 import { getCardCirculationCount } from "../repositories/userCardRepo.js";
+import { getWishlistCardCount } from "../repositories/wishlistRepo.js";
 import { prisma } from "../db.js";
 import {
   ActionRowBuilder,
@@ -14,7 +15,10 @@ import { formatColorCircles, formatBaseGold, formatRarity } from "../utils/cardF
 export const CARD_PRINT_PREFIX = "card_print";
 
 async function buildCardEmbedAsync(card: CardLookup, printIndex: number, totalPrints: number) {
-  const circulation = await getCardCirculationCount(card.id);
+  const [circulation, wishlisted] = await Promise.all([
+    getCardCirculationCount(card.id),
+    getWishlistCardCount(card.name)
+  ]);
   const image = card.imagePng ?? card.imageLarge ?? card.imageNormal ?? card.imageSmall;
   const cardCode = `${card.setCode.toUpperCase()}${card.collectorNumber.toUpperCase()}`;
   const scryfallUrl = `https://scryfall.com/card/${card.setCode}/${card.collectorNumber}?utm_source=edh_karuta`;
@@ -31,6 +35,7 @@ async function buildCardEmbedAsync(card: CardLookup, printIndex: number, totalPr
       { name: "Gold", value: formatBaseGold(card.usdPrice), inline: true },
       { name: "Colors", value: formatColorCircles(card.colorIdentity), inline: true },
       { name: "In circulation", value: `${circulation}`, inline: true },
+      { name: "Wishlisted by", value: `${wishlisted}`, inline: true },
       {
         name: "Print",
         value: totalPrints > 1 ? `${printIndex + 1} / ${totalPrints}` : "1 / 1",

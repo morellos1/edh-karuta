@@ -1,6 +1,7 @@
 import { ChatInputCommandInteraction, EmbedBuilder, SlashCommandBuilder } from "discord.js";
 import { findCardByQuery, findCardPrintsByName } from "../repositories/cardRepo.js";
 import { getCardCirculationCount } from "../repositories/userCardRepo.js";
+import { getWishlistCardCount } from "../repositories/wishlistRepo.js";
 import type { SlashCommand } from "./types.js";
 import { formatColorCircles, formatBaseGold, formatRarity } from "../utils/cardFormatting.js";
 import { buildCardPrintComponents } from "../interactions/cardPrintButton.js";
@@ -29,7 +30,10 @@ export const cardCommand: SlashCommand = {
         ? [card]
         : await findCardPrintsByName(card.name);
     const showCard = prints[0] ?? card;
-    const circulation = await getCardCirculationCount(showCard.id);
+    const [circulation, wishlisted] = await Promise.all([
+      getCardCirculationCount(showCard.id),
+      getWishlistCardCount(showCard.name)
+    ]);
     const image = showCard.imagePng ?? showCard.imageLarge ?? showCard.imageNormal ?? showCard.imageSmall;
     const cardCode = `${showCard.setCode.toUpperCase()}${showCard.collectorNumber.toUpperCase()}`;
     const scryfallUrl = `https://scryfall.com/card/${showCard.setCode}/${showCard.collectorNumber}?utm_source=edh_karuta`;
@@ -46,6 +50,7 @@ export const cardCommand: SlashCommand = {
         { name: "Gold", value: formatBaseGold(showCard.usdPrice), inline: true },
         { name: "Colors", value: formatColorCircles(showCard.colorIdentity), inline: true },
         { name: "In circulation", value: `${circulation}`, inline: true },
+        { name: "Wishlisted by", value: `${wishlisted}`, inline: true },
         {
           name: "Print",
           value: prints.length > 1 ? `1 / ${prints.length}` : "1 / 1",

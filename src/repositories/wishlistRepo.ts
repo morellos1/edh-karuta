@@ -57,6 +57,15 @@ export async function wishlistEntryExists(
   return entry !== null;
 }
 
+/** Count how many distinct users have this card name wishlisted (across all guilds). */
+export async function getWishlistCardCount(cardName: string): Promise<number> {
+  const result = await prisma.wishlist.groupBy({
+    by: ["userId"],
+    where: { cardName }
+  });
+  return result.length;
+}
+
 /**
  * Given a list of card names being dropped and a guild ID,
  * find all users who have any of those names on their wishlist.
