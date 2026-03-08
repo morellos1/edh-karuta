@@ -1,0 +1,119 @@
+import type { ButtonInteraction } from "discord.js";
+import { EmbedBuilder } from "discord.js";
+import { getUserCardById, deleteUserCard } from "../repositories/userCardRepo.js";
+import { addGold } from "../repositories/inventoryRepo.js";
+import { getGoldValue } from "../services/conditionService.js";
+import { getCheapestPrintPricesByNames, getDefaultBasePriceUsd } from "../repositories/cardRepo.js";
+import { BURN_CONFIRM_PREFIX, BURN_CANCEL_PREFIX } from "../commands/burn.js";
+
+export async function handleBurnConfirmButton(interaction: ButtonInteraction) {
+  const parts = interaction.customId.split(":");
+  const userCardId = Number(parts[1]);
+  if (!Number.isInteger(userCardId)) {
+    await interaction.reply({ content: "Invalid burn payload.", ephemeral: true }).catch(() => {});
+    return;
+  }
+
+  const userCard = await getUserCardById(userCardId);
+  if (!userCard || userCard.userId !== interaction.user.id) {
+    await interaction.update({ content: "This card is no longer available to burn.", components: [] }).catch(() => {});
+    return;
+  }
+
+  const baseUsd =
+    userCard.card.usdPrice != null && Number.isFinite(Number(userCard.card.usdPrice))
+      ? Number(userCard.card.usdPrice)
+      : (await getCheapestPrintPricesByNames([userCard.card.name])).get(userCard.card.name) ??
+        getDefaultBasePriceUsd();
+  const gold = getGoldValue(String(baseUsd), userCard.condition);
+
+  const image =
+    userCard.card.imagePng ??
+    userCard.card.imageLarge ??
+    userCard.card.imageNormal ??
+    userCard.card.imageSmall;
+
+  await deleteUserCard(userCardId);
+  await addGold(interaction.user.id, gold);
+
+  const embed = new EmbedBuilder()
+    .setTitle("Burn Card")
+    .setDescription(`<@${interaction.user.id}>, you will receive:`)
+    .addFields(
+      {
+        name: "\u200b",
+        value: `💰 **${gold} Gold**`,
+        inline: false
+      },
+      {
+        name: "\u200b",
+        value: "**Card has been burned.**",
+        inline: false
+      }
+    )
+    .setColor(0x57f287); // green
+
+  if (image) {
+    embed.setImage(image);
+  }
+
+  await interaction.update({
+    embeds: [embed],
+    components: []
+  });
+}
+
+export async function handleBurnCancelButton(interaction: ButtonInteraction) {
+  const parts = interaction.customId.split(":");
+  const userCardId = Number(parts[1]);
+  if (!Number.isInteger(userCardId)) {
+    await interaction.reply({ content: "Invalid burn payload.", ephemeral: true }).catch(() => {});
+    return;
+  }
+
+  const userCard = await getUserCardById(userCardId);
+  const userId = interaction.user.id;
+  if (!userCard || userCard.userId !== userId) {
+    await interaction.update({ content: "This card is no longer available to burn.", components: [] }).catch(() => {});
+    return;
+  }
+
+  const baseUsd =
+    userCard.card.usdPrice != null && Number.isFinite(Number(userCard.card.usdPrice))
+      ? Number(userCard.card.usdPrice)
+      : (await getCheapestPrintPricesByNames([userCard.card.name])).get(userCard.card.name) ??
+        getDefaultBasePriceUsd();
+  const gold = getGoldValue(String(baseUsd), userCard.condition);
+
+  const image =
+    userCard.card.imagePng ??
+    userCard.card.imageLarge ??
+    userCard.card.imageNormal ??
+    userCard.card.imageSmall;
+
+  const embed = new EmbedBuilder()
+    .setTitle("Burn Card")
+    .setDescription(`<@${userId}>, you will receive:`)
+    .addFields(
+      {
+        name: "\u200b",
+        value: `💰 **${gold} Gold**`,
+        inline: false
+      },
+      {
+        name: "\u200b",
+        value: "**Burn has been cancelled.**",
+        inline: false
+      }
+    )
+    .setColor(0xed4245); // red
+
+  if (image) {
+    embed.setImage(image);
+  }
+
+  await interaction.update({
+    embeds: [embed],
+    components: []
+  });
+}

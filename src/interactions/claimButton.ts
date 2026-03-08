@@ -1,0 +1,168 @@
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonInteraction,
+  ButtonStyle,
+  Client,
+  MessageEditOptions,
+  TextBasedChannel
+} from "discord.js";
+import { env, gameConfig } from "../config.js";
+import { getDropById, markDropResolved, submitClaim } from "../services/dropService.js";
+import { getConditionClaimPhrase } from "../services/conditionService.js";
+
+export const CLAIM_BUTTON_PREFIX = "claim";
+const timeoutMap = new Map<number, NodeJS.Timeout>();
+
+function formatSlotLabel(slotIndex: number, claimedByUserId: string | null) {
+  if (claimedByUserId) {
+    return `${slotIndex + 1}`;
+  }
+  return `${slotIndex + 1}`;
+}
+
+export async function buildDropComponents(dropId: number) {
+  const drop = await getDropById(dropId);
+  if (!drop) {
+    return [];
+  }
+
+  const row = new ActionRowBuilder<ButtonBuilder>();
+  for (const slot of drop.slots) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${CLAIM_BUTTON_PREFIX}:${drop.id}:${slot.slotIndex}`)
+        .setStyle(ButtonStyle.Primary)
+        .setLabel(formatSlotLabel(slot.slotIndex, slot.claimedByUserId))
+        .setDisabled(Boolean(slot.claimedByUserId))
+    );
+  }
+
+  return [row];
+}
+
+function allSlotsClaimed(claimedBy: Array<string | null>) {
+  return claimedBy.every(Boolean);
+}
+
+async function safeEditMessage(channel: TextBasedChannel, messageId: string, options: MessageEditOptions) {
+  const message = await channel.messages.fetch(messageId);
+  await message.edit(options);
+}
+
+export function scheduleDropTimeout(client: Client, params: {
+  dropId: number;
+  channelId: string;
+  messageId: string;
+  expiresAt: Date;
+}) {
+  const { dropId, channelId, messageId, expiresAt } = params;
+  const delay = Math.max(0, expiresAt.getTime() - Date.now());
+
+  const existing = timeoutMap.get(dropId);
+  if (existing) {
+    clearTimeout(existing);
+  }
+
+  const timeout = setTimeout(async () => {
+    try {
+      const channel = await client.channels.fetch(channelId);
+      if (!channel?.isTextBased()) {
+        return;
+      }
+
+      await safeEditMessage(channel, messageId, {
+        content: "*This drop has expired and the cards can no longer be claimed.*",
+        components: []
+      });
+      await markDropResolved(dropId);
+    } catch {
+      // Ignore timeout edit failures.
+    } finally {
+      timeoutMap.delete(dropId);
+    }
+  }, delay);
+
+  timeoutMap.set(dropId, timeout);
+}
+
+export async function handleClaimButton(interaction: ButtonInteraction) {
+  const [prefix, dropIdRaw, slotIndexRaw] = interaction.customId.split(":");
+  if (prefix !== CLAIM_BUTTON_PREFIX) {
+    return;
+  }
+
+  const dropId = Number(dropIdRaw);
+  const slotIndex = Number(slotIndexRaw);
+  if (!Number.isInteger(dropId) || !Number.isInteger(slotIndex)) {
+    await interaction.reply({ content: "Invalid claim payload.", ephemeral: true });
+    return;
+  }
+
+  const result = await submitClaim({
+    dropId,
+    slotIndex,
+    userId: interaction.user.id,
+    cooldownSeconds: gameConfig.claimCooldownSeconds
+  });
+
+  if (!result.ok) {
+    if (result.reason === "cooldown") {
+      const remainingMs = result.remainingMs ?? 0;
+      const minutes = Math.ceil(remainingMs / 60_000);
+      await interaction.reply({
+        content: `<@${interaction.user.id}>, you must wait **${minutes}** minute${minutes !== 1 ? "s" : ""} before grabbing another card.`,
+        ephemeral: true
+      });
+      return;
+    }
+    await interaction.reply({
+      content: "Claim failed (already claimed, expired, or invalid).",
+      ephemeral: true
+    });
+    return;
+  }
+
+  const drop = await getDropById(dropId);
+  if (!drop) {
+    await interaction.reply({ content: "Drop no longer exists.", ephemeral: true });
+    return;
+  }
+
+  const claimedBy = drop.slots.map((slot: (typeof drop.slots)[number]) => slot.claimedByUserId);
+  const components = allSlotsClaimed(claimedBy) ? [] : await buildDropComponents(drop.id);
+
+  const isBotDrop = drop.dropperUserId === interaction.client.user?.id;
+  const dropContent = isBotDrop
+    ? "I'm dropping 3 cards!"
+    : `<@${drop.dropperUserId}> is dropping 3 cards!`;
+
+  await interaction.update({
+    content: dropContent,
+    components
+  });
+
+  const claimedSlot = drop.slots.find((slot) => slot.slotIndex === result.slotIndex);
+  if (
+    claimedSlot &&
+    result.ok &&
+    "displayId" in result &&
+    "condition" in result &&
+    interaction.channel &&
+    "send" in interaction.channel
+  ) {
+    const phrase = getConditionClaimPhrase(result.condition);
+    await interaction.channel.send(
+      `<@${interaction.user.id}> took the **${claimedSlot.card.name}** card \`${result.displayId}\`! ${phrase}`
+    );
+  }
+
+  if (allSlotsClaimed(claimedBy) && drop.messageId) {
+    await markDropResolved(drop.id);
+    const timeout = timeoutMap.get(drop.id);
+    if (timeout) {
+      clearTimeout(timeout);
+      timeoutMap.delete(drop.id);
+    }
+  }
+}

@@ -1,0 +1,9 @@
+node_modules
+dist
+# Keep environment variables out of version control
+.env
+# Local SQLite database (optional: remove if you want to commit a seed DB)
+*.db
+dev.db
+
+/generated/prisma

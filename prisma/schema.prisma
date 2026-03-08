@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Card {
+  id              Int        @id @default(autoincrement())
+  scryfallId      String     @unique
+  name            String
+  setCode         String
+  collectorNumber String
+  releasedAt     String?    // YYYY-MM-DD for ordering first print
+  lang            String?
+  usdPrice        String?
+  manaCost        String?
+  typeLine        String?
+  oracleText      String?
+  colors          String?
+  colorIdentity   String?
+  imagePng        String?
+  imageSmall      String?
+  imageNormal     String?
+  imageLarge      String?
+  isBasicLand     Boolean    @default(false)
+  isCommanderLegal Boolean   @default(false)
+  rarity          String?
+  randomWeight    Int        @default(1)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  userCards       UserCard[]
+  dropSlots       DropSlot[]
+
+  @@index([name])
+  @@index([setCode, collectorNumber])
+}
+
+model UserCard {
+  id        Int      @id @default(autoincrement())
+  displayId String   @unique // 6-char alphanumeric for /lookup and display
+  userId    String
+  cardId    Int
+  dropId    Int
+  condition String  @default("good")
+  claimedAt DateTime @default(now())
+
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  drop Drop @relation(fields: [dropId], references: [id], onDelete: Cascade)
+  tags UserCardTag[]
+
+  @@index([userId, claimedAt])
+  @@index([userId, dropId])
+}
+
+model Drop {
+  id            Int       @id @default(autoincrement())
+  guildId       String
+  channelId     String
+  messageId     String?   @unique
+  dropperUserId String
+  expiresAt     DateTime
+  resolvedAt    DateTime?
+  createdAt     DateTime  @default(now())
+  slots         DropSlot[]
+  claims        UserCard[]
+}
+
+model DropSlot {
+  id              Int      @id @default(autoincrement())
+  dropId          Int
+  slotIndex       Int
+  cardId          Int
+  claimedByUserId String?
+  claimedAt       DateTime?
+
+  drop Drop @relation(fields: [dropId], references: [id], onDelete: Cascade)
+  card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@unique([dropId, slotIndex])
+  @@index([dropId, claimedByUserId])
+}
+
+model UserInventory {
+  userId String @id
+  gold   Int    @default(0)
+}
+
+model Tag {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+
+  userCardTags UserCardTag[]
+
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model UserCardTag {
+  userCardId Int
+  tagId      Int
+
+  userCard UserCard @relation(fields: [userCardId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([userCardId, tagId])
+}
+
+model BotConfig {
+  key   String @id
+  value String
+}
+
+model ColordropCooldown {
+  userId     String   @id
+  lastUsedAt DateTime
+}
+
+model DropCooldown {
+  userId     String   @id
+  lastUsedAt DateTime
+}

@@ -1,0 +1,21 @@
+{
+  "claimCooldownSeconds": 60,
+  "dropExpireSeconds": 60,
+  "dropCooldownSeconds": 120,
+  "colordropCooldownSeconds": 43200,
+  "autoDropIntervalSeconds": 1800,
+  "dropRarity": {
+    "commonChance": 0.5,
+    "uncommonChance": 0.3,
+    "rareChance": 0.15,
+    "mythicChance": 0.05
+  },
+  "dropCondition": {
+    "poorChance": 0.5,
+    "goodChance": 0.4,
+    "mintChance": 0.1,
+    "poorMultiplier": 1,
+    "goodMultiplier": 3,
+    "mintMultiplier": 10
+  }
+}
