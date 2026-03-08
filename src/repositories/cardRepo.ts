@@ -145,7 +145,7 @@ export async function findCardByQuery(query: string): Promise<CardLookup | null>
 
   if (setAndCollector) {
     const [, setCode, collectorNumber] = setAndCollector;
-    return prisma.card.findFirst({
+    const bySet = await prisma.card.findFirst({
       where: {
         setCode: setCode.toLowerCase(),
         collectorNumber: collectorNumber.toLowerCase(),
@@ -154,6 +154,9 @@ export async function findCardByQuery(query: string): Promise<CardLookup | null>
       },
       select: cardSelect
     });
+    if (bySet) return bySet;
+    // No set+collector match — fall through to name search so queries like
+    // "sol ring" or "arcane signet" aren't swallowed by the set regex.
   }
 
   return prisma.card.findFirst({
