@@ -216,6 +216,49 @@ export async function getRandomCommanderCards(
   return cards.map(toCardLookup);
 }
 
+export async function getRandomLandCards(
+  count: number
+): Promise<CardLookup[]> {
+  const landWhere: Prisma.CardWhereInput = {
+    ...baseDroppableWhere([]),
+    typeLine: { contains: "Land" },
+    isBasicLand: false
+  };
+  const total = await prisma.card.count({ where: landWhere });
+  if (total < count) {
+    throw new Error(`Not enough nonbasic land cards in pool to drop ${count} cards.`);
+  }
+
+  const cards: Card[] = [];
+  const pickedIds: number[] = [];
+  while (cards.length < count) {
+    const targetRarity = rollTargetRarity();
+    const strictWhere: Prisma.CardWhereInput = {
+      ...baseDroppableWhere(pickedIds),
+      typeLine: { contains: "Land" },
+      isBasicLand: false,
+      rarity: targetRarity
+    };
+
+    let candidate = await pickRandomCard(strictWhere);
+    if (!candidate) {
+      candidate = await pickRandomCard({
+        ...baseDroppableWhere(pickedIds),
+        typeLine: { contains: "Land" },
+        isBasicLand: false
+      });
+    }
+    if (!candidate) {
+      break;
+    }
+
+    pickedIds.push(candidate.id);
+    cards.push(candidate);
+  }
+
+  return cards.map(toCardLookup);
+}
+
 export async function findCardByQuery(query: string): Promise<CardLookup | null> {
   const trimmed = query.trim();
   const setAndCollector = /^([a-z0-9]{2,6})\s+([a-z0-9]+)$/i.exec(trimmed);

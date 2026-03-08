@@ -4,6 +4,7 @@
   "dropCooldownSeconds": 120,
   "colordropCooldownSeconds": 43200,
   "commanderdropCooldownSeconds": 86400,
+  "landdropCooldownSeconds": 7200,
   "maxWishlistSlots": 10,
   "autoDropIntervalSeconds": 1800,
   "dropRarity": {
