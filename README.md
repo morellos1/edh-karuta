@@ -11,7 +11,7 @@ Discord bot inspired by Karuta, focused on MTG cards for Commander-style collect
 - **Card info** — `/card <query>` shows card details, full-size image, and total copies in circulation. Query: partial name or `setCode collectorNumber` (e.g. `mh3 123`).
 - **Economy** — `/market` shows rotating market slots (from `topedhrec.csv`). `/buy` purchases a market card for gold. `/give` and `/trade` move cards between users (gold values for trade fairness). `/burn` destroys a card for gold.
 - **Tags** — Tag collected cards: `/tagcreate`, `/tagdelete`, `/tagrename`, `/tag`, `/tags`, `/untag`.
-- **Persistence** — SQLite via Prisma. Scryfall bulk sync script to populate/update the card pool.
+- **Persistence** — SQLite via Prisma. Scryfall bulk sync script to populate/update the card pool (~31,000 unique commander-legal card names, ~90,000+ prints across sets; basic lands excluded from drops).
 
 ## Prerequisites
 
@@ -59,7 +59,7 @@ Use `npx prisma migrate dev --name <name>` if you prefer migrations.
 npm run sync:scryfall
 ```
 
-Downloads Scryfall bulk `default_cards` and upserts commander-legal paper cards. Requires `topedhrec.csv` in the project root for the market card list (see `src/services/marketService.ts`).
+Downloads Scryfall bulk `default_cards` and upserts commander-legal paper cards. The pool contains **~31,000 unique card names** and **~90,000+ prints** (multiple sets per card). Drops use the full print pool so the same card can appear in different printings. Requires `topedhrec.csv` in the project root for the market card list (see `src/services/marketService.ts`).
 
 ## Register commands
 
