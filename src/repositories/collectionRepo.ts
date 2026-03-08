@@ -21,6 +21,37 @@ export async function getCollectionPage(
       }
     : { userId };
 
+  // For sorts that can be handled at DB level, use skip/take to avoid loading
+  // the entire collection into memory.
+  if (sort === "recent" || sort === "color" || sort === "rarity") {
+    const orderBy = sort === "recent"
+      ? { claimedAt: "desc" as const }
+      : sort === "color"
+        ? { card: { colorIdentity: "asc" as const } }
+        : { card: { rarity: "desc" as const } };
+
+    const skip = (safePage - 1) * pageSize;
+    const [total, cards] = await Promise.all([
+      prisma.userCard.count({ where: baseWhere }),
+      prisma.userCard.findMany({
+        where: baseWhere,
+        include: { card: true },
+        orderBy,
+        skip,
+        take: pageSize
+      })
+    ]);
+
+    return {
+      total,
+      page: safePage,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      cards
+    };
+  }
+
+  // Price sorting requires computing gold values in JS, so we must load all entries.
   const [total, allEntries] = await Promise.all([
     prisma.userCard.count({ where: baseWhere }),
     prisma.userCard.findMany({
@@ -30,37 +61,23 @@ export async function getCollectionPage(
     })
   ]);
 
-  let sorted = allEntries;
-  if (sort === "color") {
-    sorted = [...allEntries].sort((a, b) => {
-      const ca = (a.card.colorIdentity ?? "").toLowerCase();
-      const cb = (b.card.colorIdentity ?? "").toLowerCase();
-      return ca.localeCompare(cb);
-    });
-  } else if (sort === "price_asc" || sort === "price_desc") {
-    const { getConditionMultiplier } = await import("../services/conditionService.js");
-    const { getCheapestPrintPricesByNames, getDefaultBasePriceUsd } = await import("./cardRepo.js");
-    const namesNeedingPrice = [...new Set(allEntries.filter((e) => !e.card.usdPrice || !Number.isFinite(Number(e.card.usdPrice))).map((e) => e.card.name))];
-    const priceMap = namesNeedingPrice.length ? await getCheapestPrintPricesByNames(namesNeedingPrice) : new Map<string, number>();
-    const defaultBase = getDefaultBasePriceUsd();
-    const mult = sort === "price_desc" ? -1 : 1;
-    sorted = [...allEntries].sort((a, b) => {
-      const baseA = (a.card.usdPrice != null && Number.isFinite(Number(a.card.usdPrice)))
-        ? Number(a.card.usdPrice)
-        : (priceMap.get(a.card.name) ?? defaultBase);
-      const baseB = (b.card.usdPrice != null && Number.isFinite(Number(b.card.usdPrice)))
-        ? Number(b.card.usdPrice)
-        : (priceMap.get(b.card.name) ?? defaultBase);
-      const adjA = baseA * getConditionMultiplier(a.condition);
-      const adjB = baseB * getConditionMultiplier(b.condition);
-      return mult * (adjA - adjB);
-    });
-  } else if (sort === "rarity") {
-    const { raritySortKey } = await import("../utils/cardFormatting.js");
-    sorted = [...allEntries].sort((a, b) => {
-      return raritySortKey(b.card.rarity) - raritySortKey(a.card.rarity);
-    });
-  }
+  const { getConditionMultiplier } = await import("../services/conditionService.js");
+  const { getCheapestPrintPricesByNames, getDefaultBasePriceUsd } = await import("./cardRepo.js");
+  const namesNeedingPrice = [...new Set(allEntries.filter((e) => !e.card.usdPrice || !Number.isFinite(Number(e.card.usdPrice))).map((e) => e.card.name))];
+  const priceMap = namesNeedingPrice.length ? await getCheapestPrintPricesByNames(namesNeedingPrice) : new Map<string, number>();
+  const defaultBase = getDefaultBasePriceUsd();
+  const mult = sort === "price_desc" ? -1 : 1;
+  const sorted = [...allEntries].sort((a, b) => {
+    const baseA = (a.card.usdPrice != null && Number.isFinite(Number(a.card.usdPrice)))
+      ? Number(a.card.usdPrice)
+      : (priceMap.get(a.card.name) ?? defaultBase);
+    const baseB = (b.card.usdPrice != null && Number.isFinite(Number(b.card.usdPrice)))
+      ? Number(b.card.usdPrice)
+      : (priceMap.get(b.card.name) ?? defaultBase);
+    const adjA = baseA * getConditionMultiplier(a.condition);
+    const adjB = baseB * getConditionMultiplier(b.condition);
+    return mult * (adjA - adjB);
+  });
 
   const start = (safePage - 1) * pageSize;
   const cards = sorted.slice(start, start + pageSize);

@@ -8,16 +8,9 @@ import {
 } from "discord.js";
 import type { SlashCommand } from "./types.js";
 import { getUserCardByDisplayId } from "../repositories/userCardRepo.js";
-import { getCheapestPrintPricesByNames, getDefaultBasePriceUsd } from "../repositories/cardRepo.js";
 import { getGoldValue } from "../services/conditionService.js";
 import { GIVE_ACCEPT_PREFIX, GIVE_DECLINE_PREFIX } from "../interactions/tradeGiveButton.js";
-
-function conditionToStars(condition: string | null | undefined): string {
-  const c = (condition ?? "good").toLowerCase();
-  if (c === "poor") return "★☆☆☆";
-  if (c === "mint") return "★★★★";
-  return "★★★☆";
-}
+import { conditionToStars, getCardImageUrl, resolveBasePrice } from "../utils/cardFormatting.js";
 
 export const giveCommand: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -51,17 +44,9 @@ export const giveCommand: SlashCommand = {
       return;
     }
 
-    const image =
-      myCard.card.imagePng ??
-      myCard.card.imageLarge ??
-      myCard.card.imageNormal ??
-      myCard.card.imageSmall;
+    const image = getCardImageUrl(myCard.card);
 
-    const baseUsd =
-      myCard.card.usdPrice != null && Number.isFinite(Number(myCard.card.usdPrice))
-        ? Number(myCard.card.usdPrice)
-        : (await getCheapestPrintPricesByNames([myCard.card.name])).get(myCard.card.name) ??
-          getDefaultBasePriceUsd();
+    const baseUsd = await resolveBasePrice(myCard.card.usdPrice, myCard.card.name);
     const gold = getGoldValue(String(baseUsd), myCard.condition);
     const stars = conditionToStars(myCard.condition);
     const embed = new EmbedBuilder()

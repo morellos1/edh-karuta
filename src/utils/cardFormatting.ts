@@ -108,3 +108,33 @@ export function raritySortKey(rarity: string | null | undefined): number {
   if (!rarity) return -1;
   return RARITY_ORDER[rarity.toLowerCase()] ?? -1;
 }
+
+/** Pick the best available image URL from a card record, preferring PNG. */
+export function getCardImageUrl(card: {
+  imagePng: string | null;
+  imageLarge: string | null;
+  imageNormal: string | null;
+  imageSmall: string | null;
+}): string | null {
+  return card.imagePng ?? card.imageLarge ?? card.imageNormal ?? card.imageSmall;
+}
+
+/** Resolve the base USD price for a card, falling back to cheapest print or default. */
+export async function resolveBasePrice(
+  cardUsdPrice: string | null,
+  cardName: string
+): Promise<number> {
+  if (cardUsdPrice != null && Number.isFinite(Number(cardUsdPrice))) {
+    return Number(cardUsdPrice);
+  }
+  const { getCheapestPrintPricesByNames, getDefaultBasePriceUsd } = await import("../repositories/cardRepo.js");
+  const priceMap = await getCheapestPrintPricesByNames([cardName]);
+  return priceMap.get(cardName) ?? getDefaultBasePriceUsd();
+}
+
+export function conditionToStars(condition: string | null | undefined): string {
+  const c = (condition ?? "good").toLowerCase();
+  if (c === "poor") return "★☆☆☆";
+  if (c === "mint") return "★★★★";
+  return "★★★☆";
+}
