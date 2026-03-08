@@ -311,20 +311,56 @@ const cardSelect = {
   oracleText: true
 } as const;
 
+/** Strip combining diacritics so "Éowyn" → "Eowyn", "Lim-Dûl" → "Lim-Dul", etc. */
+function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 /** All prints of a card by exact name, ordered by first print (releasedAt asc). */
 export async function findCardPrintsByName(name: string): Promise<CardLookup[]> {
   const trimmed = name.trim();
   if (!trimmed) return [];
+
+  const orderBy: Prisma.CardOrderByWithRelationInput[] = [{ releasedAt: "asc" }, { id: "asc" }];
+  const baseWhere = { isCommanderLegal: true, lang: "en" } as const;
+
+  // Try exact match with NFC normalization (most common form).
+  const nfc = trimmed.normalize("NFC");
   const cards = await prisma.card.findMany({
-    where: {
-      name: trimmed,
-      isCommanderLegal: true,
-      lang: "en"
-    },
-    orderBy: [{ releasedAt: "asc" }, { id: "asc" }],
+    where: { name: nfc, ...baseWhere },
+    orderBy,
     select: cardSelect
   });
-  return cards;
+  if (cards.length > 0) return cards;
+
+  // Try NFD normalization in case the DB stores decomposed characters.
+  const nfd = trimmed.normalize("NFD");
+  if (nfd !== nfc) {
+    const nfdCards = await prisma.card.findMany({
+      where: { name: nfd, ...baseWhere },
+      orderBy,
+      select: cardSelect
+    });
+    if (nfdCards.length > 0) return nfdCards;
+  }
+
+  // Fallback for accented names: find the longest ASCII-only substring in the
+  // accent-stripped name, use it as a `contains` filter, then verify in JS.
+  const ascii = stripAccents(nfc);
+  if (ascii === nfc) return []; // no accents — exact match was definitive
+
+  // Pick the longest contiguous ASCII word sequence (at least 4 chars) for the query.
+  const segments = ascii.match(/[a-zA-Z0-9][\w' -]{3,}/g) ?? [];
+  const fragment = segments.sort((a, b) => b.length - a.length)[0]?.trim();
+  if (!fragment) return [];
+
+  const candidates = await prisma.card.findMany({
+    where: { name: { contains: fragment }, ...baseWhere },
+    orderBy,
+    select: cardSelect
+  });
+
+  return candidates.filter((c) => stripAccents(c.name) === ascii);
 }
 
 const DEFAULT_BASE_PRICE_USD = 0.1; // 10g before condition multiplier
