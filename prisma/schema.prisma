@@ -144,3 +144,8 @@ model CommanderdropCooldown {
   userId     String   @id
   lastUsedAt DateTime
 }
+
+model LanddropCooldown {
+  userId     String   @id
+  lastUsedAt DateTime
+}

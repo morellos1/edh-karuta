@@ -63,6 +63,28 @@ export async function setCommanderdropUsed(userId: string): Promise<void> {
   });
 }
 
+function landdropCooldownMs(): number {
+  return gameConfig.landdropCooldownSeconds * 1000;
+}
+
+export async function getLanddropCooldownRemainingMs(userId: string): Promise<number> {
+  const row = await prisma.landdropCooldown.findUnique({
+    where: { userId },
+    select: { lastUsedAt: true }
+  });
+  if (!row) return 0;
+  const nextAllowed = row.lastUsedAt.getTime() + landdropCooldownMs();
+  return Math.max(0, nextAllowed - Date.now());
+}
+
+export async function setLanddropUsed(userId: string): Promise<void> {
+  await prisma.landdropCooldown.upsert({
+    where: { userId },
+    create: { userId, lastUsedAt: new Date() },
+    update: { lastUsedAt: new Date() }
+  });
+}
+
 function dropCooldownMs(): number {
   return gameConfig.dropCooldownSeconds * 1000;
 }

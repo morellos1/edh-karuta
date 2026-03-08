@@ -28,6 +28,7 @@ const gameConfigSchema = z.object({
   dropCooldownSeconds: z.number().int().min(0),
   colordropCooldownSeconds: z.number().int().min(0),
   commanderdropCooldownSeconds: z.number().int().min(0),
+  landdropCooldownSeconds: z.number().int().min(0),
   autoDropIntervalSeconds: z.number().int().min(1),
   dropRarity: z.object({
     commonChance: z.number().min(0).max(1),
