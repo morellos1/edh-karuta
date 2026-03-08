@@ -26,7 +26,7 @@ import { wishremoveCommand } from "./commands/wishremove.js";
 import { wlCommand } from "./commands/wl.js";
 import { handleClaimButton, CLAIM_BUTTON_PREFIX } from "./interactions/claimButton.js";
 import { handleCollectionPageButton } from "./interactions/collectionButton.js";
-import { handleCardPrintButton, CARD_PRINT_PREFIX } from "./interactions/cardPrintButton.js";
+import { handleCardPrintButton, handleCardWishaddButton, CARD_PRINT_PREFIX, CARD_WISHADD_PREFIX } from "./interactions/cardPrintButton.js";
 import { handleBurnConfirmButton, handleBurnCancelButton } from "./interactions/burnButton.js";
 import { handleBulkBurnConfirmButton, handleBulkBurnCancelButton } from "./interactions/bulkBurnButton.js";
 import {
@@ -99,6 +99,13 @@ client.on("interactionCreate", async (interaction: Interaction) => {
       interaction.customId.startsWith(`${CARD_PRINT_PREFIX}:`)
     ) {
       await handleCardPrintButton(interaction);
+      return;
+    }
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith(`${CARD_WISHADD_PREFIX}:`)
+    ) {
+      await handleCardWishaddButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith("burn_confirm:")) {

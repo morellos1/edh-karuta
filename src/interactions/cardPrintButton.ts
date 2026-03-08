@@ -1,7 +1,13 @@
 import type { CardLookup } from "../repositories/cardRepo.js";
 import { findCardPrintsByName } from "../repositories/cardRepo.js";
 import { getCardCirculationCount } from "../repositories/userCardRepo.js";
-import { getWishlistCardCount } from "../repositories/wishlistRepo.js";
+import {
+  getWishlistCardCount,
+  addWishlistEntry,
+  getUserWishlistCount,
+  wishlistEntryExists
+} from "../repositories/wishlistRepo.js";
+import { gameConfig } from "../config.js";
 import { prisma } from "../db.js";
 import {
   ActionRowBuilder,
@@ -13,6 +19,7 @@ import {
 import { formatColorCircles, formatBaseGold, formatRarity, getCardImageUrl } from "../utils/cardFormatting.js";
 
 export const CARD_PRINT_PREFIX = "card_print";
+export const CARD_WISHADD_PREFIX = "card_wishadd";
 
 async function buildCardEmbedAsync(card: CardLookup, printIndex: number, totalPrints: number) {
   const [circulation, wishlisted] = await Promise.all([
@@ -59,7 +66,11 @@ export function buildCardPrintComponents(firstCardId: number, printIndex: number
       .setCustomId(`${CARD_PRINT_PREFIX}:${firstCardId}:${printIndex + 1}`)
       .setLabel("➡")
       .setStyle(ButtonStyle.Secondary)
-      .setDisabled(printIndex >= totalPrints - 1)
+      .setDisabled(printIndex >= totalPrints - 1),
+    new ButtonBuilder()
+      .setCustomId(`${CARD_WISHADD_PREFIX}:${firstCardId}`)
+      .setLabel("Add to Wishlist")
+      .setStyle(ButtonStyle.Success)
   );
   return [row];
 }
@@ -94,4 +105,55 @@ export async function handleCardPrintButton(interaction: ButtonInteraction) {
   const components = buildCardPrintComponents(firstCardId, printIndex, prints.length);
 
   await interaction.update({ embeds: [embed], components });
+}
+
+export async function handleCardWishaddButton(interaction: ButtonInteraction) {
+  const parts = interaction.customId.split(":");
+  if (parts[0] !== CARD_WISHADD_PREFIX || parts.length < 2) return;
+
+  const firstCardId = Number(parts[1]);
+  if (!Number.isInteger(firstCardId)) {
+    await interaction.reply({ content: "Invalid card data.", ephemeral: true });
+    return;
+  }
+
+  if (!interaction.guildId) {
+    await interaction.reply({ content: "This can only be used in a server.", ephemeral: true });
+    return;
+  }
+
+  const card = await prisma.card.findUnique({
+    where: { id: firstCardId },
+    select: { name: true }
+  });
+  if (!card) {
+    await interaction.reply({ content: "Card data no longer available.", ephemeral: true });
+    return;
+  }
+
+  const cardName = card.name;
+
+  const exists = await wishlistEntryExists(interaction.user.id, interaction.guildId, cardName);
+  if (exists) {
+    await interaction.reply({
+      content: `**${cardName}** is already on your wishlist.`,
+      ephemeral: true
+    });
+    return;
+  }
+
+  const count = await getUserWishlistCount(interaction.user.id, interaction.guildId);
+  if (count >= gameConfig.maxWishlistSlots) {
+    await interaction.reply({
+      content: `Your wishlist is full (${gameConfig.maxWishlistSlots}/${gameConfig.maxWishlistSlots}). Remove a card with \`/wishremove\` first.`,
+      ephemeral: true
+    });
+    return;
+  }
+
+  await addWishlistEntry(interaction.user.id, interaction.guildId, cardName);
+  await interaction.reply({
+    content: `Added **${cardName}** to your wishlist (${count + 1}/${gameConfig.maxWishlistSlots}).`,
+    ephemeral: true
+  });
 }
