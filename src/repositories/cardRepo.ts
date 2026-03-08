@@ -259,8 +259,19 @@ export async function getRandomLandCards(
   return cards.map(toCardLookup);
 }
 
+/**
+ * Normalize typographic (smart/curly) quotes and apostrophes to their
+ * ASCII equivalents so card searches work regardless of the user's
+ * keyboard / autocorrect settings.
+ */
+function normalizeQuotes(input: string): string {
+  return input
+    .replace(/[\u2018\u2019\u201A\u2032]/g, "'")   // ' ' ‚ ′  → '
+    .replace(/[\u201C\u201D\u201E\u2033]/g, '"');   // " " „ ″  → "
+}
+
 export async function findCardByQuery(query: string): Promise<CardLookup | null> {
-  const trimmed = query.trim();
+  const trimmed = normalizeQuotes(query.trim());
   const setAndCollector = /^([a-z0-9]{2,6})\s+([a-z0-9]+)$/i.exec(trimmed);
 
   if (setAndCollector) {
