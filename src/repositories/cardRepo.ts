@@ -157,6 +157,20 @@ function commanderWhereFilter(): Prisma.CardWhereInput {
       {
         typeLine: { contains: "Planeswalker" },
         oracleText: { contains: "can be your commander" }
+      },
+      // Legendary Vehicles with power and toughness
+      {
+        typeLine: { contains: "Legendary" },
+        AND: { typeLine: { contains: "Vehicle" } },
+        power: { not: null },
+        toughness: { not: null }
+      },
+      // Legendary Spacecraft with power and toughness
+      {
+        typeLine: { contains: "Legendary" },
+        AND: { typeLine: { contains: "Spacecraft" } },
+        power: { not: null },
+        toughness: { not: null }
       }
     ]
   };

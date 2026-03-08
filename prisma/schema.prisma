@@ -20,6 +20,8 @@ model Card {
   manaCost        String?
   typeLine        String?
   oracleText      String?
+  power           String?
+  toughness       String?
   colors          String?
   colorIdentity   String?
   imagePng        String?
