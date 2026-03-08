@@ -1,0 +1,4 @@
+-- Recompute colors from manaCost (data-only migration).
+-- The actual recomputation is done by the companion script
+-- prisma/recompute-colors.ts because SQLite lacks regex support.
+-- This file is intentionally empty so Prisma marks the migration as applied.

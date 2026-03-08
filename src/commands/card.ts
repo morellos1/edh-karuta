@@ -48,7 +48,7 @@ export const cardCommand: SlashCommand = {
       .addFields(
         { name: "Rarity", value: formatRarity(showCard.rarity), inline: true },
         { name: "Gold", value: formatBaseGold(showCard.usdPrice), inline: true },
-        { name: "Colors", value: formatColorCircles(showCard.colorIdentity), inline: true },
+        { name: "Colors", value: formatColorCircles(showCard.colors), inline: true },
         { name: "In circulation", value: `${circulation}`, inline: true },
         { name: "Wishlisted by", value: `${wishlisted}`, inline: true },
         {

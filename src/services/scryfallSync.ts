@@ -40,6 +40,24 @@ type ScryfallCard = {
   }>;
 };
 
+const MANA_COLOR_SYMBOLS = new Set(["W", "U", "B", "R", "G"]);
+
+/** Extract color symbols from a mana cost string like "{2}{W}{U}{B/R}". */
+export function extractColorsFromManaCost(manaCost: string | null | undefined): string[] {
+  if (!manaCost) return [];
+  const symbols = new Set<string>();
+  // Match each {…} token and pull out any WUBRG letters inside.
+  for (const match of manaCost.matchAll(/\{([^}]+)\}/g)) {
+    for (const ch of match[1].toUpperCase()) {
+      if (MANA_COLOR_SYMBOLS.has(ch)) {
+        symbols.add(ch);
+      }
+    }
+  }
+  // Return in WUBRG order.
+  return ["W", "U", "B", "R", "G"].filter((s) => symbols.has(s));
+}
+
 const TMP_DIR = path.resolve(process.cwd(), ".tmp");
 const BULK_PATH = path.join(TMP_DIR, "scryfall-default-cards.json");
 
@@ -104,6 +122,8 @@ async function flushBatch(batch: ScryfallCard[]) {
 
     const image = getImageUris(card);
     const firstFace = card.card_faces?.[0];
+    const manaCost = card.mana_cost ?? firstFace?.mana_cost ?? null;
+    const colorsFromMana = extractColorsFromManaCost(manaCost).join(",");
 
     await prisma.card.upsert({
       where: { scryfallId: card.id },
@@ -116,10 +136,10 @@ async function flushBatch(batch: ScryfallCard[]) {
         releasedAt: card.released_at ?? null,
         lang: card.lang ?? null,
         usdPrice: card.prices?.usd ?? null,
-        manaCost: card.mana_cost ?? firstFace?.mana_cost ?? null,
+        manaCost,
         typeLine: card.type_line ?? firstFace?.type_line ?? null,
         oracleText: card.oracle_text ?? firstFace?.oracle_text ?? null,
-        colors: (card.colors ?? []).join(","),
+        colors: colorsFromMana,
         colorIdentity: (card.color_identity ?? []).join(","),
         imagePng: image.png ?? null,
         imageSmall: image.small ?? null,
@@ -138,10 +158,10 @@ async function flushBatch(batch: ScryfallCard[]) {
         releasedAt: card.released_at ?? null,
         lang: card.lang ?? null,
         usdPrice: card.prices?.usd ?? null,
-        manaCost: card.mana_cost ?? firstFace?.mana_cost ?? null,
+        manaCost,
         typeLine: card.type_line ?? firstFace?.type_line ?? null,
         oracleText: card.oracle_text ?? firstFace?.oracle_text ?? null,
-        colors: (card.colors ?? []).join(","),
+        colors: colorsFromMana,
         colorIdentity: (card.color_identity ?? []).join(","),
         imagePng: image.png ?? null,
         imageSmall: image.small ?? null,
