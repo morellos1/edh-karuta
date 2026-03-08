@@ -9,7 +9,7 @@ const COLOR_CIRCLE_BY_SYMBOL: Record<string, string> = {
 const UNCOLORED_CIRCLE = "💿";
 const COLOR_ORDER = ["W", "U", "B", "R", "G"] as const;
 /** Emoji padding for absent color slots — same visual width as color circle emojis in Discord. */
-const COLOR_PAD_CHAR = "⬛";
+const COLOR_PAD_CHAR = "➖";
 
 export function formatRarity(rarity: string | null | undefined): string {
   if (!rarity) {
@@ -43,7 +43,7 @@ export function formatColorCircles(colors: string | null | undefined): string {
   return symbols.map((symbol) => COLOR_CIRCLE_BY_SYMBOL[symbol] ?? UNCOLORED_CIRCLE).join(" ");
 }
 
-/** For collection list: 5 WUBRG slots — color circle or ⬛ per slot. All emojis render at equal width. */
+/** For collection list: 5 WUBRG slots — color circle or ➖ per slot. All emojis render at equal width. */
 export function formatColorCollectionLine(colors: string | null | undefined): string {
   if (!colors) {
     return UNCOLORED_CIRCLE + COLOR_PAD_CHAR.repeat(4);
