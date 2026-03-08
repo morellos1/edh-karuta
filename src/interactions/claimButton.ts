@@ -102,7 +102,7 @@ export async function handleClaimButton(interaction: ButtonInteraction) {
       const remainingMs = result.remainingMs ?? 0;
       const minutes = Math.ceil(remainingMs / 60_000);
       await interaction.reply({
-        content: `<@${interaction.user.id}>, you must wait **${minutes}** minute${minutes !== 1 ? "s" : ""} before grabbing another card.`,
+        content: `<@${interaction.user.id}>, you must wait **${minutes}** minute${minutes !== 1 ? "s" : ""} before claiming another card.`,
         ephemeral: true
       });
       return;

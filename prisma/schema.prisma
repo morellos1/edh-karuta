@@ -64,6 +64,7 @@ model Drop {
   channelId     String
   messageId     String?   @unique
   dropperUserId String
+  dropType      String    @default("regular") // "regular", "colordrop", "commanderdrop"
   expiresAt     DateTime
   resolvedAt    DateTime?
   createdAt     DateTime  @default(now())

@@ -111,7 +111,7 @@ async function claimSlotTransactional(
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const drop = await tx.drop.findUnique({
       where: { id: dropId },
-      select: { id: true, expiresAt: true }
+      select: { id: true, expiresAt: true, dropType: true }
     });
 
     if (!drop) {
@@ -148,17 +148,21 @@ async function claimSlotTransactional(
       return fail("already_claimed_in_drop");
     }
 
-    const latestClaim = await tx.userCard.findFirst({
-      where: { userId },
-      orderBy: { claimedAt: "desc" },
-      select: { claimedAt: true }
-    });
+    const isSpecialDrop = drop.dropType !== "regular";
 
-    const remainingMs = latestClaim
-      ? computeRemainingCooldownMs(latestClaim.claimedAt.getTime(), cooldownSeconds)
-      : 0;
-    if (remainingMs > 0) {
-      return fail("cooldown", remainingMs);
+    if (!isSpecialDrop) {
+      const latestClaim = await tx.userCard.findFirst({
+        where: { userId, drop: { dropType: "regular" } },
+        orderBy: { claimedAt: "desc" },
+        select: { claimedAt: true }
+      });
+
+      const remainingMs = latestClaim
+        ? computeRemainingCooldownMs(latestClaim.claimedAt.getTime(), cooldownSeconds)
+        : 0;
+      if (remainingMs > 0) {
+        return fail("cooldown", remainingMs);
+      }
     }
 
     await tx.dropSlot.update({
@@ -210,13 +214,15 @@ export async function createDropRecord(params: {
   dropperUserId: string;
   expiresAt: Date;
   cards: CardLookup[];
+  dropType?: string;
 }) {
-  const { guildId, channelId, dropperUserId, expiresAt, cards } = params;
+  const { guildId, channelId, dropperUserId, expiresAt, cards, dropType } = params;
   return prisma.drop.create({
     data: {
       guildId,
       channelId,
       dropperUserId,
+      dropType: dropType ?? "regular",
       expiresAt,
       slots: {
         create: cards.map((card, idx) => ({
