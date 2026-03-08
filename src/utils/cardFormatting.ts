@@ -6,7 +6,7 @@ const COLOR_CIRCLE_BY_SYMBOL: Record<string, string> = {
   G: "🟢"
 };
 
-const UNCOLORED_CIRCLE = "💿";
+const UNCOLORED_CIRCLE = "🔘";
 const COLOR_ORDER = ["W", "U", "B", "R", "G"] as const;
 /** Emoji padding for absent color slots — same visual width as color circle emojis in Discord. */
 const COLOR_PAD_CHAR = "▪️";
