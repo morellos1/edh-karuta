@@ -21,14 +21,6 @@ export function formatRarity(rarity: string | null | undefined): string {
     .join(" ");
 }
 
-export function formatUsd(usd: string | null | undefined): string {
-  if (!usd) {
-    return "N/A";
-  }
-  const parsed = Number(usd);
-  return Number.isFinite(parsed) ? `$${parsed.toFixed(2)}` : "N/A";
-}
-
 /** Base price as gold (USD × 100), no condition multiplier. */
 export function formatBaseGold(usd: string | null | undefined): string {
   if (!usd) return "N/A";
@@ -51,22 +43,6 @@ export function formatColorCircles(colors: string | null | undefined): string {
   return symbols.map((symbol) => COLOR_CIRCLE_BY_SYMBOL[symbol] ?? UNCOLORED_CIRCLE).join(" ");
 }
 
-export function formatColorColumn(colors: string | null | undefined): string {
-  if (!colors) {
-    return `${UNCOLORED_CIRCLE} . . . .`;
-  }
-  const set = new Set(
-    colors
-      .split(",")
-      .map((token) => token.trim().toUpperCase())
-      .filter(Boolean)
-  );
-  if (!set.size) {
-    return `${UNCOLORED_CIRCLE} . . . .`;
-  }
-  return COLOR_ORDER.map((symbol) => (set.has(symbol) ? COLOR_CIRCLE_BY_SYMBOL[symbol] : ".")).join(" ");
-}
-
 /** For collection list: 5 slots — circle or ㅤ per WUBRG. Backticks on Discord make each char same width. */
 export function formatColorCollectionLine(colors: string | null | undefined): string {
   if (!colors) {
@@ -83,30 +59,6 @@ export function formatColorCollectionLine(colors: string | null | undefined): st
   }
   return COLOR_ORDER.map((symbol) => (set.has(symbol) ? COLOR_CIRCLE_BY_SYMBOL[symbol] : COLOR_PAD_CHAR))
     .join("");
-}
-
-/** Fixed-width ASCII for collection table alignment (W/U/B/R/G or -). Always 5 chars. */
-export function formatColorColumnPlain(colors: string | null | undefined): string {
-  if (!colors) {
-    return "-    "; // colorless, 5 chars
-  }
-  const set = new Set(
-    colors
-      .split(",")
-      .map((token) => token.trim().toUpperCase())
-      .filter(Boolean)
-  );
-  if (!set.size) {
-    return "-    ";
-  }
-  const s = COLOR_ORDER.map((symbol) => (set.has(symbol) ? symbol : "-")).join("");
-  return s.padEnd(5, " ").slice(0, 5);
-}
-
-const RARITY_ORDER: Record<string, number> = { common: 0, uncommon: 1, rare: 2, mythic: 3 };
-export function raritySortKey(rarity: string | null | undefined): number {
-  if (!rarity) return -1;
-  return RARITY_ORDER[rarity.toLowerCase()] ?? -1;
 }
 
 /** Pick the best available image URL from a card record, preferring PNG. */

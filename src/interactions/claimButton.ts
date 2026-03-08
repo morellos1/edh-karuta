@@ -3,21 +3,16 @@ import {
   ButtonBuilder,
   ButtonInteraction,
   ButtonStyle,
-  Client,
-  MessageEditOptions,
-  TextBasedChannel
+  Client
 } from "discord.js";
-import { env, gameConfig } from "../config.js";
+import { gameConfig } from "../config.js";
 import { getDropById, markDropResolved, submitClaim } from "../services/dropService.js";
 import { getConditionClaimPhrase } from "../services/conditionService.js";
 
 export const CLAIM_BUTTON_PREFIX = "claim";
 const timeoutMap = new Map<number, NodeJS.Timeout>();
 
-function formatSlotLabel(slotIndex: number, claimedByUserId: string | null) {
-  if (claimedByUserId) {
-    return `${slotIndex + 1}`;
-  }
+function formatSlotLabel(slotIndex: number) {
   return `${slotIndex + 1}`;
 }
 
@@ -33,7 +28,7 @@ export async function buildDropComponents(dropId: number) {
       new ButtonBuilder()
         .setCustomId(`${CLAIM_BUTTON_PREFIX}:${drop.id}:${slot.slotIndex}`)
         .setStyle(ButtonStyle.Primary)
-        .setLabel(formatSlotLabel(slot.slotIndex, slot.claimedByUserId))
+        .setLabel(formatSlotLabel(slot.slotIndex))
         .setDisabled(Boolean(slot.claimedByUserId))
     );
   }
@@ -43,11 +38,6 @@ export async function buildDropComponents(dropId: number) {
 
 function allSlotsClaimed(claimedBy: Array<string | null>) {
   return claimedBy.every(Boolean);
-}
-
-async function safeEditMessage(channel: TextBasedChannel, messageId: string, options: MessageEditOptions) {
-  const message = await channel.messages.fetch(messageId);
-  await message.edit(options);
 }
 
 export function scheduleDropTimeout(client: Client, params: {
@@ -71,7 +61,8 @@ export function scheduleDropTimeout(client: Client, params: {
         return;
       }
 
-      await safeEditMessage(channel, messageId, {
+      const message = await channel.messages.fetch(messageId);
+      await message.edit({
         content: "*This drop has expired and the cards can no longer be claimed.*",
         components: []
       });

@@ -3,7 +3,7 @@ import {
   ChatInputCommandInteraction,
   SlashCommandBuilder
 } from "discord.js";
-import { env, gameConfig } from "../config.js";
+import { gameConfig } from "../config.js";
 import type { SlashCommand } from "./types.js";
 import { getRandomDroppableCards } from "../repositories/cardRepo.js";
 import { getDropCooldownRemainingMs, setDropUsed } from "../repositories/botConfigRepo.js";

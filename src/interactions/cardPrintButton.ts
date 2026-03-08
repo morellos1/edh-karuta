@@ -10,7 +10,7 @@ import {
   ButtonStyle,
   EmbedBuilder
 } from "discord.js";
-import { formatColorCircles, formatBaseGold, formatRarity } from "../utils/cardFormatting.js";
+import { formatColorCircles, formatBaseGold, formatRarity, getCardImageUrl } from "../utils/cardFormatting.js";
 
 export const CARD_PRINT_PREFIX = "card_print";
 
@@ -19,7 +19,7 @@ async function buildCardEmbedAsync(card: CardLookup, printIndex: number, totalPr
     getCardCirculationCount(card.id),
     getWishlistCardCount(card.name)
   ]);
-  const image = card.imagePng ?? card.imageLarge ?? card.imageNormal ?? card.imageSmall;
+  const image = getCardImageUrl(card);
   const cardCode = `${card.setCode.toUpperCase()} #${card.collectorNumber.toUpperCase()}`;
   const setLabel = card.setName ? `${card.setName} ${cardCode}` : cardCode;
   const scryfallUrl = `https://scryfall.com/card/${card.setCode}/${card.collectorNumber}?utm_source=edh_karuta`;
