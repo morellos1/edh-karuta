@@ -157,11 +157,10 @@ async function registerCommandsOnStartup() {
   const rest = new REST({ version: "10" }).setToken(env.DISCORD_TOKEN);
   const body = commands.map((c) => c.data.toJSON());
 
-  if (env.DISCORD_GUILD_ID) {
-    await rest.put(Routes.applicationGuildCommands(env.DISCORD_CLIENT_ID, env.DISCORD_GUILD_ID), { body });
-  } else {
-    await rest.put(Routes.applicationCommands(env.DISCORD_CLIENT_ID), { body });
-  }
+  // Always register globally so commands appear in every server the bot joins.
+  // Guild-scoped registration (when DISCORD_GUILD_ID was set) only pushed
+  // commands to a single server, which is why new servers saw no commands.
+  await rest.put(Routes.applicationCommands(env.DISCORD_CLIENT_ID), { body });
 }
 
 async function bootstrap() {

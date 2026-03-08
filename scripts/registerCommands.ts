@@ -52,13 +52,8 @@ async function main() {
   const body = commands.map((c) => c.data.toJSON());
   const rest = new REST({ version: "10" }).setToken(env.DISCORD_TOKEN);
 
-  if (env.DISCORD_GUILD_ID) {
-    await rest.put(Routes.applicationGuildCommands(env.DISCORD_CLIENT_ID, env.DISCORD_GUILD_ID), { body });
-    console.log(`Registered ${body.length} slash commands to guild ${env.DISCORD_GUILD_ID}.`);
-  } else {
-    await rest.put(Routes.applicationCommands(env.DISCORD_CLIENT_ID), { body });
-    console.log(`Registered ${body.length} slash commands globally.`);
-  }
+  await rest.put(Routes.applicationCommands(env.DISCORD_CLIENT_ID), { body });
+  console.log(`Registered ${body.length} slash commands globally.`);
 }
 
 void main();
