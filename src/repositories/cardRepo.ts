@@ -93,17 +93,38 @@ function baseDroppableWhere(
 }
 
 async function pickRandomCard(where: Prisma.CardWhereInput): Promise<Card | null> {
-  const total = await prisma.card.count({
-    where
+  // Get distinct card names with their print counts for weighted selection.
+  // Weight = log2(printCount + 1), so a card with 100 prints is ~6.7x more
+  // likely than a single-print card instead of 100x.
+  const groups = await prisma.card.groupBy({
+    by: ["name"],
+    where,
+    _count: { name: true }
   });
 
-  if (total < 1) {
-    return null;
+  if (groups.length === 0) return null;
+
+  // Weighted random selection using log-compressed print counts.
+  const weights = groups.map((g) => Math.log2(g._count.name + 1));
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+  let roll = Math.random() * totalWeight;
+
+  let selectedIdx = 0;
+  for (let i = 0; i < weights.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) {
+      selectedIdx = i;
+      break;
+    }
   }
 
-  const skip = Math.floor(Math.random() * total);
+  // Pick a random print of the selected card name.
+  const selectedName = groups[selectedIdx].name;
+  const printCount = groups[selectedIdx]._count.name;
+  const skip = Math.floor(Math.random() * printCount);
+
   return prisma.card.findFirst({
-    where,
+    where: { ...where, name: selectedName },
     orderBy: { scryfallId: "asc" },
     skip,
     take: 1
