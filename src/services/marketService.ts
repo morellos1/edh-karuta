@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import type { CardLookup } from "../repositories/cardRepo.js";
 import { findCardPrintsByName } from "../repositories/cardRepo.js";
 
@@ -44,8 +43,7 @@ function parseCsvLine(line: string): string[] {
 
 export function loadMarketCardNames(): string[] {
   if (cachedNames) return cachedNames;
-  const __dirname = dirname(fileURLToPath(import.meta.url));
-  const path = join(__dirname, "..", "..", "topedhrec.csv");
+  const path = join(process.cwd(), "topedhrec.csv");
   const raw = readFileSync(path, "utf-8");
   const lines = raw.split(/\r?\n/).filter((s) => s.trim());
   const names: string[] = [];
