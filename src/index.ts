@@ -11,7 +11,8 @@ import { cardCommand } from "./commands/card.js";
 import { lookupCommand } from "./commands/lookup.js";
 import { burnCommand } from "./commands/burn.js";
 import { bulkburnCommand, BULKBURN_CONFIRM_PREFIX, BULKBURN_CANCEL_PREFIX } from "./commands/bulkburn.js";
-import { marketCommand } from "./commands/market.js";
+import { marketCommand, MARKET_BUTTON_PREFIX } from "./commands/market.js";
+import { handleMarketPageButton } from "./interactions/marketButton.js";
 import { buyCommand } from "./commands/buy.js";
 import { giveCommand } from "./commands/give.js";
 import { tradeCommand } from "./commands/trade.js";
@@ -92,6 +93,13 @@ client.on("interactionCreate", async (interaction: Interaction) => {
         interaction.customId.startsWith(`${COLLECTION_EXPORT_PREFIX}:`))
     ) {
       await handleCollectionPageButton(interaction);
+      return;
+    }
+    if (
+      interaction.isButton() &&
+      interaction.customId.startsWith(`${MARKET_BUTTON_PREFIX}:`)
+    ) {
+      await handleMarketPageButton(interaction);
       return;
     }
     if (

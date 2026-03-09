@@ -20,7 +20,7 @@ export const buyCommand: SlashCommand = {
     .addStringOption((opt) =>
       opt
         .setName("id")
-        .setDescription("Card ID from the market (A–F)")
+        .setDescription("Card ID from the market (A–L)")
         .setRequired(true)
     ),
   async execute(interaction: ChatInputCommandInteraction) {
@@ -28,7 +28,7 @@ export const buyCommand: SlashCommand = {
     const marketId = parseMarketId(idArg);
     if (!marketId) {
       await interaction.reply({
-        content: "Invalid card ID. Use a letter from **A** to **F** as shown in `/market`.",
+        content: "Invalid card ID. Use a letter from **A** to **L** as shown in `/market`.",
         ephemeral: true
       });
       return;
