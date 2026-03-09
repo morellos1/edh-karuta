@@ -18,6 +18,7 @@ export const env = envSchema.parse(process.env);
 const gameConfigPath = join(
   dirname(fileURLToPath(import.meta.url)),
   "..",
+  "..",
   "game.config.json"
 );
 
