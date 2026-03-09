@@ -2,7 +2,8 @@ import type { ButtonInteraction } from "discord.js";
 import { AttachmentBuilder } from "discord.js";
 import { COLLECTION_BUTTON_PREFIX, COLLECTION_EXPORT_PREFIX, buildCollectionView } from "../commands/collection.js";
 import type { CollectionSort } from "../repositories/collectionRepo.js";
-import { getAllForExport, formatCollectionAsMoxfield } from "../repositories/collectionRepo.js";
+import { getAllForExport, getAllCardsByTag, formatCollectionAsMoxfield } from "../repositories/collectionRepo.js";
+import { getTagIdForUser } from "../repositories/tagRepo.js";
 
 export async function handleCollectionPageButton(interaction: ButtonInteraction) {
   const parts = interaction.customId.split(":");
@@ -15,7 +16,14 @@ export async function handleCollectionPageButton(interaction: ButtonInteraction)
       return;
     }
     await interaction.deferReply({ ephemeral: true });
-    const entries = await getAllForExport(targetUserId);
+    const tagName = parts[2]?.trim() || undefined;
+    let entries;
+    if (tagName) {
+      const tagId = await getTagIdForUser(targetUserId, tagName);
+      entries = tagId != null ? await getAllCardsByTag(targetUserId, tagId) : [];
+    } else {
+      entries = await getAllForExport(targetUserId);
+    }
     const text = formatCollectionAsMoxfield(entries);
     const buffer = Buffer.from(text || "No cards in collection.", "utf-8");
     const attachment = new AttachmentBuilder(buffer, { name: "collection-moxfield.txt" });
