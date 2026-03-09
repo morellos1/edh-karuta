@@ -96,7 +96,7 @@ export async function buildCollectionView(
     if (viewerId === user.id) {
       row.addComponents(
         new ButtonBuilder()
-          .setCustomId(`${COLLECTION_EXPORT_PREFIX}:${user.id}`)
+          .setCustomId(`${COLLECTION_EXPORT_PREFIX}:${user.id}:${tagParam}`)
           .setLabel("Export")
           .setStyle(ButtonStyle.Secondary)
       );
@@ -169,7 +169,7 @@ export async function buildCollectionView(
   if (viewerId === user.id) {
     row.addComponents(
       new ButtonBuilder()
-        .setCustomId(`${COLLECTION_EXPORT_PREFIX}:${user.id}`)
+        .setCustomId(`${COLLECTION_EXPORT_PREFIX}:${user.id}:${tagParam}`)
         .setLabel("Export")
         .setStyle(ButtonStyle.Secondary)
     );
