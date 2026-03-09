@@ -8,9 +8,15 @@ import { BURN_CONFIRM_PREFIX, BURN_CANCEL_PREFIX } from "../commands/burn.js";
 
 export async function handleBurnConfirmButton(interaction: ButtonInteraction) {
   const parts = interaction.customId.split(":");
-  const userCardId = Number(parts[1]);
-  if (!Number.isInteger(userCardId)) {
+  const ownerId = parts[1];
+  const userCardId = Number(parts[2]);
+  if (!ownerId || !Number.isInteger(userCardId)) {
     await interaction.reply({ content: "Invalid burn payload.", ephemeral: true }).catch(() => {});
+    return;
+  }
+
+  if (interaction.user.id !== ownerId) {
+    await interaction.reply({ content: "This is not your burn confirmation.", ephemeral: true }).catch(() => {});
     return;
   }
 
@@ -56,9 +62,15 @@ export async function handleBurnConfirmButton(interaction: ButtonInteraction) {
 
 export async function handleBurnCancelButton(interaction: ButtonInteraction) {
   const parts = interaction.customId.split(":");
-  const userCardId = Number(parts[1]);
-  if (!Number.isInteger(userCardId)) {
+  const ownerId = parts[1];
+  const userCardId = Number(parts[2]);
+  if (!ownerId || !Number.isInteger(userCardId)) {
     await interaction.reply({ content: "Invalid burn payload.", ephemeral: true }).catch(() => {});
+    return;
+  }
+
+  if (interaction.user.id !== ownerId) {
+    await interaction.reply({ content: "This is not your burn confirmation.", ephemeral: true }).catch(() => {});
     return;
   }
 

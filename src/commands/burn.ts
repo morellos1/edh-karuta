@@ -68,11 +68,11 @@ export const burnCommand: SlashCommand = {
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
-        .setCustomId(`${BURN_CANCEL_PREFIX}:${userCard.id}`)
+        .setCustomId(`${BURN_CANCEL_PREFIX}:${userId}:${userCard.id}`)
         .setStyle(ButtonStyle.Secondary)
         .setEmoji("❌"),
       new ButtonBuilder()
-        .setCustomId(`${BURN_CONFIRM_PREFIX}:${userCard.id}`)
+        .setCustomId(`${BURN_CONFIRM_PREFIX}:${userId}:${userCard.id}`)
         .setStyle(ButtonStyle.Secondary)
         .setEmoji("🔥")
     );
