@@ -31,7 +31,7 @@ export const commanderdropCommand: SlashCommand = {
     const remainingMs = await getCommanderdropCooldownRemainingMs(interaction.user.id);
     if (remainingMs > 0) {
       await interaction.reply({
-        content: `Commander Drop is on cooldown. Try again in ${formatCooldownRemaining(remainingMs)}.`,
+        content: `Commander Drop is on cooldown. Try again ${formatCooldownRemaining(remainingMs)}.`,
         ephemeral: true
       });
       return;

@@ -1,9 +1,5 @@
-/** Format a cooldown remaining time: shows seconds when < 60s, minutes otherwise. */
+/** Format a cooldown remaining time as a Discord relative timestamp (<t:UNIX:R>). */
 export function formatCooldownRemaining(remainingMs: number): string {
-  if (remainingMs < 60_000) {
-    const seconds = Math.ceil(remainingMs / 1000);
-    return `**${seconds}** second${seconds !== 1 ? "s" : ""}`;
-  }
-  const minutes = Math.ceil(remainingMs / 60_000);
-  return `**${minutes}** minute${minutes !== 1 ? "s" : ""}`;
+  const unixSeconds = Math.floor((Date.now() + remainingMs) / 1000);
+  return `<t:${unixSeconds}:R>`;
 }

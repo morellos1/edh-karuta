@@ -31,7 +31,7 @@ export const landdropCommand: SlashCommand = {
     const remainingMs = await getLanddropCooldownRemainingMs(interaction.user.id);
     if (remainingMs > 0) {
       await interaction.reply({
-        content: `Land Drop is on cooldown. Try again in ${formatCooldownRemaining(remainingMs)}.`,
+        content: `Land Drop is on cooldown. Try again ${formatCooldownRemaining(remainingMs)}.`,
         ephemeral: true
       });
       return;
