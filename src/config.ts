@@ -1,6 +1,5 @@
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { config as loadEnv } from "dotenv";
 import { z } from "zod";
 
@@ -15,12 +14,7 @@ const envSchema = z.object({
 
 export const env = envSchema.parse(process.env);
 
-const gameConfigPath = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "..",
-  "game.config.json"
-);
+const gameConfigPath = join(process.cwd(), "game.config.json");
 
 const gameConfigSchema = z.object({
   maxWishlistSlots: z.number().int().min(1).default(10),
