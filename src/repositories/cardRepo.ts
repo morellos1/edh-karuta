@@ -104,6 +104,7 @@ async function pickRandomCard(where: Prisma.CardWhereInput): Promise<Card | null
   const skip = Math.floor(Math.random() * total);
   return prisma.card.findFirst({
     where,
+    orderBy: { scryfallId: "asc" },
     skip,
     take: 1
   });
