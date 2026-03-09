@@ -128,10 +128,13 @@ export async function buildCollectionView(
             entry.card.usdPrice != null && Number.isFinite(Number(entry.card.usdPrice))
               ? Number(entry.card.usdPrice)
               : (priceMap.get(entry.card.name) ?? defaultBase);
-          const colors = formatColorCollectionLine(entry.card.colors);
           const stars = conditionToStars(entry.condition);
           const gold = formatGoldShort(baseUsd, entry.condition);
-          return `\`${colors}\`  · \`${entry.displayId}\` · \`${stars}\` · \`${gold}\` · **${entry.card.name}**`;
+          if (sort === "color") {
+            const colors = formatColorCollectionLine(entry.card.colors);
+            return `\`${colors}\`  · \`${entry.displayId}\` · \`${stars}\` · \`${gold}\` · **${entry.card.name}**`;
+          }
+          return `\`${entry.displayId}\` · \`${stars}\` · \`${gold}\` · **${entry.card.name}**`;
         })
         .join("\n")
     : "No cards collected yet.";
