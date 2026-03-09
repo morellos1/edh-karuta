@@ -54,18 +54,29 @@ All cooldowns in the config file are in **seconds**.
 ```bash
 npm install
 npx prisma generate
-npx prisma db push
-```
-
-Use `npx prisma migrate dev --name <name>` if you prefer migrations.
-
-## Sync card data
-
-```bash
+npx prisma migrate deploy
 npm run sync:scryfall
 ```
 
-Downloads Scryfall bulk `default_cards` and upserts commander-legal paper cards. The pool contains **~31,000 unique card names** and **~90,000+ prints** (multiple sets per card). Drops use the full print pool so the same card can appear in different printings. Requires `topedhrec.csv` in the project root for the market card list (see `src/services/marketService.ts`).
+- `prisma migrate deploy` creates the SQLite database and applies all migrations.
+- `sync:scryfall` downloads Scryfall bulk card data and populates the card pool (~31,000 unique commander-legal card names, ~90,000+ prints). **Required before drops will work.** Takes a few minutes.
+
+The market feature also requires a `topedhrec.csv` file in the project root (see `src/services/marketService.ts`).
+
+### Migrating an existing database to a new machine
+
+Copy `prisma/dev.db` from the old machine to the same path on the new one, then run:
+
+```bash
+npx prisma migrate deploy
+```
+
+If any migrations fail with "table already exists" or "duplicate column" errors (because the data was already present), mark them as applied and retry:
+
+```bash
+npx prisma migrate resolve --applied <migration_name>
+npx prisma migrate deploy
+```
 
 ## Register commands
 
