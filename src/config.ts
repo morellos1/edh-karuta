@@ -15,11 +15,7 @@ const envSchema = z.object({
 
 export const env = envSchema.parse(process.env);
 
-const gameConfigPath = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "..",
-  "game.config.json"
-);
+const gameConfigPath = join(process.cwd(), "game.config.json");
 
 const gameConfigSchema = z.object({
   maxWishlistSlots: z.number().int().min(1).default(10),
