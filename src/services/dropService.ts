@@ -43,6 +43,29 @@ const processing = new Set<number>();
 const debounced = new Set<number>();
 const DROP_PRIORITY_WINDOW_MS = 120;
 
+/**
+ * Per-user mutex to serialize claim processing across different drops.
+ * Without this, a user clicking claim on two regular drops simultaneously
+ * can race through cooldown checks (each transaction sees the same "last claim").
+ */
+const userClaimLocks = new Map<string, Promise<void>>();
+
+async function withUserClaimLock<T>(userId: string, fn: () => Promise<T>): Promise<T> {
+  const prev = userClaimLocks.get(userId) ?? Promise.resolve();
+  let release: () => void;
+  const lock = new Promise<void>((r) => { release = r; });
+  userClaimLocks.set(userId, lock);
+  await prev;
+  try {
+    return await fn();
+  } finally {
+    release!();
+    if (userClaimLocks.get(userId) === lock) {
+      userClaimLocks.delete(userId);
+    }
+  }
+}
+
 export function pickNextClaimIndex(
   queue: Array<{ userId: string }>,
   dropperUserId: string
@@ -75,11 +98,13 @@ async function processQueue(dropId: number) {
 
       const nextIndex = pickNextClaimIndex(queue, drop.dropperUserId);
       const request = nextIndex >= 0 ? queue.splice(nextIndex, 1)[0] : queue.shift()!;
-      const result = await claimSlotTransactional(
-        request.dropId,
-        request.slotIndex,
-        request.userId,
-        request.cooldownSeconds
+      const result = await withUserClaimLock(request.userId, () =>
+        claimSlotTransactional(
+          request.dropId,
+          request.slotIndex,
+          request.userId,
+          request.cooldownSeconds
+        )
       );
       request.resolve(result);
     }
