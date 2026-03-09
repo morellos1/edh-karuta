@@ -5,10 +5,11 @@ import type { CardLookup } from "../repositories/cardRepo.js";
 import { findCardPrintsByName } from "../repositories/cardRepo.js";
 
 const MARKET_REFRESH_MS = 3 * 60 * 60 * 1000; // 3 hours
-const MARKET_CARD_COUNT = 6;
+const MARKET_CARD_COUNT = 12;
 const MARKET_PRICE_MULTIPLIER = 10_000; // scryfall USD × 10000 = gold
+const MARKET_PAGE_SIZE = 6;
 
-const MARKET_IDS = ["A", "B", "C", "D", "E", "F"] as const;
+const MARKET_IDS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"] as const;
 export type MarketCardId = (typeof MARKET_IDS)[number];
 
 export type MarketCardEntry = {
@@ -119,5 +120,13 @@ export async function getMarketCardsForSlot(slotIndex: number): Promise<MarketCa
   }
   return entries;
 }
+
+/** Return the slice of market entries for a given page (1-indexed). */
+export function getMarketPage(entries: MarketCardEntry[], page: number): MarketCardEntry[] {
+  const start = (page - 1) * MARKET_PAGE_SIZE;
+  return entries.slice(start, start + MARKET_PAGE_SIZE);
+}
+
+export const MARKET_TOTAL_PAGES = 2;
 
 export { MARKET_IDS };
