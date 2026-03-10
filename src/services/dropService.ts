@@ -205,12 +205,14 @@ async function claimSlotTransactional(
       }
     });
 
-    const now = new Date();
-    await tx.claimCooldown.upsert({
-      where: { userId },
-      update: { lastClaimedAt: now },
-      create: { userId, lastClaimedAt: now }
-    });
+    if (!isSpecialDrop) {
+      const now = new Date();
+      await tx.claimCooldown.upsert({
+        where: { userId },
+        update: { lastClaimedAt: now },
+        create: { userId, lastClaimedAt: now }
+      });
+    }
 
     return success({
       slotIndex,
