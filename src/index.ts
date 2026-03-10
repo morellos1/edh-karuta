@@ -1,4 +1,4 @@
-import { Client, Collection, GatewayIntentBits, Interaction, REST, Routes } from "discord.js";
+import { Client, Collection, GatewayIntentBits, Interaction, Message, REST, Routes } from "discord.js";
 import { env } from "./config.js";
 import { dropCommand } from "./commands/drop.js";
 import { cdCommand } from "./commands/cd.js";
@@ -39,6 +39,9 @@ import {
 } from "./interactions/tradeGiveButton.js";
 import { prisma } from "./db.js";
 import type { SlashCommand } from "./commands/types.js";
+import { setprefixCommand } from "./commands/setprefix.js";
+import { shortcutCommand } from "./commands/shortcut.js";
+import { handleShortcut } from "./handlers/shortcutHandler.js";
 import { startBotDropScheduler } from "./services/botDropScheduler.js";
 
 const commands = [
@@ -65,7 +68,9 @@ const commands = [
   untagCommand,
   wishaddCommand,
   wishremoveCommand,
-  wlCommand
+  wlCommand,
+  setprefixCommand,
+  shortcutCommand
 ];
 const commandMap = new Collection<string, SlashCommand>();
 for (const command of commands) {
@@ -73,7 +78,11 @@ for (const command of commands) {
 }
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
 });
 
 client.once("ready", () => {
@@ -178,6 +187,14 @@ client.on("interactionCreate", async (interaction: Interaction) => {
       }
     }
     console.error(error);
+  }
+});
+
+client.on("messageCreate", async (message: Message) => {
+  try {
+    await handleShortcut(message);
+  } catch (error) {
+    console.error("Shortcut handler error:", error);
   }
 });
 
