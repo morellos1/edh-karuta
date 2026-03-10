@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "LanddropCooldown" (
+CREATE TABLE IF NOT EXISTS "LanddropCooldown" (
     "userId" TEXT NOT NULL PRIMARY KEY,
     "lastUsedAt" DATETIME NOT NULL
 );
