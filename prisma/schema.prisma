@@ -150,6 +150,11 @@ model LanddropCooldown {
   lastUsedAt DateTime
 }
 
+model ClaimCooldown {
+  userId      String   @id
+  lastClaimedAt DateTime
+}
+
 model GuildSettings {
   guildId          String  @id
   prefix           String  @default("k")
