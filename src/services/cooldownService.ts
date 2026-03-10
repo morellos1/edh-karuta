@@ -17,15 +17,14 @@ export async function getRemainingCooldownMs(userId: string, cooldownSeconds: nu
     return 0;
   }
 
-  const latest = await prisma.userCard.findFirst({
-    where: { userId, drop: { dropType: "regular" } },
-    orderBy: { claimedAt: "desc" },
-    select: { claimedAt: true }
+  const record = await prisma.claimCooldown.findUnique({
+    where: { userId },
+    select: { lastClaimedAt: true }
   });
 
-  if (!latest) {
+  if (!record) {
     return 0;
   }
 
-  return computeRemainingCooldownMs(latest.claimedAt.getTime(), cooldownSeconds);
+  return computeRemainingCooldownMs(record.lastClaimedAt.getTime(), cooldownSeconds);
 }

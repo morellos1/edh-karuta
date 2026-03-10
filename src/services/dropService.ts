@@ -161,14 +161,13 @@ async function claimSlotTransactional(
     const isSpecialDrop = drop.dropType !== "regular";
 
     if (!isSpecialDrop) {
-      const latestClaim = await tx.userCard.findFirst({
-        where: { userId, drop: { dropType: "regular" } },
-        orderBy: { claimedAt: "desc" },
-        select: { claimedAt: true }
+      const cooldownRecord = await tx.claimCooldown.findUnique({
+        where: { userId },
+        select: { lastClaimedAt: true }
       });
 
-      const remainingMs = latestClaim
-        ? computeRemainingCooldownMs(latestClaim.claimedAt.getTime(), cooldownSeconds)
+      const remainingMs = cooldownRecord
+        ? computeRemainingCooldownMs(cooldownRecord.lastClaimedAt.getTime(), cooldownSeconds)
         : 0;
       if (remainingMs > 0) {
         return fail("cooldown", remainingMs);
@@ -204,6 +203,13 @@ async function claimSlotTransactional(
         dropId,
         condition
       }
+    });
+
+    const now = new Date();
+    await tx.claimCooldown.upsert({
+      where: { userId },
+      update: { lastClaimedAt: now },
+      create: { userId, lastClaimedAt: now }
     });
 
     return success({
