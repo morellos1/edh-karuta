@@ -1,4 +1,5 @@
 import { prisma } from "../db.js";
+import { CONDITION_MULTIPLIERS } from "../config.js";
 
 const PAGE_SIZE = 10;
 
@@ -50,36 +51,73 @@ export async function getCollectionPage(
     };
   }
 
-  // Price sorting requires computing gold values in JS, so we must load all entries.
-  const [total, allEntries] = await Promise.all([
-    prisma.userCard.count({ where: baseWhere }),
-    prisma.userCard.findMany({
-      where: baseWhere,
-      include: { card: true },
-      orderBy: { claimedAt: "desc" }
-    })
+  // Price sorting: compute effective gold value at the DB level so we can
+  // ORDER BY + LIMIT instead of loading every card into memory.
+  const { getDefaultBasePriceUsd } = await import("./cardRepo.js");
+  const defaultBase = getDefaultBasePriceUsd();
+
+  const poorMult = CONDITION_MULTIPLIERS["poor"] ?? 3;
+  const goodMult = CONDITION_MULTIPLIERS["good"] ?? 3;
+  const mintMult = CONDITION_MULTIPLIERS["mint"] ?? 3;
+  const defaultMult = goodMult;
+
+  const direction = sort === "price_desc" ? "DESC" : "ASC";
+  const skip = (safePage - 1) * pageSize;
+
+  // Build tag filter join if needed
+  const tagJoin = tagId != null
+    ? `JOIN UserCardTag uct ON uct.userCardId = uc.id AND uct.tagId = ${Number(tagId)}`
+    : "";
+
+  const [countResult, rows] = await Promise.all([
+    prisma.$queryRawUnsafe<{ cnt: number }[]>(
+      `SELECT COUNT(*) as cnt FROM UserCard uc ${tagJoin} WHERE uc.userId = ?`,
+      userId
+    ),
+    prisma.$queryRawUnsafe<{ id: number }[]>(
+      `SELECT uc.id FROM UserCard uc
+       JOIN Card c ON c.id = uc.cardId
+       ${tagJoin}
+       WHERE uc.userId = ?
+       ORDER BY (
+         CASE
+           WHEN c.usdPrice IS NOT NULL AND CAST(c.usdPrice AS REAL) > 0
+             THEN CAST(c.usdPrice AS REAL)
+           ELSE ?
+         END
+         *
+         CASE uc.condition
+           WHEN 'poor' THEN ?
+           WHEN 'good' THEN ?
+           WHEN 'mint' THEN ?
+           ELSE ?
+         END
+       ) ${direction}
+       LIMIT ? OFFSET ?`,
+      userId,
+      defaultBase,
+      poorMult,
+      goodMult,
+      mintMult,
+      defaultMult,
+      pageSize,
+      skip
+    )
   ]);
 
-  const { getConditionMultiplier } = await import("../services/conditionService.js");
-  const { getCheapestPrintPricesByNames, getDefaultBasePriceUsd } = await import("./cardRepo.js");
-  const namesNeedingPrice = [...new Set(allEntries.filter((e) => !e.card.usdPrice || !Number.isFinite(Number(e.card.usdPrice))).map((e) => e.card.name))];
-  const priceMap = namesNeedingPrice.length ? await getCheapestPrintPricesByNames(namesNeedingPrice) : new Map<string, number>();
-  const defaultBase = getDefaultBasePriceUsd();
-  const mult = sort === "price_desc" ? -1 : 1;
-  const sorted = [...allEntries].sort((a, b) => {
-    const baseA = (a.card.usdPrice != null && Number.isFinite(Number(a.card.usdPrice)))
-      ? Number(a.card.usdPrice)
-      : (priceMap.get(a.card.name) ?? defaultBase);
-    const baseB = (b.card.usdPrice != null && Number.isFinite(Number(b.card.usdPrice)))
-      ? Number(b.card.usdPrice)
-      : (priceMap.get(b.card.name) ?? defaultBase);
-    const adjA = baseA * getConditionMultiplier(a.condition);
-    const adjB = baseB * getConditionMultiplier(b.condition);
-    return mult * (adjA - adjB);
-  });
+  const total = Number(countResult[0]?.cnt ?? 0);
+  const ids = rows.map((r) => r.id);
 
-  const start = (safePage - 1) * pageSize;
-  const cards = sorted.slice(start, start + pageSize);
+  // Fetch the full UserCard+Card data for just this page, preserving sort order.
+  const cards = ids.length
+    ? await prisma.userCard.findMany({
+        where: { id: { in: ids } },
+        include: { card: true }
+      }).then((results) => {
+        const byId = new Map(results.map((r) => [r.id, r]));
+        return ids.map((id) => byId.get(id)!).filter(Boolean);
+      })
+    : [];
 
   return {
     total,

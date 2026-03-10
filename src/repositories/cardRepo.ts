@@ -50,6 +50,45 @@ function toCardLookup(card: Card): CardLookup {
 type RarityTarget = "common" | "uncommon" | "rare" | "mythic";
 export type DropColorSymbol = "W" | "U" | "B" | "R" | "G";
 
+// ---------------------------------------------------------------------------
+// Card-pool cache: avoids re-running the expensive groupBy query on every
+// single drop.  The cache is keyed by a serialised version of the WHERE clause
+// and entries expire after CARD_POOL_TTL_MS (default 5 minutes).  It is also
+// invalidated wholesale whenever the card catalogue is synced from Scryfall.
+// ---------------------------------------------------------------------------
+type CardPoolEntry = {
+  groups: { name: string; _count: { name: number } }[];
+  expiresAt: number;
+};
+const cardPoolCache = new Map<string, CardPoolEntry>();
+const CARD_POOL_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/** Call after a Scryfall sync to force fresh groupBy data on the next drop. */
+export function invalidateCardPoolCache(): void {
+  cardPoolCache.clear();
+}
+
+function cacheKey(where: Prisma.CardWhereInput): string {
+  return JSON.stringify(where);
+}
+
+async function getCardPoolGroups(
+  where: Prisma.CardWhereInput
+): Promise<{ name: string; _count: { name: number } }[]> {
+  const key = cacheKey(where);
+  const cached = cardPoolCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.groups;
+  }
+  const groups = await prisma.card.groupBy({
+    by: ["name"],
+    where,
+    _count: { name: true }
+  });
+  cardPoolCache.set(key, { groups, expiresAt: Date.now() + CARD_POOL_TTL_MS });
+  return groups;
+}
+
 // Cached at module load since gameConfig is immutable at runtime.
 const rarityThresholds = (() => {
   const common = gameConfig.dropRarity.commonChance;
@@ -96,11 +135,7 @@ async function pickRandomCard(where: Prisma.CardWhereInput): Promise<Card | null
   // Get distinct card names with their print counts for weighted selection.
   // Weight = log2(printCount + 1), so a card with 100 prints is ~6.7x more
   // likely than a single-print card instead of 100x.
-  const groups = await prisma.card.groupBy({
-    by: ["name"],
-    where,
-    _count: { name: true }
-  });
+  const groups = await getCardPoolGroups(where);
 
   if (groups.length === 0) return null;
 

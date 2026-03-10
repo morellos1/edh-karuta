@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import streamJson from "stream-json";
 import StreamArray from "stream-json/streamers/StreamArray.js";
 import { prisma } from "../db.js";
+import { invalidateCardPoolCache } from "../repositories/cardRepo.js";
 
 type ScryfallBulkEntry = {
   type: string;
@@ -187,6 +188,10 @@ export async function syncScryfallBulk() {
 
   await flushBatch(batch);
   await rm(TMP_DIR, { recursive: true, force: true });
+
+  // Card catalogue changed — purge cached groupBy data so the next drop
+  // picks from the fresh card pool.
+  invalidateCardPoolCache();
 }
 
 const isEntrypoint = process.argv[1]
