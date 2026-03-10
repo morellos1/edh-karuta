@@ -12,8 +12,10 @@ import { attachDropMessage, createDropRecord } from "../services/dropService.js"
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
 import { buildWishlistNotification } from "../services/wishlistService.js";
 import { formatCooldownRemaining } from "../utils/cooldownFormatting.js";
+import { createAsyncLock } from "../utils/asyncLock.js";
 
 const DROP_SIZE = 3;
+const withColordropLock = createAsyncLock();
 const COLOR_SYMBOL_MAP: Record<string, DropColorSymbol> = {
   white: "W",
   blue: "U",
@@ -48,14 +50,19 @@ export const colordropCommand: SlashCommand = {
       return;
     }
 
-    const remainingMs = await getColordropCooldownRemainingMs(interaction.user.id);
-    if (remainingMs > 0) {
-      await interaction.reply({
-        content: `Color Drop is on cooldown. Try again ${formatCooldownRemaining(remainingMs)}.`,
-        ephemeral: true
-      });
-      return;
-    }
+    const blocked = await withColordropLock(interaction.user.id, async () => {
+      const remainingMs = await getColordropCooldownRemainingMs(interaction.user.id);
+      if (remainingMs > 0) {
+        await interaction.reply({
+          content: `Color Drop is on cooldown. Try again ${formatCooldownRemaining(remainingMs)}.`,
+          ephemeral: true
+        });
+        return true;
+      }
+      await setColordropUsed(interaction.user.id);
+      return false;
+    });
+    if (blocked) return;
 
     await interaction.deferReply();
 
@@ -72,8 +79,6 @@ export const colordropCommand: SlashCommand = {
         cards,
         dropType: "colordrop"
       });
-
-      await setColordropUsed(interaction.user.id);
 
       const collage = await buildDropCollage(cards);
       const attachment = new AttachmentBuilder(collage, { name: "drop.webp" });

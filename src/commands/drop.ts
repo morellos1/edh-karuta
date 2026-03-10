@@ -12,8 +12,10 @@ import { attachDropMessage, createDropRecord } from "../services/dropService.js"
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
 import { buildWishlistNotification } from "../services/wishlistService.js";
 import { formatCooldownRemaining } from "../utils/cooldownFormatting.js";
+import { createAsyncLock } from "../utils/asyncLock.js";
 
 const DROP_SIZE = 3;
+const withDropLock = createAsyncLock();
 
 export const dropCommand: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -29,14 +31,19 @@ export const dropCommand: SlashCommand = {
     }
 
     if (gameConfig.dropCooldownSeconds > 0) {
-      const remainingMs = await getDropCooldownRemainingMs(interaction.user.id);
-      if (remainingMs > 0) {
-        await interaction.reply({
-          content: `<@${interaction.user.id}>, you can drop again ${formatCooldownRemaining(remainingMs)}.`,
-          ephemeral: true
-        });
-        return;
-      }
+      const blocked = await withDropLock(interaction.user.id, async () => {
+        const remainingMs = await getDropCooldownRemainingMs(interaction.user.id);
+        if (remainingMs > 0) {
+          await interaction.reply({
+            content: `<@${interaction.user.id}>, you can drop again ${formatCooldownRemaining(remainingMs)}.`,
+            ephemeral: true
+          });
+          return true;
+        }
+        await setDropUsed(interaction.user.id);
+        return false;
+      });
+      if (blocked) return;
     }
 
     await interaction.deferReply();
@@ -51,10 +58,6 @@ export const dropCommand: SlashCommand = {
         expiresAt,
         cards
       });
-
-      if (gameConfig.dropCooldownSeconds > 0) {
-        await setDropUsed(interaction.user.id);
-      }
 
       const collage = await buildDropCollage(cards);
       const attachment = new AttachmentBuilder(collage, { name: "drop.webp" });

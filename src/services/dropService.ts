@@ -3,6 +3,7 @@ import { prisma } from "../db.js";
 import { computeRemainingCooldownMs } from "./cooldownService.js";
 import { pickRandomCondition } from "./conditionService.js";
 import { generateDisplayId } from "../utils/displayId.js";
+import { createAsyncLock } from "../utils/asyncLock.js";
 import type { Prisma } from "@prisma/client";
 
 type ClaimSuccess = {
@@ -48,23 +49,7 @@ const DROP_PRIORITY_WINDOW_MS = 120;
  * Without this, a user clicking claim on two regular drops simultaneously
  * can race through cooldown checks (each transaction sees the same "last claim").
  */
-const userClaimLocks = new Map<string, Promise<void>>();
-
-async function withUserClaimLock<T>(userId: string, fn: () => Promise<T>): Promise<T> {
-  const prev = userClaimLocks.get(userId) ?? Promise.resolve();
-  let release: () => void;
-  const lock = new Promise<void>((r) => { release = r; });
-  userClaimLocks.set(userId, lock);
-  await prev;
-  try {
-    return await fn();
-  } finally {
-    release!();
-    if (userClaimLocks.get(userId) === lock) {
-      userClaimLocks.delete(userId);
-    }
-  }
-}
+const withUserClaimLock = createAsyncLock();
 
 export function pickNextClaimIndex(
   queue: Array<{ userId: string }>,
