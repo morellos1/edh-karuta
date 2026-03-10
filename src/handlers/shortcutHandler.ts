@@ -37,6 +37,16 @@ import {
 } from "../repositories/botConfigRepo.js";
 import { addCardToTag } from "../repositories/tagRepo.js";
 import {
+  formatConditionLabel,
+  formatConditionPrice
+} from "../services/conditionService.js";
+import { findCardByQuery } from "../repositories/cardRepo.js";
+import {
+  addWishlistEntry,
+  getUserWishlistCount,
+  wishlistEntryExists
+} from "../repositories/wishlistRepo.js";
+import {
   EmbedBuilder,
   ButtonStyle
 } from "discord.js";
@@ -106,6 +116,12 @@ export async function handleShortcut(message: Message): Promise<void> {
       break;
     case "t":
       await handleTag(message, parsed.args);
+      break;
+    case "lu":
+      await handleLookup(message, parsed.args);
+      break;
+    case "wa":
+      await handleWishadd(message, parsed.args);
       break;
     default:
       // Not a recognized shortcut, ignore
@@ -372,5 +388,80 @@ async function handleTag(message: Message, args: string[]): Promise<void> {
 
   await message.reply({
     content: `Tagged **${userCard.card.name}** (\`${userCard.displayId}\`) with **${tagname}**.`
+  });
+}
+
+async function handleLookup(message: Message, args: string[]): Promise<void> {
+  const userId = message.author.id;
+  const idArg = args[0]?.trim();
+
+  const userCard = idArg
+    ? await getUserCardByDisplayId(idArg)
+    : await getLastCollectedCard(userId);
+
+  if (!userCard) {
+    await message.reply({
+      content: idArg ? "No collected card found with that ID." : "You have no cards to look up."
+    });
+    return;
+  }
+
+  const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name);
+  const displayPrice = formatConditionPrice(String(baseUsd), userCard.condition);
+  const image = getCardImageUrl(userCard.card);
+  const claimedAt = userCard.claimedAt.toISOString().split("T")[0];
+
+  const embed = new EmbedBuilder()
+    .setTitle(userCard.card.name)
+    .addFields(
+      { name: "ID", value: userCard.displayId, inline: true },
+      { name: "Condition", value: formatConditionLabel(userCard.condition), inline: true },
+      { name: "Gold", value: displayPrice, inline: true },
+      { name: "Dropped", value: claimedAt, inline: true },
+      { name: "Owner", value: `<@${userCard.userId}>`, inline: true }
+    );
+
+  if (image) {
+    embed.setImage(image);
+  }
+
+  await message.reply({ embeds: [embed] });
+}
+
+async function handleWishadd(message: Message, args: string[]): Promise<void> {
+  if (!message.guildId) return;
+
+  const cardName = args.join(" ").trim();
+  if (!cardName) {
+    await message.reply({ content: "Usage: `<prefix>wa <card name>`" });
+    return;
+  }
+
+  const card = await findCardByQuery(cardName);
+  if (!card) {
+    await message.reply({ content: `No card found matching **${cardName}**.` });
+    return;
+  }
+
+  const resolvedName = card.name;
+  const userId = message.author.id;
+
+  const exists = await wishlistEntryExists(userId, message.guildId, resolvedName);
+  if (exists) {
+    await message.reply({ content: `**${resolvedName}** is already on your wishlist.` });
+    return;
+  }
+
+  const count = await getUserWishlistCount(userId, message.guildId);
+  if (count >= gameConfig.maxWishlistSlots) {
+    await message.reply({
+      content: `Your wishlist is full (${gameConfig.maxWishlistSlots}/${gameConfig.maxWishlistSlots}). Remove a card with \`/wishremove\` first.`
+    });
+    return;
+  }
+
+  await addWishlistEntry(userId, message.guildId, resolvedName);
+  await message.reply({
+    content: `Added **${resolvedName}** to your wishlist (${count + 1}/${gameConfig.maxWishlistSlots}).`
   });
 }
