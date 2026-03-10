@@ -83,15 +83,26 @@ async function processQueue(dropId: number) {
 
       const nextIndex = pickNextClaimIndex(queue, drop.dropperUserId);
       const request = nextIndex >= 0 ? queue.splice(nextIndex, 1)[0] : queue.shift()!;
-      const result = await withUserClaimLock(request.userId, () =>
-        claimSlotTransactional(
-          request.dropId,
-          request.slotIndex,
-          request.userId,
-          request.cooldownSeconds
-        )
-      );
-      request.resolve(result);
+      try {
+        const result = await withUserClaimLock(request.userId, () =>
+          claimSlotTransactional(
+            request.dropId,
+            request.slotIndex,
+            request.userId,
+            request.cooldownSeconds
+          )
+        );
+        request.resolve(result);
+      } catch (err) {
+        console.error("claimSlotTransactional error:", err);
+        request.resolve({ ok: false, reason: "not_found" });
+      }
+    }
+  } catch (err) {
+    console.error("processQueue fatal error:", err);
+    const remaining = queues.get(dropId) ?? [];
+    for (const req of remaining.splice(0, remaining.length)) {
+      req.resolve({ ok: false, reason: "not_found" });
     }
   } finally {
     processing.delete(dropId);
