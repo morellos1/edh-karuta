@@ -103,7 +103,7 @@ npm run dev
 | `/commanderdrop` | Drop 3 commander-eligible cards (24h cooldown) |
 | `/landdrop` | Drop 3 random nonbasic land cards (2h cooldown) |
 | `/cd` | View your current Grab, Drop, Commanderdrop, and Landdrop cooldowns |
-| `/setdropchannel` | Set the current channel for automatic drops every 30 minutes |
+| `/setdropchannel` | Set the current channel for automatic drops every 30 minutes (admin only) |
 
 ### Viewing Cards & Collection
 
@@ -141,6 +141,40 @@ npm run dev
 | `/wishadd <cardname>` | Add a card to your wishlist (max 10 per server) — you get pinged when it drops |
 | `/wishremove <cardname>` | Remove a card from your wishlist |
 | `/wl [user]` | View your or another user's wishlist |
+
+### Server Administration
+
+| Command | Description |
+|---------|-------------|
+| `/setdropchannel` | Set the current channel for automatic bot drops (admin only) |
+| `/shortcut <enable\|disable>` | Enable or disable text shortcuts for this server (admin only) |
+| `/setprefix <char>` | Set the single-character prefix for text shortcuts, default `k` (admin only) |
+
+## Text Shortcuts
+
+Text shortcuts let users type short commands in chat instead of using slash commands. They are **disabled by default** — a server admin must run `/shortcut enable` to activate them.
+
+The default prefix is `k`. Admins can change it with `/setprefix`. For example, with prefix `k`:
+
+| Shortcut | Equivalent | Arguments |
+|----------|-----------|-----------|
+| `kd` | `/drop` | none |
+| `kc` | `/collection` | flexible: @user, sort (color/price/rarity/recent), album, tagname |
+| `km` | `/market` | none |
+| `kb [id]` | `/burn` | optional 6-char card ID |
+| `kcd` | `/cd` | none |
+| `kt <tag> [id]` | `/tag` | required tag name, optional card ID |
+| `klu [id]` | `/lookup` | optional 6-char card ID (defaults to last collected) |
+| `kwa <card name>` | `/wishadd` | required card name |
+
+**Examples:**
+- `kd` — drop 3 cards
+- `kc @User rarity album` — view someone's collection sorted by rarity in album view
+- `kc favorites` — view your collection filtered by the "favorites" tag
+- `kb ABC123` — burn card with ID ABC123
+- `kt burn ABC123` — tag card ABC123 with tag "burn"
+- `klu` — look up your last collected card
+- `kwa Rhystic Study` — add Rhystic Study to your wishlist
 
 ## Reset collection
 
@@ -274,6 +308,25 @@ You can filter your `/collection` by tag to quickly find grouped cards.
 | `/wishadd <card>` | Watch for a card |
 | `/wishremove <card>` | Stop watching |
 | `/wl` | View your wishlist |
+
+---
+
+## Text Shortcuts
+
+Your server may have **text shortcuts** enabled — quick commands you can type in chat instead of using slash commands. Ask an admin if shortcuts are enabled and what the prefix is (default: `k`).
+
+| Shortcut | What it does |
+|----------|-------------|
+| `kd` | Drop 3 cards |
+| `kc` | View your collection |
+| `km` | View the market |
+| `kb [id]` | Burn a card for gold |
+| `kcd` | Check cooldowns |
+| `kt <tag> [id]` | Tag a card |
+| `klu [id]` | Look up a card |
+| `kwa <name>` | Add to wishlist |
+
+Examples: `kc @User rarity album`, `kb ABC123`, `kt favorites`, `kwa Rhystic Study`
 
 Happy collecting! May your pulls be mythic and your conditions be mint.
 ```

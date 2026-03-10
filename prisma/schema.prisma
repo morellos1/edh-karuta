@@ -149,3 +149,9 @@ model LanddropCooldown {
   userId     String   @id
   lastUsedAt DateTime
 }
+
+model GuildSettings {
+  guildId          String  @id
+  prefix           String  @default("k")
+  shortcutsEnabled Boolean @default(false)
+}
