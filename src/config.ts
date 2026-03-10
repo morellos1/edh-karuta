@@ -9,7 +9,9 @@ const envSchema = z.object({
   DISCORD_TOKEN: z.string().min(1),
   DISCORD_CLIENT_ID: z.string().min(1),
   DISCORD_GUILD_ID: z.string().min(1).optional(),
-  DATABASE_URL: z.string().min(1).default("file:./dev.db")
+  DATABASE_URL: z.string().min(1).default("file:./dev.db"),
+  /** Log DB queries slower than this (ms). 0 = log all queries. Omit to disable. */
+  LOG_SLOW_QUERY_MS: z.coerce.number().int().min(0).optional()
 });
 
 export const env = envSchema.parse(process.env);
