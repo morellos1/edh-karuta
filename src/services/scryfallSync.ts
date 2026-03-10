@@ -27,7 +27,7 @@ type ScryfallCard = {
   power?: string;
   toughness?: string;
   rarity?: string;
-  prices?: { usd?: string | null };
+  prices?: { usd?: string | null; usd_foil?: string | null };
   lang?: string;
   colors?: string[];
   color_identity?: string[];
@@ -134,7 +134,7 @@ async function flushBatch(batch: ScryfallCard[]) {
       collectorNumber: card.collector_number.toLowerCase(),
       releasedAt: card.released_at ?? null,
       lang: card.lang ?? null,
-      usdPrice: card.prices?.usd ?? null,
+      usdPrice: card.prices?.usd ?? card.prices?.usd_foil ?? null,
       manaCost,
       typeLine: card.type_line ?? firstFace?.type_line ?? null,
       oracleText: card.oracle_text ?? firstFace?.oracle_text ?? null,
