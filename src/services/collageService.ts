@@ -7,12 +7,64 @@ const MAX_CANVAS_WIDTH = 4096;
 const PADDING = 12;
 const CARD_ASPECT_RATIO = 1.39375;
 
+/* ------------------------------------------------------------------ */
+/*  In-memory image cache – avoids re-downloading the same card art   */
+/* ------------------------------------------------------------------ */
+
+interface CacheEntry {
+  buffer: Buffer;
+  accessedAt: number;
+}
+
+/** Max cached images. ~200 images ≈ 40-80 MB depending on resolution. */
+const IMAGE_CACHE_MAX = 200;
+/** Evict images not accessed for 30 minutes. */
+const IMAGE_CACHE_TTL_MS = 30 * 60 * 1000;
+
+const imageCache = new Map<string, CacheEntry>();
+
+function evictStaleEntries(): void {
+  const now = Date.now();
+  for (const [key, entry] of imageCache) {
+    if (now - entry.accessedAt > IMAGE_CACHE_TTL_MS) {
+      imageCache.delete(key);
+    }
+  }
+}
+
+function evictOldest(): void {
+  let oldestKey: string | undefined;
+  let oldestTime = Infinity;
+  for (const [key, entry] of imageCache) {
+    if (entry.accessedAt < oldestTime) {
+      oldestTime = entry.accessedAt;
+      oldestKey = key;
+    }
+  }
+  if (oldestKey) imageCache.delete(oldestKey);
+}
+
 async function loadCardImage(url: string): Promise<Buffer> {
+  const cached = imageCache.get(url);
+  if (cached) {
+    cached.accessedAt = Date.now();
+    return cached.buffer;
+  }
+
   const response = await axios.get<ArrayBuffer>(url, {
     responseType: "arraybuffer",
     timeout: 15000
   });
-  return Buffer.from(response.data);
+  const buffer = Buffer.from(response.data);
+
+  // Make room if needed
+  evictStaleEntries();
+  if (imageCache.size >= IMAGE_CACHE_MAX) {
+    evictOldest();
+  }
+
+  imageCache.set(url, { buffer, accessedAt: Date.now() });
+  return buffer;
 }
 
 export async function buildDropCollage(cards: CardLookup[]): Promise<Buffer> {
