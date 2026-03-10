@@ -188,22 +188,31 @@ async function claimSlotTransactional(
     });
 
     const condition = pickRandomCondition();
-    let displayId = generateDisplayId();
-    for (let attempt = 0; attempt < 10; attempt++) {
-      const existing = await tx.userCard.findUnique({ where: { displayId }, select: { id: true } });
-      if (!existing) break;
-      displayId = generateDisplayId();
-    }
 
-    await tx.userCard.create({
-      data: {
-        displayId,
-        userId,
-        cardId: slot.cardId,
-        dropId,
-        condition
+    // ~30 billion possible IDs — collisions are near-impossible, but we
+    // handle them via the unique constraint rather than pre-checking.
+    let userCard;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        userCard = await tx.userCard.create({
+          data: {
+            displayId: generateDisplayId(),
+            userId,
+            cardId: slot.cardId,
+            dropId,
+            condition
+          }
+        });
+        break;
+      } catch (err: unknown) {
+        const isUniqueViolation =
+          err != null &&
+          typeof err === "object" &&
+          "code" in err &&
+          (err as { code: string }).code === "P2002";
+        if (!isUniqueViolation || attempt === 4) throw err;
       }
-    });
+    }
 
     if (!isSpecialDrop) {
       const now = new Date();
@@ -220,7 +229,7 @@ async function claimSlotTransactional(
       cardName: slot.card.name,
       dropId,
       claimedByUserId: userId,
-      displayId,
+      displayId: userCard!.displayId,
       condition
     });
   });
