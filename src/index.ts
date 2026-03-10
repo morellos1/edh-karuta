@@ -43,6 +43,7 @@ import { setprefixCommand } from "./commands/setprefix.js";
 import { shortcutCommand } from "./commands/shortcut.js";
 import { handleShortcut } from "./handlers/shortcutHandler.js";
 import { startBotDropScheduler } from "./services/botDropScheduler.js";
+import { startDropCleanupScheduler } from "./services/dropCleanupService.js";
 
 const commands = [
   dropCommand,
@@ -88,6 +89,7 @@ const client = new Client({
 client.once("ready", () => {
   console.log(`Logged in as ${client.user?.tag}`);
   startBotDropScheduler(client);
+  startDropCleanupScheduler();
 });
 
 client.on("interactionCreate", async (interaction: Interaction) => {

@@ -39,6 +39,10 @@ model Card {
 
   @@index([name])
   @@index([setCode, collectorNumber])
+  // Composite index for the drop card selection hot path: filters on
+  // isCommanderLegal + lang + isBasicLand + rarity hit this index instead of
+  // doing a full table scan on every drop.
+  @@index([isCommanderLegal, lang, isBasicLand, rarity])
 }
 
 model UserCard {
@@ -56,6 +60,8 @@ model UserCard {
 
   @@index([userId, claimedAt])
   @@index([userId, dropId])
+  // Speeds up getCardCirculationCount() which counts UserCards per cardId.
+  @@index([cardId])
 }
 
 model Drop {
