@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/src/index.js",
     "register:commands": "tsx scripts/registerCommands.ts",
+    "postinstall": "prisma generate",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "sync:scryfall": "tsx src/services/scryfallSync.ts",
