@@ -83,12 +83,6 @@ export function getMarketSlot(): { slotIndex: number; nextRefreshAt: Date } {
   return { slotIndex, nextRefreshAt };
 }
 
-export function getTimeUntilRefresh(nextRefreshAt: Date): { minutes: number; seconds: number } {
-  const ms = Math.max(0, nextRefreshAt.getTime() - Date.now());
-  const minutes = Math.floor(ms / 60_000);
-  const seconds = Math.floor((ms % 60_000) / 1000);
-  return { minutes, seconds };
-}
 
 /** Get the 6 cards for the current (or given) market slot. Deterministic per slot. */
 export async function getMarketCardsForSlot(slotIndex: number): Promise<MarketCardEntry[]> {

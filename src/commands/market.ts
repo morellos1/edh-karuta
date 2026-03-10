@@ -11,7 +11,6 @@ import type { SlashCommand } from "./types.js";
 import {
   getMarketSlot,
   getMarketCardsForSlot,
-  getTimeUntilRefresh,
   getMarketPage,
   MARKET_TOTAL_PAGES,
   type MarketCardEntry
@@ -26,11 +25,8 @@ export function buildMarketEmbed(
   nextRefreshAt: Date,
   collage: Buffer
 ) {
-  const { minutes, seconds } = getTimeUntilRefresh(nextRefreshAt);
-  const refreshText =
-    minutes > 0
-      ? `Next refresh in **${minutes}** minute${minutes !== 1 ? "s" : ""}`
-      : `Next refresh in **${seconds}** second${seconds !== 1 ? "s" : ""}`;
+  const refreshTimestamp = Math.floor(nextRefreshAt.getTime() / 1000);
+  const refreshText = `Next refresh <t:${refreshTimestamp}:R>`;
 
   const listLines = pageCards
     .map((e) => `💎 **${e.id}** — ${e.card.name} — **${e.priceGold}** Gold`)
