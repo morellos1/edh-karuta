@@ -131,11 +131,21 @@ function baseDroppableWhere(
   };
 }
 
-async function pickRandomCard(where: Prisma.CardWhereInput): Promise<Card | null> {
+async function pickRandomCard(
+  where: Prisma.CardWhereInput,
+  excludeNames: string[] = []
+): Promise<Card | null> {
   // Get distinct card names with their print counts for weighted selection.
   // Weight = log2(printCount + 1), so a card with 100 prints is ~6.7x more
   // likely than a single-print card instead of 100x.
-  const groups = await getCardPoolGroups(where);
+  let groups = await getCardPoolGroups(where);
+
+  // Filter out card names already picked in this drop to prevent duplicate
+  // names appearing (even as different prints) in the same drop.
+  if (excludeNames.length > 0) {
+    const excluded = new Set(excludeNames);
+    groups = groups.filter((g) => !excluded.has(g.name));
+  }
 
   if (groups.length === 0) return null;
 
@@ -179,6 +189,7 @@ export async function getRandomDroppableCards(
 
   const cards: Card[] = [];
   const pickedIds: number[] = [];
+  const pickedNames: string[] = [];
   while (cards.length < count) {
     const targetRarity = rollTargetRarity();
     const strictWhere: Prisma.CardWhereInput = {
@@ -186,16 +197,17 @@ export async function getRandomDroppableCards(
       rarity: targetRarity
     };
 
-    let candidate = await pickRandomCard(strictWhere);
+    let candidate = await pickRandomCard(strictWhere, pickedNames);
     if (!candidate) {
       // Fallback if the targeted rarity pool is exhausted.
-      candidate = await pickRandomCard(baseDroppableWhere(pickedIds, filterColor));
+      candidate = await pickRandomCard(baseDroppableWhere(pickedIds, filterColor), pickedNames);
     }
     if (!candidate) {
       break;
     }
 
     pickedIds.push(candidate.id);
+    pickedNames.push(candidate.name);
     cards.push(candidate);
   }
 
@@ -247,6 +259,7 @@ export async function getRandomCommanderCards(
 
   const cards: Card[] = [];
   const pickedIds: number[] = [];
+  const pickedNames: string[] = [];
   while (cards.length < count) {
     const targetRarity = rollTargetRarity();
     const strictWhere: Prisma.CardWhereInput = {
@@ -255,18 +268,19 @@ export async function getRandomCommanderCards(
       rarity: targetRarity
     };
 
-    let candidate = await pickRandomCard(strictWhere);
+    let candidate = await pickRandomCard(strictWhere, pickedNames);
     if (!candidate) {
       candidate = await pickRandomCard({
         ...baseDroppableWhere(pickedIds),
         ...commanderWhereFilter()
-      });
+      }, pickedNames);
     }
     if (!candidate) {
       break;
     }
 
     pickedIds.push(candidate.id);
+    pickedNames.push(candidate.name);
     cards.push(candidate);
   }
 
@@ -288,6 +302,7 @@ export async function getRandomLandCards(
 
   const cards: Card[] = [];
   const pickedIds: number[] = [];
+  const pickedNames: string[] = [];
   while (cards.length < count) {
     const targetRarity = rollTargetRarity();
     const strictWhere: Prisma.CardWhereInput = {
@@ -297,19 +312,20 @@ export async function getRandomLandCards(
       rarity: targetRarity
     };
 
-    let candidate = await pickRandomCard(strictWhere);
+    let candidate = await pickRandomCard(strictWhere, pickedNames);
     if (!candidate) {
       candidate = await pickRandomCard({
         ...baseDroppableWhere(pickedIds),
         typeLine: { contains: "Land" },
         isBasicLand: false
-      });
+      }, pickedNames);
     }
     if (!candidate) {
       break;
     }
 
     pickedIds.push(candidate.id);
+    pickedNames.push(candidate.name);
     cards.push(candidate);
   }
 
