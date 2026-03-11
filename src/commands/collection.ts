@@ -130,7 +130,7 @@ export async function buildCollectionView(
               : (priceMap.get(entry.card.name) ?? defaultBase);
           const stars = conditionToStars(entry.condition);
           const gold = formatGoldShort(baseUsd, entry.condition);
-          if (sort === "color") {
+          if (sort === "color" || sort.startsWith("color_")) {
             const colors = formatColorCollectionLine(entry.card.colors);
             return `\`${colors}\`  · \`${entry.displayId}\` · \`${stars}\` · \`${gold}\` · **${entry.card.name}**`;
           }
@@ -184,16 +184,22 @@ export async function buildCollectionView(
   };
 }
 
+const SORT_LABELS: Record<CollectionSort, string> = {
+  recent: "Recent",
+  color: "Color",
+  color_white: "White",
+  color_blue: "Blue",
+  color_black: "Black",
+  color_red: "Red",
+  color_green: "Green",
+  color_uncolored: "Uncolored",
+  price_asc: "Price ↑",
+  price_desc: "Price ↓",
+  rarity: "Rarity"
+};
+
 function sortLabel(sort: CollectionSort): string {
-  return sort === "recent"
-    ? "Recent"
-    : sort === "price_asc"
-      ? "Price ↑"
-      : sort === "price_desc"
-        ? "Price ↓"
-        : sort === "color"
-          ? "Color"
-          : "Rarity";
+  return SORT_LABELS[sort] ?? "Recent";
 }
 
 export const collectionCommand: SlashCommand = {
@@ -211,6 +217,12 @@ export const collectionCommand: SlashCommand = {
         .addChoices(
           { name: "Recent (default)", value: "recent" },
           { name: "Color", value: "color" },
+          { name: "White first", value: "color_white" },
+          { name: "Blue first", value: "color_blue" },
+          { name: "Black first", value: "color_black" },
+          { name: "Red first", value: "color_red" },
+          { name: "Green first", value: "color_green" },
+          { name: "Uncolored first", value: "color_uncolored" },
           { name: "Price (low → high)", value: "price_asc" },
           { name: "Price (high → low)", value: "price_desc" },
           { name: "Rarity", value: "rarity" }

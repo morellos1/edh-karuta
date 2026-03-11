@@ -74,6 +74,12 @@ const COLOR_SYMBOL_MAP: Record<string, DropColorSymbol> = {
 
 const SORT_KEYWORDS: Record<string, CollectionSort> = {
   color: "color",
+  white: "color_white",
+  blue: "color_blue",
+  black: "color_black",
+  red: "color_red",
+  green: "color_green",
+  uncolored: "color_uncolored",
   price: "price_desc",
   rarity: "rarity",
   recent: "recent",
