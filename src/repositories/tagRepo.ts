@@ -107,6 +107,31 @@ export async function removeAllTagsFromCard(userId: string, userCardId: number) 
   return true;
 }
 
+export async function addCardsToTag(userId: string, userCardIds: number[], tagName: string) {
+  const tag = await findTagByUserAndName(userId, tagName.trim());
+  if (!tag) return { ok: false as const, reason: "tag_not_found" as const, tagged: 0, failed: 0 };
+
+  let tagged = 0;
+  let failed = 0;
+  for (const userCardId of userCardIds) {
+    const userCard = await prisma.userCard.findUnique({
+      where: { id: userCardId },
+      select: { userId: true }
+    });
+    if (!userCard || userCard.userId !== userId) {
+      failed++;
+      continue;
+    }
+    await prisma.userCardTag.upsert({
+      where: { userCardId_tagId: { userCardId, tagId: tag.id } },
+      create: { userCardId, tagId: tag.id },
+      update: {}
+    });
+    tagged++;
+  }
+  return { ok: true as const, tagged, failed };
+}
+
 /** Remove all tag associations from a card (e.g. when it is traded/given away). */
 export async function stripTagsFromUserCard(userCardId: number) {
   await prisma.userCardTag.deleteMany({ where: { userCardId } });

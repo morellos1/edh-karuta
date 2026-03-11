@@ -40,7 +40,7 @@ import {
   getColordropCooldownRemainingMs,
   getLanddropCooldownRemainingMs
 } from "../repositories/botConfigRepo.js";
-import { addCardToTag } from "../repositories/tagRepo.js";
+import { addCardToTag, addCardsToTag } from "../repositories/tagRepo.js";
 import { GIVE_ACCEPT_PREFIX, GIVE_DECLINE_PREFIX } from "../interactions/tradeGiveButton.js";
 import { conditionToStars } from "../utils/cardFormatting.js";
 import {
@@ -151,6 +151,9 @@ export async function handleShortcut(message: Message): Promise<void> {
       break;
     case "t":
       await handleTag(message, parsed.args, prefix);
+      break;
+    case "deck":
+      await handleDeck(message, parsed.args, prefix);
       break;
     case "lu":
       await handleLookup(message, parsed.args);
@@ -791,6 +794,57 @@ async function handleTag(message: Message, args: string[], prefix: string): Prom
   await message.reply({
     content: `Tagged **${userCard.card.name}** (\`${userCard.displayId}\`) with **${tagname}**.`
   });
+}
+
+async function handleDeck(message: Message, args: string[], prefix: string): Promise<void> {
+  const userId = message.author.id;
+
+  if (args.length < 2) {
+    await message.reply({ content: `Usage: \`${prefix}deck <tagname> <cardid1> [cardid2] ...\`` });
+    return;
+  }
+
+  const tagname = args[0].trim();
+  const cardIds = args.slice(1).map((a) => a.trim()).filter(Boolean);
+
+  const resolved: { id: number; displayId: string; name: string }[] = [];
+  const notFound: string[] = [];
+  const notOwned: string[] = [];
+
+  for (const displayId of cardIds) {
+    const userCard = await getUserCardByDisplayId(displayId);
+    if (!userCard) {
+      notFound.push(displayId);
+    } else if (userCard.userId !== userId) {
+      notOwned.push(displayId);
+    } else {
+      resolved.push({ id: userCard.id, displayId: userCard.displayId, name: userCard.card.name });
+    }
+  }
+
+  if (resolved.length === 0) {
+    const lines: string[] = [];
+    if (notFound.length > 0) lines.push(`Not found: ${notFound.map((id) => `\`${id}\``).join(", ")}`);
+    if (notOwned.length > 0) lines.push(`Not yours: ${notOwned.map((id) => `\`${id}\``).join(", ")}`);
+    await message.reply({ content: lines.join("\n") || "No valid cards provided." });
+    return;
+  }
+
+  const result = await addCardsToTag(userId, resolved.map((r) => r.id), tagname);
+
+  if (!result.ok) {
+    await message.reply({
+      content: `You don't have a tag named **${tagname}**. Create it with \`/tagcreate\`.`
+    });
+    return;
+  }
+
+  const taggedLines = resolved.map((r) => `**${r.name}** (\`${r.displayId}\`)`).join(", ");
+  const parts: string[] = [`Tagged ${taggedLines} with **${tagname}**.`];
+  if (notFound.length > 0) parts.push(`Not found: ${notFound.map((id) => `\`${id}\``).join(", ")}`);
+  if (notOwned.length > 0) parts.push(`Not yours: ${notOwned.map((id) => `\`${id}\``).join(", ")}`);
+
+  await message.reply({ content: parts.join("\n") });
 }
 
 async function handleLookup(message: Message, args: string[]): Promise<void> {
