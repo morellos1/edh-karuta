@@ -3,7 +3,7 @@ import { CONDITION_MULTIPLIERS } from "../config.js";
 
 const PAGE_SIZE = 10;
 
-export type CollectionSort = "recent" | "color" | "price_asc" | "price_desc" | "rarity";
+export type CollectionSort = "recent" | "color" | "color_white" | "color_blue" | "color_black" | "color_red" | "color_green" | "color_uncolored" | "price_asc" | "price_desc" | "rarity";
 
 export async function getCollectionPage(
   userId: string,
@@ -20,6 +20,72 @@ export async function getCollectionPage(
         tags: { some: { tagId } }
       }
     : { userId };
+
+  // Color-specific sorts: put cards containing the target color first (or
+  // colorless cards first for "uncolored"), then fall back to color ASC.
+  const COLOR_SORT_SYMBOL: Record<string, string | null> = {
+    color_white: "W",
+    color_blue: "U",
+    color_black: "B",
+    color_red: "R",
+    color_green: "G",
+    color_uncolored: null
+  };
+
+  if (sort in COLOR_SORT_SYMBOL) {
+    const symbol = COLOR_SORT_SYMBOL[sort];
+    const skip = (safePage - 1) * pageSize;
+
+    const tagJoin = tagId != null
+      ? `JOIN UserCardTag uct ON uct.userCardId = uc.id AND uct.tagId = ${Number(tagId)}`
+      : "";
+
+    // For a specific color symbol: cards containing that symbol sort first (0),
+    // others sort second (1). For "uncolored": cards with NULL/empty colors
+    // sort first.
+    const orderExpr = symbol != null
+      ? `CASE WHEN c.colors IS NOT NULL AND c.colors LIKE '%${symbol}%' THEN 0 ELSE 1 END`
+      : `CASE WHEN c.colors IS NULL OR c.colors = '' THEN 0 ELSE 1 END`;
+
+    const [countResult, rows] = await Promise.all([
+      prisma.$queryRawUnsafe<{ cnt: number }[]>(
+        `SELECT COUNT(*) as cnt FROM UserCard uc ${tagJoin} WHERE uc.userId = ?`,
+        userId
+      ),
+      prisma.$queryRawUnsafe<{ id: number }[]>(
+        `SELECT uc.id FROM UserCard uc
+         JOIN Card c ON c.id = uc.cardId
+         ${tagJoin}
+         WHERE uc.userId = ?
+         ORDER BY ${orderExpr}, c.colors ASC
+         LIMIT ? OFFSET ?`,
+        userId,
+        pageSize,
+        skip
+      )
+    ]);
+
+    const total = Number(countResult[0]?.cnt ?? 0);
+    const ids = rows.map((r) => r.id);
+
+    const cards = ids.length
+      ? await prisma.userCard.findMany({
+          where: { id: { in: ids } },
+          include: { card: true }
+        }).then((results) => {
+          const byId = new Map(results.map((r) => [r.id, r]));
+          return ids.map((id) => byId.get(id)!).filter(Boolean);
+        })
+      : [];
+
+    return {
+      total,
+      page: safePage,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      cards
+    };
+  }
 
   // For sorts that can be handled at DB level, use skip/take to avoid loading
   // the entire collection into memory.
