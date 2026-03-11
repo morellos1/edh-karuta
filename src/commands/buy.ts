@@ -59,7 +59,7 @@ export const buyCommand: SlashCommand = {
     const balance = await getGold(userId);
     if (balance < entry.priceGold) {
       await interaction.reply({
-        content: `You need **${entry.priceGold}** gold to buy **${entry.card.name}**, but you only have **${balance}** gold.`,
+        content: `You need **${entry.priceGold.toLocaleString()}** gold to buy **${entry.card.name}**, but you only have **${balance.toLocaleString()}** gold.`,
         ephemeral: true
       });
       return;
@@ -124,7 +124,7 @@ export const buyCommand: SlashCommand = {
     });
 
     await interaction.reply({
-      content: `You bought **${entry.card.name}** for **${entry.priceGold}** gold. Card ID: \`${displayId}\``,
+      content: `You bought **${entry.card.name}** for **${entry.priceGold.toLocaleString()}** gold. Card ID: \`${displayId}\``,
       ephemeral: false
     });
   }
