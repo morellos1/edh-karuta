@@ -20,6 +20,7 @@ import { tagcreateCommand } from "./commands/tagcreate.js";
 import { tagdeleteCommand } from "./commands/tagdelete.js";
 import { tagrenameCommand } from "./commands/tagrename.js";
 import { tagCommand } from "./commands/tag.js";
+import { deckCommand } from "./commands/deck.js";
 import { tagsCommand } from "./commands/tags.js";
 import { untagCommand } from "./commands/untag.js";
 import { wishaddCommand } from "./commands/wishadd.js";
@@ -65,6 +66,7 @@ const commands = [
   tagdeleteCommand,
   tagrenameCommand,
   tagCommand,
+  deckCommand,
   tagsCommand,
   untagCommand,
   wishaddCommand,
