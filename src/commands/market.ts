@@ -33,7 +33,7 @@ export function buildMarketEmbed(
       : `Next refresh in **${seconds}** second${seconds !== 1 ? "s" : ""}`;
 
   const listLines = pageCards
-    .map((e) => `💎 **${e.id}** — ${e.card.name} — **${e.priceGold}** Gold`)
+    .map((e) => `💎 **${e.id}** — ${e.card.name} — **${e.priceGold.toLocaleString()}** Gold`)
     .join("\n");
 
   const attachment = new AttachmentBuilder(collage, { name: "market.webp" });

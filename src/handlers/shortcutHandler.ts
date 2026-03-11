@@ -24,8 +24,13 @@ import { BURN_CONFIRM_PREFIX, BURN_CANCEL_PREFIX } from "../commands/burn.js";
 import {
   getMarketSlot,
   getMarketCardsForSlot,
-  getMarketPage
+  getMarketPage,
+  MARKET_IDS,
+  type MarketCardId
 } from "../services/marketService.js";
+import { getGold } from "../repositories/inventoryRepo.js";
+import { generateDisplayId } from "../utils/displayId.js";
+import { prisma } from "../db.js";
 import { buildMarketGrid } from "../services/collageService.js";
 import { buildMarketEmbed, buildMarketButtons } from "../commands/market.js";
 import { getRemainingCooldownMs } from "../services/cooldownService.js";
@@ -134,6 +139,9 @@ export async function handleShortcut(message: Message): Promise<void> {
       break;
     case "m":
       await handleMarket(message);
+      break;
+    case "buy":
+      await handleBuy(message, parsed.args, prefix);
       break;
     case "b":
       await handleBurn(message, parsed.args);
@@ -556,6 +564,114 @@ async function handleMarket(message: Message): Promise<void> {
     files: [attachment],
     components: [buildMarketButtons(page)]
   });
+}
+
+function parseMarketId(input: string): MarketCardId | null {
+  const upper = input.trim().toUpperCase();
+  return MARKET_IDS.includes(upper as MarketCardId) ? (upper as MarketCardId) : null;
+}
+
+async function handleBuy(message: Message, args: string[], prefix: string): Promise<void> {
+  if (!message.guildId) return;
+
+  const idArg = args[0]?.trim();
+  if (!idArg) {
+    await message.reply({ content: `Usage: \`${prefix}buy <A-L>\`` });
+    return;
+  }
+
+  const marketId = parseMarketId(idArg);
+  if (!marketId) {
+    await message.reply({
+      content: "Invalid card ID. Use a letter from **A** to **L** as shown in the market."
+    });
+    return;
+  }
+
+  const { slotIndex } = getMarketSlot();
+  const cards = await getMarketCardsForSlot(slotIndex);
+  const entry = cards.find((e) => e.id === marketId);
+  if (!entry) {
+    await message.reply({
+      content: "That card is not available in the current market."
+    });
+    return;
+  }
+
+  const userId = message.author.id;
+  const balance = await getGold(userId);
+  if (balance < entry.priceGold) {
+    await message.reply({
+      content: `You need **${entry.priceGold.toLocaleString()}** gold to buy **${entry.card.name}**, but you only have **${balance.toLocaleString()}** gold.`
+    });
+    return;
+  }
+
+  const botUserId = message.client.user?.id ?? "0";
+
+  try {
+    const displayId = await prisma.$transaction(async (tx) => {
+      const inv = await tx.userInventory.findUnique({
+        where: { userId },
+        select: { gold: true }
+      });
+      if ((inv?.gold ?? 0) < entry.priceGold) {
+        throw new Error("insufficient_gold");
+      }
+
+      let id = generateDisplayId();
+      for (let attempt = 0; attempt < 10; attempt++) {
+        const existing = await tx.userCard.findUnique({ where: { displayId: id }, select: { id: true } });
+        if (!existing) break;
+        id = generateDisplayId();
+      }
+
+      const drop = await tx.drop.create({
+        data: {
+          guildId: message.guildId!,
+          channelId: message.channelId,
+          dropperUserId: botUserId,
+          expiresAt: new Date(0),
+          resolvedAt: new Date()
+        }
+      });
+      await tx.dropSlot.create({
+        data: {
+          dropId: drop.id,
+          slotIndex: 0,
+          cardId: entry.card.id,
+          claimedByUserId: userId,
+          claimedAt: new Date()
+        }
+      });
+      await tx.userCard.create({
+        data: {
+          displayId: id,
+          userId,
+          cardId: entry.card.id,
+          dropId: drop.id,
+          condition: "mint"
+        }
+      });
+      await tx.userInventory.upsert({
+        where: { userId },
+        create: { userId, gold: 0 },
+        update: { gold: { increment: -entry.priceGold } }
+      });
+
+      return id;
+    });
+
+    await message.reply({
+      content: `You bought **${entry.card.name}** for **${entry.priceGold.toLocaleString()}** gold. Card ID: \`${displayId}\``
+    });
+  } catch (err) {
+    if ((err as Error).message === "insufficient_gold") {
+      await message.reply({ content: "You no longer have enough gold for this purchase." });
+    } else {
+      await message.reply({ content: `Purchase failed: ${(err as Error).message}` });
+    }
+  }
 }
 
 async function handleBurn(message: Message, args: string[]): Promise<void> {

@@ -18,8 +18,8 @@ interface CacheEntry {
 
 /** Max cached images. ~200 images ≈ 40-80 MB depending on resolution. */
 const IMAGE_CACHE_MAX = 200;
-/** Evict images not accessed for 30 minutes. */
-const IMAGE_CACHE_TTL_MS = 30 * 60 * 1000;
+/** Evict images not accessed for 3 hours (matches market refresh interval). */
+const IMAGE_CACHE_TTL_MS = 3 * 60 * 60 * 1000;
 
 const imageCache = new Map<string, CacheEntry>();
 

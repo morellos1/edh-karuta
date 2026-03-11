@@ -90,10 +90,42 @@ export function getTimeUntilRefresh(nextRefreshAt: Date): { minutes: number; sec
   return { minutes, seconds };
 }
 
-/** Get the 6 cards for the current (or given) market slot. Deterministic per slot. */
+/** Resolve the top N card names for a given slot seed (no DB calls). */
+function getSlotCardNames(slotIndex: number, count: number): Set<string> {
+  const names = loadMarketCardNames();
+  const indices = names.map((_, i) => i);
+  seededShuffle(indices, slotIndex);
+  const result = new Set<string>();
+  for (let i = 0; i < indices.length && result.size < count; i++) {
+    result.add(names[indices[i]]);
+  }
+  return result;
+}
+
+/* ------------------------------------------------------------------ */
+/*  In-memory market cache – avoids re-querying DB every market view   */
+/* ------------------------------------------------------------------ */
+
+interface MarketCacheEntry {
+  slotIndex: number;
+  entries: MarketCardEntry[];
+}
+
+let marketCache: MarketCacheEntry | null = null;
+
+/** Get the 12 cards for the current (or given) market slot. Deterministic per slot.
+ *  Cards that appeared in the previous slot are excluded to keep the market fresh. */
 export async function getMarketCardsForSlot(slotIndex: number): Promise<MarketCardEntry[]> {
+  // Return cached result if it matches the requested slot.
+  if (marketCache && marketCache.slotIndex === slotIndex) {
+    return marketCache.entries;
+  }
+
   const names = loadMarketCardNames();
   if (names.length === 0) return [];
+
+  // Build a set of card names from the previous slot to exclude.
+  const prevNames = getSlotCardNames(slotIndex - 1, MARKET_CARD_COUNT);
 
   const indices = names.map((_, i) => i);
   seededShuffle(indices, slotIndex);
@@ -101,6 +133,7 @@ export async function getMarketCardsForSlot(slotIndex: number): Promise<MarketCa
   const entries: MarketCardEntry[] = [];
   for (let i = 0; i < indices.length && entries.length < MARKET_CARD_COUNT; i++) {
     const name = names[indices[i]];
+    if (prevNames.has(name)) continue; // skip cards from previous rotation
     const prints = await findCardPrintsByName(name);
     const withPrice = prints.filter((c) => c.usdPrice != null && Number(c.usdPrice) > 0);
     const card = withPrice.length
@@ -116,6 +149,10 @@ export async function getMarketCardsForSlot(slotIndex: number): Promise<MarketCa
       priceGold
     });
   }
+
+  // Cache the result for this slot.
+  marketCache = { slotIndex, entries };
+
   return entries;
 }
 
