@@ -7,24 +7,75 @@ import { prisma } from "../db.js";
 import { getMarketSlot, getMarketCardsForSlot, MARKET_IDS, type MarketCardId } from "../services/marketService.js";
 import { getGold } from "../repositories/inventoryRepo.js";
 import { generateDisplayId } from "../utils/displayId.js";
+import { gameConfig } from "../config.js";
+import { grantExtraClaims, getExtraClaimCount } from "../repositories/extraClaimRepo.js";
 
 function parseMarketId(input: string): MarketCardId | null {
   const upper = input.trim().toUpperCase();
   return MARKET_IDS.includes(upper as MarketCardId) ? (upper as MarketCardId) : null;
 }
 
+async function handleBuyExtraClaim(interaction: ChatInputCommandInteraction, quantity: number): Promise<void> {
+  const userId = interaction.user.id;
+  const unitPrice = gameConfig.toolshop.extraClaimPrice;
+  const totalPrice = unitPrice * quantity;
+  const balance = await getGold(userId);
+
+  if (balance < totalPrice) {
+    await interaction.reply({
+      content: `You need **${totalPrice.toLocaleString()}** gold to buy **${quantity}** Extra Claim${quantity !== 1 ? "s" : ""}, but you only have **${balance.toLocaleString()}** gold.`,
+      ephemeral: true
+    });
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const inv = await tx.userInventory.findUnique({
+      where: { userId },
+      select: { gold: true }
+    });
+    if ((inv?.gold ?? 0) < totalPrice) {
+      throw new Error("insufficient_gold");
+    }
+    await tx.userInventory.upsert({
+      where: { userId },
+      create: { userId, gold: 0 },
+      update: { gold: { increment: -totalPrice } }
+    });
+    await tx.extraClaim.createMany({
+      data: Array.from({ length: quantity }, () => ({ userId }))
+    });
+  });
+
+  const remaining = await getExtraClaimCount(userId);
+  await interaction.reply({
+    content: `You bought **${quantity}** Extra Claim${quantity !== 1 ? "s" : ""} for **${totalPrice.toLocaleString()}** gold. You now have **${remaining}** Extra Claim${remaining !== 1 ? "s" : ""}.`
+  });
+}
+
 export const buyCommand: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName("buy")
-    .setDescription("Buy a card from the Black Market with gold.")
+    .setDescription("Buy a card from the Black Market or a tool from the Tool Shop.")
     .addStringOption((opt) =>
       opt
         .setName("id")
-        .setDescription("Card ID from the market (A–L)")
+        .setDescription("Card ID from the market (A–L) or 'extra claim'")
         .setRequired(true)
     ),
   async execute(interaction: ChatInputCommandInteraction) {
     const idArg = interaction.options.getString("id", true).trim();
+
+    const extraClaimMatch = idArg.toLowerCase().match(/^extra\s+claim(?:\s+(\d+))?$/);
+    if (extraClaimMatch) {
+      const quantity = extraClaimMatch[1] ? parseInt(extraClaimMatch[1], 10) : 1;
+      if (quantity < 1 || !Number.isFinite(quantity)) {
+        await interaction.reply({ content: "Quantity must be a positive number.", ephemeral: true });
+        return;
+      }
+      await handleBuyExtraClaim(interaction, quantity);
+      return;
+    }
     const marketId = parseMarketId(idArg);
     if (!marketId) {
       await interaction.reply({

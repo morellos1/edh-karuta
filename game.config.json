@@ -13,6 +13,9 @@
     "rareChance": 0.15,
     "mythicChance": 0.05
   },
+  "toolshop": {
+    "extraClaimPrice": 25000
+  },
   "dropCondition": {
     "poorChance": 0.5,
     "goodChance": 0.4,

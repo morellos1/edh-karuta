@@ -4,6 +4,7 @@ import { computeRemainingCooldownMs } from "./cooldownService.js";
 import { pickRandomCondition } from "./conditionService.js";
 import { generateDisplayId } from "../utils/displayId.js";
 import { createAsyncLock } from "../utils/asyncLock.js";
+import { consumeExtraClaimTx } from "../repositories/extraClaimRepo.js";
 import type { Prisma } from "@prisma/client";
 
 type ClaimSuccess = {
@@ -15,6 +16,8 @@ type ClaimSuccess = {
   claimedByUserId: string;
   displayId: string;
   condition: string;
+  extraClaimUsed?: boolean;
+  extraClaimRemaining?: number;
 };
 
 type ClaimFailure = {
@@ -160,6 +163,9 @@ async function claimSlotTransactional(
 
     const isSpecialDrop = drop.dropType !== "regular";
 
+    let extraClaimUsed = false;
+    let extraClaimRemaining: number | undefined;
+
     if (!isSpecialDrop) {
       const cooldownRecord = await tx.claimCooldown.findUnique({
         where: { userId },
@@ -170,7 +176,12 @@ async function claimSlotTransactional(
         ? computeRemainingCooldownMs(cooldownRecord.lastClaimedAt.getTime(), cooldownSeconds)
         : 0;
       if (remainingMs > 0) {
-        return fail("cooldown", remainingMs);
+        const consumed = await consumeExtraClaimTx(tx, userId);
+        if (consumed === null) {
+          return fail("cooldown", remainingMs);
+        }
+        extraClaimUsed = true;
+        extraClaimRemaining = consumed;
       }
     }
 
@@ -230,7 +241,8 @@ async function claimSlotTransactional(
       dropId,
       claimedByUserId: userId,
       displayId: userCard!.displayId,
-      condition
+      condition,
+      ...(extraClaimUsed ? { extraClaimUsed, extraClaimRemaining } : {})
     });
   });
 }

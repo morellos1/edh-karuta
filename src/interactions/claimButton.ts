@@ -146,6 +146,13 @@ export async function handleClaimButton(interaction: ButtonInteraction) {
     await interaction.channel.send(
       `<@${interaction.user.id}> took the **${claimedSlot.card.name}** card \`${result.displayId}\`! ${phrase}`
     );
+
+    if (result.extraClaimUsed) {
+      const remaining = result.extraClaimRemaining ?? 0;
+      await interaction.channel.send(
+        `<@${interaction.user.id}>, your Extra Claim has been consumed. \uD83D\uDC50 You have ${remaining} remaining.`
+      );
+    }
   }
 
   if (allSlotsClaimed(claimedBy) && drop.messageId) {

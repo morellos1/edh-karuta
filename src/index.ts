@@ -40,6 +40,7 @@ import {
 } from "./interactions/tradeGiveButton.js";
 import { prisma } from "./db.js";
 import type { SlashCommand } from "./commands/types.js";
+import { toolshopCommand } from "./commands/toolshop.js";
 import { setprefixCommand } from "./commands/setprefix.js";
 import { shortcutCommand } from "./commands/shortcut.js";
 import { handleShortcut } from "./handlers/shortcutHandler.js";
@@ -72,6 +73,7 @@ const commands = [
   wishaddCommand,
   wishremoveCommand,
   wlCommand,
+  toolshopCommand,
   setprefixCommand,
   shortcutCommand
 ];
