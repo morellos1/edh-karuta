@@ -7,9 +7,24 @@ import { buildDropCollage } from "./collageService.js";
 import { createDropRecord, attachDropMessage } from "./dropService.js";
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
 import { buildWishlistNotification } from "./wishlistService.js";
+import { prisma } from "../db.js";
 
 const BOT_DROP_INTERVAL_MS = gameConfig.autoDropIntervalSeconds * 1000;
 const DROP_SIZE = 3;
+
+async function getInitialDelay(botUserId: string): Promise<number> {
+  const lastBotDrop = await prisma.drop.findFirst({
+    where: { dropperUserId: botUserId },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true }
+  });
+
+  if (!lastBotDrop) return BOT_DROP_INTERVAL_MS;
+
+  const elapsed = Date.now() - lastBotDrop.createdAt.getTime();
+  const remaining = BOT_DROP_INTERVAL_MS - elapsed;
+  return remaining > 0 ? remaining : 0;
+}
 
 export function startBotDropScheduler(client: Client) {
   const run = async () => {
@@ -72,8 +87,13 @@ export function startBotDropScheduler(client: Client) {
     }
   };
 
-  setTimeout(() => {
-    void run();
-    setInterval(run, BOT_DROP_INTERVAL_MS);
-  }, BOT_DROP_INTERVAL_MS);
+  const botUserId = client.user?.id;
+  if (!botUserId) return;
+
+  void getInitialDelay(botUserId).then((delay) => {
+    setTimeout(() => {
+      void run();
+      setInterval(run, BOT_DROP_INTERVAL_MS);
+    }, delay);
+  });
 }
