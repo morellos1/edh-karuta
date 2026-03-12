@@ -158,7 +158,7 @@ export async function handleShortcut(message: Message): Promise<void> {
     case "t":
       await handleTag(message, parsed.args, prefix);
       break;
-    case "deck":
+    case "mt":
       await handleDeck(message, parsed.args, prefix);
       break;
     case "lu":
@@ -806,7 +806,7 @@ async function handleDeck(message: Message, args: string[], prefix: string): Pro
   const userId = message.author.id;
 
   if (args.length < 2) {
-    await message.reply({ content: `Usage: \`${prefix}deck <tagname> <cardid1> [cardid2] ...\`` });
+    await message.reply({ content: `Usage: \`${prefix}mt <tagname> <cardid1> [cardid2] ...\`` });
     return;
   }
 
