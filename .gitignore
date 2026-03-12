@@ -4,6 +4,8 @@ dist
 .env
 # Local SQLite database (optional: remove if you want to commit a seed DB)
 *.db
+*.db-shm
+*.db-wal
 dev.db
 
 /generated/prisma

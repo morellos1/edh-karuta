@@ -16,10 +16,11 @@ export async function getGuildSettings(guildId: string): Promise<GuildSettings> 
   const cached = cache.get(guildId);
   if (cached) return cached;
 
-  const row = await prisma.guildSettings.findUnique({ where: { guildId } });
-  const settings = row
-    ? { prefix: row.prefix, shortcutsEnabled: row.shortcutsEnabled }
-    : { ...DEFAULT_SETTINGS };
+  const row = await prisma.guildSettings.findUnique({
+    where: { guildId },
+    select: { prefix: true, shortcutsEnabled: true }
+  });
+  const settings = row ?? { ...DEFAULT_SETTINGS };
   cache.set(guildId, settings);
   return settings;
 }
@@ -28,7 +29,8 @@ export async function setPrefix(guildId: string, prefix: string): Promise<void> 
   await prisma.guildSettings.upsert({
     where: { guildId },
     create: { guildId, prefix, shortcutsEnabled: false },
-    update: { prefix }
+    update: { prefix },
+    select: { guildId: true }
   });
   const cached = cache.get(guildId);
   if (cached) {
@@ -42,7 +44,8 @@ export async function setShortcutsEnabled(guildId: string, enabled: boolean): Pr
   await prisma.guildSettings.upsert({
     where: { guildId },
     create: { guildId, prefix: DEFAULT_SETTINGS.prefix, shortcutsEnabled: enabled },
-    update: { shortcutsEnabled: enabled }
+    update: { shortcutsEnabled: enabled },
+    select: { guildId: true }
   });
   const cached = cache.get(guildId);
   if (cached) {
