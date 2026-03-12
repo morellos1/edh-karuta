@@ -33,6 +33,8 @@ import { generateDisplayId } from "../utils/displayId.js";
 import { prisma } from "../db.js";
 import { buildMarketGrid } from "../services/collageService.js";
 import { buildMarketEmbed, buildMarketButtons } from "../commands/market.js";
+import { buildToolshopEmbed } from "../commands/toolshop.js";
+import { grantExtraClaims, getExtraClaimCount } from "../repositories/extraClaimRepo.js";
 import { getRemainingCooldownMs } from "../services/cooldownService.js";
 import {
   getDropCooldownRemainingMs as getDropCdMs,
@@ -148,7 +150,15 @@ export async function handleShortcut(message: Message): Promise<void> {
       await handleMarket(message);
       break;
     case "buy":
-      await handleBuy(message, parsed.args, prefix);
+      // Check if args form "extra claim"
+      if (parsed.args.join(" ").toLowerCase() === "extra claim") {
+        await handleBuyExtraClaim(message);
+      } else {
+        await handleBuy(message, parsed.args, prefix);
+      }
+      break;
+    case "ts":
+      await handleToolshop(message);
       break;
     case "b":
       await handleBurn(message, parsed.args);
@@ -677,6 +687,53 @@ async function handleBuy(message: Message, args: string[], prefix: string): Prom
 
     await message.reply({
       content: `You bought **${entry.card.name}** for **${entry.priceGold.toLocaleString()}** gold. Card ID: \`${displayId}\``
+    });
+  } catch (err) {
+    if ((err as Error).message === "insufficient_gold") {
+      await message.reply({ content: "You no longer have enough gold for this purchase." });
+    } else {
+      await message.reply({ content: `Purchase failed: ${(err as Error).message}` });
+    }
+  }
+}
+
+async function handleToolshop(message: Message): Promise<void> {
+  const embed = buildToolshopEmbed();
+  await message.reply({ embeds: [embed] });
+}
+
+async function handleBuyExtraClaim(message: Message): Promise<void> {
+  const userId = message.author.id;
+  const price = gameConfig.toolshop.extraClaimPrice;
+  const balance = await getGold(userId);
+
+  if (balance < price) {
+    await message.reply({
+      content: `You need **${price.toLocaleString()}** gold to buy an **Extra Claim**, but you only have **${balance.toLocaleString()}** gold.`
+    });
+    return;
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const inv = await tx.userInventory.findUnique({
+        where: { userId },
+        select: { gold: true }
+      });
+      if ((inv?.gold ?? 0) < price) {
+        throw new Error("insufficient_gold");
+      }
+      await tx.userInventory.upsert({
+        where: { userId },
+        create: { userId, gold: 0 },
+        update: { gold: { increment: -price } }
+      });
+      await tx.extraClaim.create({ data: { userId } });
+    });
+
+    const remaining = await getExtraClaimCount(userId);
+    await message.reply({
+      content: `You bought an **Extra Claim** for **${price.toLocaleString()}** gold. You now have **${remaining}** Extra Claim${remaining !== 1 ? "s" : ""}.`
     });
   } catch (err) {
     if ((err as Error).message === "insufficient_gold") {

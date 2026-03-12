@@ -7,24 +7,66 @@ import { prisma } from "../db.js";
 import { getMarketSlot, getMarketCardsForSlot, MARKET_IDS, type MarketCardId } from "../services/marketService.js";
 import { getGold } from "../repositories/inventoryRepo.js";
 import { generateDisplayId } from "../utils/displayId.js";
+import { gameConfig } from "../config.js";
+import { grantExtraClaims, getExtraClaimCount } from "../repositories/extraClaimRepo.js";
 
 function parseMarketId(input: string): MarketCardId | null {
   const upper = input.trim().toUpperCase();
   return MARKET_IDS.includes(upper as MarketCardId) ? (upper as MarketCardId) : null;
 }
 
+async function handleBuyExtraClaim(interaction: ChatInputCommandInteraction): Promise<void> {
+  const userId = interaction.user.id;
+  const price = gameConfig.toolshop.extraClaimPrice;
+  const balance = await getGold(userId);
+
+  if (balance < price) {
+    await interaction.reply({
+      content: `You need **${price.toLocaleString()}** gold to buy an **Extra Claim**, but you only have **${balance.toLocaleString()}** gold.`,
+      ephemeral: true
+    });
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const inv = await tx.userInventory.findUnique({
+      where: { userId },
+      select: { gold: true }
+    });
+    if ((inv?.gold ?? 0) < price) {
+      throw new Error("insufficient_gold");
+    }
+    await tx.userInventory.upsert({
+      where: { userId },
+      create: { userId, gold: 0 },
+      update: { gold: { increment: -price } }
+    });
+    await tx.extraClaim.create({ data: { userId } });
+  });
+
+  const remaining = await getExtraClaimCount(userId);
+  await interaction.reply({
+    content: `You bought an **Extra Claim** for **${price.toLocaleString()}** gold. You now have **${remaining}** Extra Claim${remaining !== 1 ? "s" : ""}.`
+  });
+}
+
 export const buyCommand: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName("buy")
-    .setDescription("Buy a card from the Black Market with gold.")
+    .setDescription("Buy a card from the Black Market or a tool from the Tool Shop.")
     .addStringOption((opt) =>
       opt
         .setName("id")
-        .setDescription("Card ID from the market (A–L)")
+        .setDescription("Card ID from the market (A–L) or 'extra claim'")
         .setRequired(true)
     ),
   async execute(interaction: ChatInputCommandInteraction) {
     const idArg = interaction.options.getString("id", true).trim();
+
+    if (idArg.toLowerCase() === "extra claim") {
+      await handleBuyExtraClaim(interaction);
+      return;
+    }
     const marketId = parseMarketId(idArg);
     if (!marketId) {
       await interaction.reply({

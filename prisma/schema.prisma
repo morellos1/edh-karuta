@@ -161,6 +161,15 @@ model ClaimCooldown {
   lastClaimedAt DateTime
 }
 
+model ExtraClaim {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+
+  @@index([userId, usedAt])
+}
+
 model GuildSettings {
   guildId          String  @id
   prefix           String  @default("k")
