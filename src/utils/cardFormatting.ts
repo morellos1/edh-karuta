@@ -86,7 +86,7 @@ export async function resolveBasePrice(
 
 export function conditionToStars(condition: string | null | undefined): string {
   const c = (condition ?? "good").toLowerCase();
-  if (c === "poor") return "★☆☆☆";
-  if (c === "mint") return "★★★★";
-  return "★★★☆";
+  if (c === "poor") return "★☆☆";
+  if (c === "mint") return "★★★";
+  return "★★☆";
 }
