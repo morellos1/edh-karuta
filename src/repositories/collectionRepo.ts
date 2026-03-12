@@ -26,13 +26,13 @@ export async function getCollectionPage(
   if (nameSearch) {
     baseWhere.card = {
       ...(baseWhere.card as Record<string, unknown> ?? {}),
-      name: { contains: nameSearch, mode: "insensitive" }
+      name: { contains: nameSearch }
     };
   }
   if (typeFilter) {
     baseWhere.card = {
       ...(baseWhere.card as Record<string, unknown> ?? {}),
-      typeLine: { contains: typeFilter, mode: "insensitive" }
+      typeLine: { contains: typeFilter }
     };
   }
 
