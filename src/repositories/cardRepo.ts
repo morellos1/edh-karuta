@@ -135,9 +135,7 @@ async function pickRandomCard(
   where: Prisma.CardWhereInput,
   excludeNames: string[] = []
 ): Promise<Card | null> {
-  // Get distinct card names with their print counts for weighted selection.
-  // Weight = log2(printCount + 1), so a card with 100 prints is ~6.7x more
-  // likely than a single-print card instead of 100x.
+  // Get distinct card names with their print counts.
   let groups = await getCardPoolGroups(where);
 
   // Filter out card names already picked in this drop to prevent duplicate
@@ -149,19 +147,12 @@ async function pickRandomCard(
 
   if (groups.length === 0) return null;
 
-  // Weighted random selection using log-compressed print counts.
-  const weights = groups.map((g) => Math.log2(g._count.name + 1));
-  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-  let roll = Math.random() * totalWeight;
-
-  let selectedIdx = 0;
-  for (let i = 0; i < weights.length; i++) {
-    roll -= weights[i];
-    if (roll <= 0) {
-      selectedIdx = i;
-      break;
-    }
-  }
+  // Uniform random selection: every unique card name has an equal chance of
+  // being picked, regardless of how many prints exist.  This prevents cards
+  // with many reprints (e.g. Command Tower) from dominating small pools like
+  // common nonbasic lands.  A random *print* of the chosen name is then
+  // selected in the second step, preserving visual variety.
+  const selectedIdx = Math.floor(Math.random() * groups.length);
 
   // Pick a random print of the selected card name.
   const selectedName = groups[selectedIdx].name;
