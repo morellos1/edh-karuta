@@ -15,14 +15,15 @@ function parseMarketId(input: string): MarketCardId | null {
   return MARKET_IDS.includes(upper as MarketCardId) ? (upper as MarketCardId) : null;
 }
 
-async function handleBuyExtraClaim(interaction: ChatInputCommandInteraction): Promise<void> {
+async function handleBuyExtraClaim(interaction: ChatInputCommandInteraction, quantity: number): Promise<void> {
   const userId = interaction.user.id;
-  const price = gameConfig.toolshop.extraClaimPrice;
+  const unitPrice = gameConfig.toolshop.extraClaimPrice;
+  const totalPrice = unitPrice * quantity;
   const balance = await getGold(userId);
 
-  if (balance < price) {
+  if (balance < totalPrice) {
     await interaction.reply({
-      content: `You need **${price.toLocaleString()}** gold to buy an **Extra Claim**, but you only have **${balance.toLocaleString()}** gold.`,
+      content: `You need **${totalPrice.toLocaleString()}** gold to buy **${quantity}** Extra Claim${quantity !== 1 ? "s" : ""}, but you only have **${balance.toLocaleString()}** gold.`,
       ephemeral: true
     });
     return;
@@ -33,20 +34,22 @@ async function handleBuyExtraClaim(interaction: ChatInputCommandInteraction): Pr
       where: { userId },
       select: { gold: true }
     });
-    if ((inv?.gold ?? 0) < price) {
+    if ((inv?.gold ?? 0) < totalPrice) {
       throw new Error("insufficient_gold");
     }
     await tx.userInventory.upsert({
       where: { userId },
       create: { userId, gold: 0 },
-      update: { gold: { increment: -price } }
+      update: { gold: { increment: -totalPrice } }
     });
-    await tx.extraClaim.create({ data: { userId } });
+    await tx.extraClaim.createMany({
+      data: Array.from({ length: quantity }, () => ({ userId }))
+    });
   });
 
   const remaining = await getExtraClaimCount(userId);
   await interaction.reply({
-    content: `You bought an **Extra Claim** for **${price.toLocaleString()}** gold. You now have **${remaining}** Extra Claim${remaining !== 1 ? "s" : ""}.`
+    content: `You bought **${quantity}** Extra Claim${quantity !== 1 ? "s" : ""} for **${totalPrice.toLocaleString()}** gold. You now have **${remaining}** Extra Claim${remaining !== 1 ? "s" : ""}.`
   });
 }
 
@@ -63,8 +66,14 @@ export const buyCommand: SlashCommand = {
   async execute(interaction: ChatInputCommandInteraction) {
     const idArg = interaction.options.getString("id", true).trim();
 
-    if (idArg.toLowerCase() === "extra claim") {
-      await handleBuyExtraClaim(interaction);
+    const extraClaimMatch = idArg.toLowerCase().match(/^extra\s+claim(?:\s+(\d+))?$/);
+    if (extraClaimMatch) {
+      const quantity = extraClaimMatch[1] ? parseInt(extraClaimMatch[1], 10) : 1;
+      if (quantity < 1 || !Number.isFinite(quantity)) {
+        await interaction.reply({ content: "Quantity must be a positive number.", ephemeral: true });
+        return;
+      }
+      await handleBuyExtraClaim(interaction, quantity);
       return;
     }
     const marketId = parseMarketId(idArg);

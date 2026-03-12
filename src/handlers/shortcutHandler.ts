@@ -149,14 +149,17 @@ export async function handleShortcut(message: Message): Promise<void> {
     case "m":
       await handleMarket(message);
       break;
-    case "buy":
-      // Check if args form "extra claim"
-      if (parsed.args.join(" ").toLowerCase() === "extra claim") {
-        await handleBuyExtraClaim(message);
+    case "buy": {
+      // Check if args form "extra claim [quantity]"
+      const buyArgsLower = parsed.args.map((a) => a.toLowerCase());
+      if (buyArgsLower[0] === "extra" && buyArgsLower[1] === "claim") {
+        const qty = parsed.args[2] ? parseInt(parsed.args[2], 10) : 1;
+        await handleBuyExtraClaim(message, Number.isFinite(qty) && qty >= 1 ? qty : 1);
       } else {
         await handleBuy(message, parsed.args, prefix);
       }
       break;
+    }
     case "ts":
       await handleToolshop(message);
       break;
@@ -702,14 +705,15 @@ async function handleToolshop(message: Message): Promise<void> {
   await message.reply({ embeds: [embed] });
 }
 
-async function handleBuyExtraClaim(message: Message): Promise<void> {
+async function handleBuyExtraClaim(message: Message, quantity = 1): Promise<void> {
   const userId = message.author.id;
-  const price = gameConfig.toolshop.extraClaimPrice;
+  const unitPrice = gameConfig.toolshop.extraClaimPrice;
+  const totalPrice = unitPrice * quantity;
   const balance = await getGold(userId);
 
-  if (balance < price) {
+  if (balance < totalPrice) {
     await message.reply({
-      content: `You need **${price.toLocaleString()}** gold to buy an **Extra Claim**, but you only have **${balance.toLocaleString()}** gold.`
+      content: `You need **${totalPrice.toLocaleString()}** gold to buy **${quantity}** Extra Claim${quantity !== 1 ? "s" : ""}, but you only have **${balance.toLocaleString()}** gold.`
     });
     return;
   }
@@ -720,20 +724,22 @@ async function handleBuyExtraClaim(message: Message): Promise<void> {
         where: { userId },
         select: { gold: true }
       });
-      if ((inv?.gold ?? 0) < price) {
+      if ((inv?.gold ?? 0) < totalPrice) {
         throw new Error("insufficient_gold");
       }
       await tx.userInventory.upsert({
         where: { userId },
         create: { userId, gold: 0 },
-        update: { gold: { increment: -price } }
+        update: { gold: { increment: -totalPrice } }
       });
-      await tx.extraClaim.create({ data: { userId } });
+      await tx.extraClaim.createMany({
+        data: Array.from({ length: quantity }, () => ({ userId }))
+      });
     });
 
     const remaining = await getExtraClaimCount(userId);
     await message.reply({
-      content: `You bought an **Extra Claim** for **${price.toLocaleString()}** gold. You now have **${remaining}** Extra Claim${remaining !== 1 ? "s" : ""}.`
+      content: `You bought **${quantity}** Extra Claim${quantity !== 1 ? "s" : ""} for **${totalPrice.toLocaleString()}** gold. You now have **${remaining}** Extra Claim${remaining !== 1 ? "s" : ""}.`
     });
   } catch (err) {
     if ((err as Error).message === "insufficient_gold") {
