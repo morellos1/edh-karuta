@@ -15,7 +15,7 @@ export const setdropchannelCommand: SlashCommand = {
       });
       return;
     }
-    await setDropChannelId(interaction.channelId);
+    await setDropChannelId(interaction.guildId, interaction.channelId);
     await interaction.reply({
       content: "This channel is now the bot drop channel. I'll drop 3 cards here every 30 minutes.",
       ephemeral: false

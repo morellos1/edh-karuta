@@ -1,25 +1,31 @@
 import { prisma } from "../db.js";
 import { gameConfig } from "../config.js";
 
-const DROP_CHANNEL_KEY = "drop_channel_id";
-
 function colordropCooldownMs(): number {
   return gameConfig.colordropCooldownSeconds * 1000;
 }
 
-export async function getDropChannelId(): Promise<string | null> {
-  const row = await prisma.botConfig.findUnique({
-    where: { key: DROP_CHANNEL_KEY },
-    select: { value: true }
+export async function getDropChannelId(guildId: string): Promise<string | null> {
+  const row = await prisma.guildSettings.findUnique({
+    where: { guildId },
+    select: { dropChannelId: true }
   });
-  return row?.value ?? null;
+  return row?.dropChannelId ?? null;
 }
 
-export async function setDropChannelId(channelId: string): Promise<void> {
-  await prisma.botConfig.upsert({
-    where: { key: DROP_CHANNEL_KEY },
-    create: { key: DROP_CHANNEL_KEY, value: channelId },
-    update: { value: channelId }
+export async function getAllDropChannels(): Promise<{ guildId: string; dropChannelId: string }[]> {
+  const rows = await prisma.guildSettings.findMany({
+    where: { dropChannelId: { not: null } },
+    select: { guildId: true, dropChannelId: true }
+  });
+  return rows.filter((r): r is { guildId: string; dropChannelId: string } => r.dropChannelId !== null);
+}
+
+export async function setDropChannelId(guildId: string, channelId: string): Promise<void> {
+  await prisma.guildSettings.upsert({
+    where: { guildId },
+    create: { guildId, dropChannelId: channelId },
+    update: { dropChannelId: channelId }
   });
 }
 

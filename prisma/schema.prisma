@@ -174,4 +174,5 @@ model GuildSettings {
   guildId          String  @id
   prefix           String  @default("k")
   shortcutsEnabled Boolean @default(false)
+  dropChannelId    String?
 }
