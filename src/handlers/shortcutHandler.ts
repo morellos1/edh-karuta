@@ -51,7 +51,8 @@ import { findCardByQuery } from "../repositories/cardRepo.js";
 import {
   addWishlistEntry,
   getUserWishlistCount,
-  wishlistEntryExists
+  wishlistEntryExists,
+  removeWishlistEntry
 } from "../repositories/wishlistRepo.js";
 import {
   EmbedBuilder,
@@ -166,6 +167,9 @@ export async function handleShortcut(message: Message): Promise<void> {
       break;
     case "wa":
       await handleWishadd(message, parsed.args, prefix);
+      break;
+    case "wr":
+      await handleWishremove(message, parsed.args, prefix);
       break;
     default:
       // Not a recognized shortcut, ignore
@@ -925,5 +929,38 @@ async function handleWishadd(message: Message, args: string[], prefix: string): 
   await addWishlistEntry(userId, message.guildId, resolvedName);
   await message.reply({
     content: `Added **${resolvedName}** to your wishlist (${count + 1}/${gameConfig.maxWishlistSlots}).`
+  });
+}
+
+async function handleWishremove(message: Message, args: string[], prefix: string): Promise<void> {
+  if (!message.guildId) return;
+
+  const cardName = args.join(" ").trim();
+  if (!cardName) {
+    await message.reply({ content: `Usage: \`${prefix}wr <card name>\`` });
+    return;
+  }
+
+  const userId = message.author.id;
+
+  // Try to resolve the input to an exact card name via fuzzy matching
+  const card = await findCardByQuery(cardName);
+  if (card) {
+    const removed = await removeWishlistEntry(userId, message.guildId, card.name);
+    if (removed) {
+      await message.reply({ content: `Removed **${card.name}** from your wishlist.` });
+      return;
+    }
+  }
+
+  // If card DB lookup didn't match a wishlist entry, try the raw input directly
+  const removed = await removeWishlistEntry(userId, message.guildId, cardName);
+  if (removed) {
+    await message.reply({ content: `Removed **${cardName}** from your wishlist.` });
+    return;
+  }
+
+  await message.reply({
+    content: `**${cardName}** was not found on your wishlist. Use \`/wl\` to view your wishlist.`
   });
 }
