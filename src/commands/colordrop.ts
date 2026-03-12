@@ -82,7 +82,7 @@ export const colordropCommand: SlashCommand = {
 
       const collage = await buildDropCollage(cards);
       const attachment = new AttachmentBuilder(collage, { name: "drop.webp" });
-      const components = await buildDropComponents(drop.id);
+      const components = buildDropComponents(drop);
 
       const dropLine = `<@${interaction.user.id}> is dropping 3 cards! (${colorChoice})`;
 

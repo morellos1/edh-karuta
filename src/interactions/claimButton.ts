@@ -17,12 +17,12 @@ function formatSlotLabel(slotIndex: number) {
   return `${slotIndex + 1}`;
 }
 
-export async function buildDropComponents(dropId: number) {
-  const drop = await getDropById(dropId);
-  if (!drop) {
-    return [];
-  }
+type DropForComponents = {
+  id: number;
+  slots: Array<{ slotIndex: number; claimedByUserId: string | null }>;
+};
 
+export function buildDropComponents(drop: DropForComponents) {
   const row = new ActionRowBuilder<ButtonBuilder>();
   for (const slot of drop.slots) {
     row.addComponents(
@@ -121,7 +121,7 @@ export async function handleClaimButton(interaction: ButtonInteraction) {
   }
 
   const claimedBy = drop.slots.map((slot: (typeof drop.slots)[number]) => slot.claimedByUserId);
-  const components = allSlotsClaimed(claimedBy) ? [] : await buildDropComponents(drop.id);
+  const components = allSlotsClaimed(claimedBy) ? [] : buildDropComponents(drop);
 
   const isBotDrop = drop.dropperUserId === interaction.client.user?.id;
   const dropContent = isBotDrop
