@@ -95,6 +95,16 @@ const VIEW_KEYWORDS: Record<string, CollectionViewMode> = {
   list: "list"
 };
 
+const TYPE_KEYWORDS: Record<string, string> = {
+  creature: "Creature",
+  artifact: "Artifact",
+  enchantment: "Enchantment",
+  instant: "Instant",
+  sorcery: "Sorcery",
+  land: "Land",
+  planeswalker: "Planeswalker"
+};
+
 interface ParsedShortcut {
   command: string;
   args: string[];
@@ -514,8 +524,39 @@ async function handleCollection(message: Message, args: string[]): Promise<void>
   let sort: CollectionSort = "recent";
   let viewMode: CollectionViewMode = "list";
   let tagName: string | null = null;
+  let nameSearch: string | null = null;
+  let typeFilter: string | null = null;
 
-  for (const arg of args) {
+  // First pass: find search: / s: and type: prefixed args (which may span multiple args)
+  const remaining: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const lower = args[i].toLowerCase();
+    if (lower.startsWith("search:") || lower.startsWith("s:")) {
+      const prefix = lower.startsWith("search:") ? "search:" : "s:";
+      const parts = [args[i].slice(prefix.length)];
+      // Consume following args until we hit a known keyword, mention, or another prefix
+      for (let j = i + 1; j < args.length; j++) {
+        const next = args[j].toLowerCase();
+        if (next.match(/^<@!?\d+>$/) || next in SORT_KEYWORDS || next in VIEW_KEYWORDS || next in TYPE_KEYWORDS || next.startsWith("search:") || next.startsWith("s:") || next.startsWith("type:")) {
+          break;
+        }
+        parts.push(args[j]);
+        i = j;
+      }
+      nameSearch = parts.join(" ").trim() || null;
+      continue;
+    }
+    if (lower.startsWith("type:")) {
+      const typeVal = args[i].slice("type:".length).trim();
+      if (typeVal.toLowerCase() in TYPE_KEYWORDS) {
+        typeFilter = TYPE_KEYWORDS[typeVal.toLowerCase()];
+      }
+      continue;
+    }
+    remaining.push(args[i]);
+  }
+
+  for (const arg of remaining) {
     // Check for user mention
     const mentionMatch = arg.match(/^<@!?(\d+)>$/);
     if (mentionMatch) {
@@ -540,11 +581,17 @@ async function handleCollection(message: Message, args: string[]): Promise<void>
       continue;
     }
 
+    // Check for type keyword shorthand (e.g., "kc artifact")
+    if (sortKey in TYPE_KEYWORDS) {
+      typeFilter = TYPE_KEYWORDS[sortKey];
+      continue;
+    }
+
     // Anything else is treated as tag name
     tagName = arg;
   }
 
-  const view = await buildCollectionView(targetUser, 1, sort, viewMode, message.author.id, tagName);
+  const view = await buildCollectionView(targetUser, 1, sort, viewMode, message.author.id, tagName, nameSearch, typeFilter);
   if (view == null) {
     await message.reply({ content: "Tag not found. Use `/tags` to list your tags." });
     return;

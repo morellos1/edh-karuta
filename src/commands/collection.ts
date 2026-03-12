@@ -45,50 +45,57 @@ export async function buildCollectionView(
   sort: CollectionSort = "recent",
   viewMode: CollectionViewMode = "list",
   viewerId?: string,
-  tagName?: string | null
+  tagName?: string | null,
+  nameSearch?: string | null,
+  typeFilter?: string | null
 ): Promise<{
   embed?: APIEmbed;
   content?: string;
   components: ActionRowBuilder<ButtonBuilder>[];
   file?: { buffer: Buffer; name: string };
+  nameSearch?: string | null;
+  typeFilter?: string | null;
 } | null> {
   const pageSize = viewMode === "album" ? 8 : 10;
   const tagId = tagName != null && tagName.trim() ? await getTagIdForUser(user.id, tagName) : null;
   if (tagName != null && tagName.trim() && tagId == null) {
     return null;
   }
-  const result = await getCollectionPage(user.id, page, sort, pageSize, tagId ?? undefined);
+  const result = await getCollectionPage(user.id, page, sort, pageSize, tagId ?? undefined, nameSearch, typeFilter);
   const goldBalance = await getGold(user.id);
   const titleSuffix = tagId != null ? ` · ${tagName?.trim()}` : "";
+  const filterSuffix = nameSearch ? ` · Search: ${nameSearch}` : typeFilter ? ` · Type: ${typeFilter}` : "";
   const pageInfo = `Page ${result.page}/${result.totalPages} | Total: ${result.total}`;
   const tagParam = tagName != null && tagName.trim() ? tagName.trim() : "";
+  const searchParam = nameSearch ?? "";
+  const typeParam = typeFilter ?? "";
 
   if (viewMode === "album") {
     const gridBuffer = await buildCollectionGrid(result.cards.map((e) => e.card));
     const embed = new EmbedBuilder()
-      .setTitle(`${user.username}'s Collection${titleSuffix}`)
+      .setTitle(`${user.username}'s Collection${titleSuffix}${filterSuffix}`)
       .setImage("attachment://collection-grid.webp")
       .setFooter({
         text: `💰 ${goldBalance} Gold · Album · ${pageInfo}`
       });
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
-        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:1:${sort}:album:${tagParam}:first`)
+        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:1:${sort}:album:${tagParam}:${searchParam}:${typeParam}:first`)
         .setLabel("⏮")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(result.page <= 1),
       new ButtonBuilder()
-        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page - 1}:${sort}:album:${tagParam}:prev`)
+        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page - 1}:${sort}:album:${tagParam}:${searchParam}:${typeParam}:prev`)
         .setLabel("⬅")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(result.page <= 1),
       new ButtonBuilder()
-        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page + 1}:${sort}:album:${tagParam}:next`)
+        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page + 1}:${sort}:album:${tagParam}:${searchParam}:${typeParam}:next`)
         .setLabel("➡")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(result.page >= result.totalPages),
       new ButtonBuilder()
-        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.totalPages}:${sort}:album:${tagParam}:last`)
+        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.totalPages}:${sort}:album:${tagParam}:${searchParam}:${typeParam}:last`)
         .setLabel("⏭")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(result.page >= result.totalPages)
@@ -105,7 +112,9 @@ export async function buildCollectionView(
       content: pageInfo,
       embed: embed.toJSON(),
       components: [row],
-      file: { buffer: gridBuffer, name: "collection-grid.webp" }
+      file: { buffer: gridBuffer, name: "collection-grid.webp" },
+      nameSearch,
+      typeFilter
     };
   }
 
@@ -120,6 +129,12 @@ export async function buildCollectionView(
     ? await getCheapestPrintPricesByNames(namesNeedingPrice)
     : new Map<string, number>();
   const defaultBase = getDefaultBasePriceUsd();
+
+  const noCardsMsg = nameSearch
+    ? `No cards named **${nameSearch}** found in ${user.username}'s collection.`
+    : typeFilter
+      ? `No **${typeFilter}** cards found in ${user.username}'s collection.`
+      : "No cards collected yet.";
 
   const description = result.cards.length
     ? result.cards
@@ -137,11 +152,11 @@ export async function buildCollectionView(
           return `\`${entry.displayId}\` · \`${stars}\` · \`${gold}\` · **${entry.card.name}**`;
         })
         .join("\n")
-    : "No cards collected yet.";
+    : noCardsMsg;
 
   const sortLabelStr = sortLabel(sort);
   const embed = new EmbedBuilder()
-    .setTitle(`${user.username}'s Collection${titleSuffix}`)
+    .setTitle(`${user.username}'s Collection${titleSuffix}${filterSuffix}`)
     .setDescription(description)
     .setFooter({
       text: `💰 ${goldBalance} Gold · Sort: ${sortLabelStr} | Page ${result.page}/${result.totalPages} | Total: ${result.total}`
@@ -149,22 +164,22 @@ export async function buildCollectionView(
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:1:${sort}:list:${tagParam}:first`)
+      .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:1:${sort}:list:${tagParam}:${searchParam}:${typeParam}:first`)
       .setLabel("⏮")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(result.page <= 1),
     new ButtonBuilder()
-      .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page - 1}:${sort}:list:${tagParam}:prev`)
+      .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page - 1}:${sort}:list:${tagParam}:${searchParam}:${typeParam}:prev`)
       .setLabel("⬅")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(result.page <= 1),
     new ButtonBuilder()
-      .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page + 1}:${sort}:list:${tagParam}:next`)
+      .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page + 1}:${sort}:list:${tagParam}:${searchParam}:${typeParam}:next`)
       .setLabel("➡")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(result.page >= result.totalPages),
     new ButtonBuilder()
-      .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.totalPages}:${sort}:list:${tagParam}:last`)
+      .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.totalPages}:${sort}:list:${tagParam}:${searchParam}:${typeParam}:last`)
       .setLabel("⏭")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(result.page >= result.totalPages)
@@ -180,7 +195,9 @@ export async function buildCollectionView(
 
   return {
     embed: embed.toJSON(),
-    components: [row]
+    components: [row],
+    nameSearch,
+    typeFilter
   };
 }
 
@@ -240,6 +257,24 @@ export const collectionCommand: SlashCommand = {
     )
     .addStringOption((opt) =>
       opt.setName("tag").setDescription("Show only cards with this tag").setRequired(false)
+    )
+    .addStringOption((opt) =>
+      opt.setName("search").setDescription("Search cards by name").setRequired(false)
+    )
+    .addStringOption((opt) =>
+      opt
+        .setName("type")
+        .setDescription("Filter by card type")
+        .setRequired(false)
+        .addChoices(
+          { name: "Creature", value: "Creature" },
+          { name: "Artifact", value: "Artifact" },
+          { name: "Enchantment", value: "Enchantment" },
+          { name: "Instant", value: "Instant" },
+          { name: "Sorcery", value: "Sorcery" },
+          { name: "Land", value: "Land" },
+          { name: "Planeswalker", value: "Planeswalker" }
+        )
     ),
   async execute(interaction: ChatInputCommandInteraction) {
     const user = (interaction.options.getUser("user", false) ?? interaction.user) as User;
@@ -247,12 +282,14 @@ export const collectionCommand: SlashCommand = {
     const sort = (interaction.options.getString("sort", false) ?? "recent") as CollectionSort;
     const viewMode = (interaction.options.getString("view", false) ?? "list") as CollectionViewMode;
     const tagName = interaction.options.getString("tag", false)?.trim() ?? null;
+    const nameSearch = interaction.options.getString("search", false)?.trim() ?? null;
+    const typeFilter = interaction.options.getString("type", false)?.trim() ?? null;
 
     if (viewMode === "album") {
       await interaction.deferReply();
     }
 
-    const view = await buildCollectionView(user, page, sort, viewMode, interaction.user.id, tagName);
+    const view = await buildCollectionView(user, page, sort, viewMode, interaction.user.id, tagName, nameSearch, typeFilter);
     if (view == null) {
       const msg = "Tag not found. Use `/tags` to list your tags.";
       if (interaction.deferred) {

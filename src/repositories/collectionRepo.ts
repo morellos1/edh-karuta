@@ -10,16 +10,31 @@ export async function getCollectionPage(
   page: number,
   sort: CollectionSort = "recent",
   pageSize: number = PAGE_SIZE,
-  tagId?: number | null
+  tagId?: number | null,
+  nameSearch?: string | null,
+  typeFilter?: string | null
 ) {
   const safePage = Math.max(1, page);
 
-  const baseWhere = tagId != null
+  const baseWhere: Record<string, unknown> = tagId != null
     ? {
         userId,
         tags: { some: { tagId } }
       }
     : { userId };
+
+  if (nameSearch) {
+    baseWhere.card = {
+      ...(baseWhere.card as Record<string, unknown> ?? {}),
+      name: { contains: nameSearch, mode: "insensitive" }
+    };
+  }
+  if (typeFilter) {
+    baseWhere.card = {
+      ...(baseWhere.card as Record<string, unknown> ?? {}),
+      typeLine: { contains: typeFilter, mode: "insensitive" }
+    };
+  }
 
   // Color-specific sorts: put cards containing the target color first (or
   // colorless cards first for "uncolored"), then fall back to color ASC.
@@ -31,6 +46,19 @@ export async function getCollectionPage(
     color_green: "G",
     color_uncolored: null
   };
+
+  // Build extra SQL filter clauses for name search and type filter
+  const extraClauses: string[] = [];
+  const extraParams: unknown[] = [];
+  if (nameSearch) {
+    extraClauses.push(`c.name LIKE ?`);
+    extraParams.push(`%${nameSearch}%`);
+  }
+  if (typeFilter) {
+    extraClauses.push(`c.typeLine LIKE ?`);
+    extraParams.push(`%${typeFilter}%`);
+  }
+  const extraWhere = extraClauses.length ? ` AND ${extraClauses.join(" AND ")}` : "";
 
   if (sort in COLOR_SORT_SYMBOL) {
     const symbol = COLOR_SORT_SYMBOL[sort];
@@ -49,17 +77,19 @@ export async function getCollectionPage(
 
     const [countResult, rows] = await Promise.all([
       prisma.$queryRawUnsafe<{ cnt: number }[]>(
-        `SELECT COUNT(*) as cnt FROM UserCard uc ${tagJoin} WHERE uc.userId = ?`,
-        userId
+        `SELECT COUNT(*) as cnt FROM UserCard uc JOIN Card c ON c.id = uc.cardId ${tagJoin} WHERE uc.userId = ?${extraWhere}`,
+        userId,
+        ...extraParams
       ),
       prisma.$queryRawUnsafe<{ id: number }[]>(
         `SELECT uc.id FROM UserCard uc
          JOIN Card c ON c.id = uc.cardId
          ${tagJoin}
-         WHERE uc.userId = ?
+         WHERE uc.userId = ?${extraWhere}
          ORDER BY ${orderExpr}, c.colors ASC
          LIMIT ? OFFSET ?`,
         userId,
+        ...extraParams,
         pageSize,
         skip
       )
@@ -137,14 +167,15 @@ export async function getCollectionPage(
 
   const [countResult, rows] = await Promise.all([
     prisma.$queryRawUnsafe<{ cnt: number }[]>(
-      `SELECT COUNT(*) as cnt FROM UserCard uc ${tagJoin} WHERE uc.userId = ?`,
-      userId
+      `SELECT COUNT(*) as cnt FROM UserCard uc JOIN Card c ON c.id = uc.cardId ${tagJoin} WHERE uc.userId = ?${extraWhere}`,
+      userId,
+      ...extraParams
     ),
     prisma.$queryRawUnsafe<{ id: number }[]>(
       `SELECT uc.id FROM UserCard uc
        JOIN Card c ON c.id = uc.cardId
        ${tagJoin}
-       WHERE uc.userId = ?
+       WHERE uc.userId = ?${extraWhere}
        ORDER BY (
          CASE
            WHEN c.usdPrice IS NOT NULL AND CAST(c.usdPrice AS REAL) > 0
@@ -161,6 +192,7 @@ export async function getCollectionPage(
        ) ${direction}
        LIMIT ? OFFSET ?`,
       userId,
+      ...extraParams,
       defaultBase,
       poorMult,
       goodMult,
