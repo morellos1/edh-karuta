@@ -221,7 +221,7 @@ async function handleDrop(message: Message): Promise<void> {
 
     const collage = await buildDropCollage(cards);
     const attachment = new AttachmentBuilder(collage, { name: "drop.webp" });
-    const components = await buildDropComponents(drop.id);
+    const components = buildDropComponents(drop);
 
     const dropLine = `<@${message.author.id}> is dropping 3 cards!`;
     const wishNotification = await buildWishlistNotification(
@@ -280,7 +280,7 @@ async function handleLanddrop(message: Message): Promise<void> {
 
     const collage = await buildDropCollage(cards);
     const attachment = new AttachmentBuilder(collage, { name: "drop.webp" });
-    const components = await buildDropComponents(drop.id);
+    const components = buildDropComponents(drop);
 
     const dropLine = `<@${message.author.id}> is dropping 3 nonbasic land cards!`;
     const wishNotification = await buildWishlistNotification(
@@ -339,7 +339,7 @@ async function handleCommanderdrop(message: Message): Promise<void> {
 
     const collage = await buildDropCollage(cards);
     const attachment = new AttachmentBuilder(collage, { name: "drop.webp" });
-    const components = await buildDropComponents(drop.id);
+    const components = buildDropComponents(drop);
 
     const dropLine = `<@${message.author.id}> is dropping 3 commander cards!`;
     const wishNotification = await buildWishlistNotification(
@@ -408,7 +408,7 @@ async function handleColordrop(message: Message, args: string[], prefix: string)
 
     const collage = await buildDropCollage(cards);
     const attachment = new AttachmentBuilder(collage, { name: "drop.webp" });
-    const components = await buildDropComponents(drop.id);
+    const components = buildDropComponents(drop);
 
     const dropLine = `<@${message.author.id}> is dropping 3 cards! (${colorArg})`;
     const wishNotification = await buildWishlistNotification(

@@ -69,21 +69,23 @@ async function processQueue(dropId: number) {
 
   processing.add(dropId);
 
+  // Fetch dropperUserId once — it never changes for a given drop.
+  const drop = await prisma.drop.findUnique({
+    where: { id: dropId },
+    select: { dropperUserId: true }
+  });
+
   try {
+    if (!drop) {
+      const queue = queues.get(dropId) ?? [];
+      for (const req of queue.splice(0, queue.length)) {
+        req.resolve({ ok: false, reason: "not_found" });
+      }
+      return;
+    }
+
     while ((queues.get(dropId)?.length ?? 0) > 0) {
       const queue = queues.get(dropId)!;
-      const drop = await prisma.drop.findUnique({
-        where: { id: dropId },
-        select: { dropperUserId: true }
-      });
-
-      if (!drop) {
-        for (const req of queue.splice(0, queue.length)) {
-          req.resolve({ ok: false, reason: "not_found" });
-        }
-        break;
-      }
-
       const nextIndex = pickNextClaimIndex(queue, drop.dropperUserId);
       const request = nextIndex >= 0 ? queue.splice(nextIndex, 1)[0] : queue.shift()!;
       const result = await withUserClaimLock(request.userId, () =>

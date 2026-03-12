@@ -58,7 +58,7 @@ export function startBotDropScheduler(client: Client) {
 
       const collage = await buildDropCollage(cards);
       const attachment = new AttachmentBuilder(collage, { name: "drop.webp" });
-      const components = await buildDropComponents(drop.id);
+      const components = buildDropComponents(drop);
 
       const dropLine = "I'm dropping 3 cards!";
       const wishNotification = await buildWishlistNotification(

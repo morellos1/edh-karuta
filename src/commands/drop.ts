@@ -61,7 +61,7 @@ export const dropCommand: SlashCommand = {
 
       const collage = await buildDropCollage(cards);
       const attachment = new AttachmentBuilder(collage, { name: "drop.webp" });
-      const components = await buildDropComponents(drop.id);
+      const components = buildDropComponents(drop);
 
       const isBotDrop = interaction.user.id === interaction.client.user?.id;
       const dropLine = isBotDrop
