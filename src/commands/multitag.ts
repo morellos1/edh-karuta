@@ -3,9 +3,9 @@ import type { SlashCommand } from "./types.js";
 import { getUserCardByDisplayId } from "../repositories/userCardRepo.js";
 import { addCardsToTag } from "../repositories/tagRepo.js";
 
-export const deckCommand: SlashCommand = {
+export const multitagCommand: SlashCommand = {
   data: new SlashCommandBuilder()
-    .setName("deck")
+    .setName("multitag")
     .setDescription("Tag multiple cards into a tag at once.")
     .addStringOption((opt) =>
       opt.setName("tagname").setDescription("Name of the tag").setRequired(true)
