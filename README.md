@@ -9,10 +9,11 @@ Discord bot inspired by Karuta, focused on MTG cards for Commander-style collect
 - **Commander Drop** — `/commanderdrop` drops 3 cards that are eligible as commanders, with a 24-hour cooldown per user.
 - **Land Drop** — `/landdrop` drops 3 random nonbasic land cards with rarity-weighted selection (50% common, 30% uncommon, 15% rare, 5% mythic), with a 2-hour cooldown per user.
 - **Conditions** — Claimed cards get a random condition (poor / good / mint) with configurable chances and **price multipliers** (see `game.config.json`). Gold value = base USD price × 100 × condition multiplier.
-- **Collection** — `/collection` shows paginated collection (instance ID, condition stars, gold value); sort by recent, color, price, or rarity. Supports list and album (grid) view modes. `/lookup <id>` shows a single card instance.
+- **Collection** — `/collection` shows paginated collection (instance ID, condition stars, gold value); sort by recent, color, price, or rarity. Supports list and album (grid) view modes. Filter by tag, card name search (`search:` / `s:`), card type (`type:creature`, etc.), or color-specific sorts. `/lookup <id>` shows a single card instance.
 - **Card info** — `/card <query>` shows card details, full-size image, total copies in circulation, wishlist count, and all available prints. Query: partial name or `setCode collectorNumber` (e.g. `mh3 123`). Cycle through prints with arrow buttons.
-- **Economy** — `/market` shows 6 rotating market slots (from top EDH Rec cards, refreshes every 3 hours). `/buy` purchases a market card for gold. `/give` and `/trade` move cards between users (gold values shown for trade fairness). `/burn` destroys a card for gold.
-- **Tags** — Organize your collection with custom tags: `/tagcreate`, `/tagdelete`, `/tagrename`, `/tag`, `/tags`, `/untag`. Filter your collection view by tag.
+- **Economy** — `/market` shows 6 rotating market slots (from top EDH Rec cards, refreshes every 3 hours). `/buy` purchases a market card for gold. `/give` and `/trade` move cards between users (gold values shown for trade fairness). `/burn` destroys a card for gold. `/bulkburn` burns all cards with a given tag at once.
+- **Tool Shop** — `/toolshop` lists purchasable extras. Buy **Extra Claims** to claim cards even while your claim cooldown is active.
+- **Tags** — Organize your collection with custom tags: `/tagcreate`, `/tagdelete`, `/tagrename`, `/tag`, `/multitag`, `/tags`, `/untag`. Filter your collection view by tag.
 - **Wishlist** — `/wishadd` to watch for specific cards (max 10 per server). When a wished-for card drops, you get pinged. `/wishremove` to stop watching. `/wl` to view your list.
 - **Persistence** — SQLite via Prisma. Scryfall bulk sync script to populate/update the card pool (~31,000 unique commander-legal card names, ~90,000+ prints across sets; basic lands excluded from drops).
 
@@ -102,7 +103,7 @@ npm run dev
 | `/colordrop <color>` | Drop 3 cards with chosen color identity — white, blue, black, red, or green (12h cooldown) |
 | `/commanderdrop` | Drop 3 commander-eligible cards (24h cooldown) |
 | `/landdrop` | Drop 3 random nonbasic land cards (2h cooldown) |
-| `/cd` | View your current Grab, Drop, Commanderdrop, and Landdrop cooldowns |
+| `/cd` | View your current Claim, Drop, Color Drop, Commander Drop, and Land Drop cooldowns |
 | `/setdropchannel` | Set the current channel for automatic drops every 30 minutes (admin only) |
 
 ### Viewing Cards & Collection
@@ -118,10 +119,12 @@ npm run dev
 | Command | Description |
 |---------|-------------|
 | `/market` | View the 6 rotating market cards (refreshes every 3h) |
-| `/buy <slot>` | Buy a market card for gold (slots A–F) |
+| `/buy <slot>` | Buy a market card for gold (slots A–L) |
 | `/give <user> <card_id>` | Give a card from your collection to another user |
 | `/trade <user> <your_id> <their_id>` | Propose a 1-for-1 trade (gold values shown for fairness) |
 | `/burn [id]` | Destroy a card and receive its gold value; omit ID to burn your last card |
+| `/bulkburn <tag>` | Burn all cards with a given tag in exchange for gold |
+| `/toolshop` | Browse the Tool Shop for extra tools and power-ups |
 
 ### Tags
 
@@ -131,6 +134,7 @@ npm run dev
 | `/tagdelete <name>` | Delete a tag |
 | `/tagrename <old> <new>` | Rename a tag |
 | `/tag <tagname> [card_id]` | Apply a tag to a card; omit ID to tag your last card |
+| `/multitag <tagname> <cardids>` | Tag multiple cards at once (space-separated IDs) |
 | `/tags [user]` | List all tags and card counts |
 | `/untag <card_id> [tagname]` | Remove a tag from a card; omit tag to remove all |
 
@@ -159,22 +163,50 @@ The default prefix is `k`. Admins can change it with `/setprefix`. For example, 
 | Shortcut | Equivalent | Arguments |
 |----------|-----------|-----------|
 | `kd` | `/drop` | none |
-| `kc` | `/collection` | flexible: @user, sort (color/price/rarity/recent), album, tagname |
+| `kld` | `/landdrop` | none |
+| `kcmd` | `/commanderdrop` | none |
+| `kcld <color>` | `/colordrop` | required: white, blue, black, red, or green |
+| `kc [args]` | `/collection` | flexible (see below) |
 | `km` | `/market` | none |
+| `kbuy <slot>` | `/buy` | market slot A–L |
+| `kbuy extra claim [qty]` | buy extra claims | optional quantity (default 1) |
+| `kts` | `/toolshop` | none |
 | `kb [id]` | `/burn` | optional 6-char card ID |
 | `kcd` | `/cd` | none |
 | `kt <tag> [id]` | `/tag` | required tag name, optional card ID |
+| `kmt <tag> <ids>` | `/multitag` | required tag name and space-separated card IDs |
 | `klu [id]` | `/lookup` | optional 6-char card ID (defaults to last collected) |
+| `kg @user <id>` | `/give` | required: mention and card ID |
 | `kwa <card name>` | `/wishadd` | required card name |
+| `kwr <card name>` | `/wishremove` | required card name |
+
+**Collection shortcut (`kc`) arguments** — combine freely in any order:
+- **User mention:** `@user` — view someone else's collection
+- **Sort:** `recent`, `color`, `white`, `blue`, `black`, `red`, `green`, `uncolored`, `price`, `price_asc`, `price_desc`, `rarity`
+- **View mode:** `album` or `list`
+- **Tag filter:** any tag name (e.g. `favorites`)
+- **Name search:** `search:cardname` or `s:cardname`
+- **Type filter:** `type:creature`, `type:artifact`, `type:enchantment`, `type:instant`, `type:sorcery`, `type:land`, `type:planeswalker` — or just the type name as a keyword (e.g. `creature`)
 
 **Examples:**
 - `kd` — drop 3 cards
+- `kld` — drop 3 nonbasic lands
+- `kcmd` — drop 3 commander-eligible cards
+- `kcld blue` — drop 3 blue cards
 - `kc @User rarity album` — view someone's collection sorted by rarity in album view
 - `kc favorites` — view your collection filtered by the "favorites" tag
+- `kc s:rhystic creature` — search for cards named "rhystic" that are creatures
+- `kc type:enchantment price_desc` — view enchantments sorted by price (high to low)
 - `kb ABC123` — burn card with ID ABC123
+- `kbuy A` — buy market slot A
+- `kbuy extra claim 3` — buy 3 extra claims
+- `kts` — browse the tool shop
 - `kt burn ABC123` — tag card ABC123 with tag "burn"
+- `kmt deck ABC123 DEF456 GHI789` — tag multiple cards into "deck"
 - `klu` — look up your last collected card
+- `kg @User ABC123` — give card ABC123 to a user
 - `kwa Rhystic Study` — add Rhystic Study to your wishlist
+- `kwr Rhystic Study` — remove Rhystic Study from your wishlist
 
 ## Reset collection
 
@@ -218,7 +250,7 @@ Cards appear in **drops** — a set of 3 random commander-legal MTG cards. Click
 - `/colordrop white|blue|black|red|green` — Drop 3 cards of a specific color identity. **12 hour cooldown.**
 - `/commanderdrop` — Drop 3 commander-eligible cards. **24 hour cooldown.**
 - `/landdrop` — Drop 3 random nonbasic land cards. **2 hour cooldown.**
-- `/cd` — Check your remaining cooldowns for Grab, Drop, Commanderdrop, and Landdrop.
+- `/cd` — Check your remaining cooldowns for Claim, Drop, Color Drop, Commander Drop, and Land Drop.
 
 You can only claim **one card per drop**, and you have **60 seconds** before the drop expires. The bot also **auto-drops cards every 30 minutes** in the designated channel — be ready!
 
@@ -237,7 +269,7 @@ Gold value = the card's real-world USD price × 100 × condition multiplier. Min
 
 ## Viewing Your Collection
 
-- `/collection` — Browse your cards (paginated). Add a sort: `recent`, `color`, `price_asc`, `price_desc`, or `rarity`. Switch between **list** and **album** (grid) views.
+- `/collection` — Browse your cards (paginated). Add a sort: `recent`, `color`, `price_asc`, `price_desc`, or `rarity`. Switch between **list** and **album** (grid) views. Filter by tag, search by card name, or filter by card type.
 - `/collection @user` — View someone else's collection.
 - `/lookup ABC123` — View the full details of a specific card by its 6-character ID.
 - `/card Shock` — Look up any MTG card's details, image, rarity, all available prints, and how many copies are in circulation.
@@ -249,7 +281,7 @@ Gold value = the card's real-world USD price × 100 × condition multiplier. Min
 The **Black Market** offers 6 rotating cards sourced from top EDH recommendations. It refreshes every **3 hours**.
 
 - `/market` — View what's currently for sale.
-- `/buy A` — Buy a card from the market (slots A through F). Costs gold from your balance.
+- `/buy A` — Buy a card from the market (slots A through L). Costs gold from your balance.
 
 ---
 
@@ -258,6 +290,14 @@ The **Black Market** offers 6 rotating cards sourced from top EDH recommendation
 - `/give @player ABC123` — Gift one of your cards to someone. They accept or decline.
 - `/trade @player ABC123 XYZ789` — Propose a 1-for-1 trade. Both cards' gold values are shown so you can judge fairness. The other player accepts or declines.
 - `/burn ABC123` — Destroy a card and get its gold value added to your balance. Use `/burn` with no ID to burn your most recently collected card.
+- `/bulkburn Jank` — Burn **all** cards tagged with "Jank" at once and receive gold for each.
+
+---
+
+## Tool Shop
+
+- `/toolshop` — Browse the Tool Shop for extra tools and power-ups.
+- **Extra Claim** — Lets you claim a card even when your claim cooldown is active. Buy with `/buy extra claim` or the text shortcut `kbuy extra claim`.
 
 ---
 
@@ -267,6 +307,7 @@ Create custom tags to organize your cards however you like:
 
 - `/tagcreate Favorites` — Create a new tag.
 - `/tag Favorites ABC123` — Tag a card. Omit the card ID to tag your most recent card.
+- `/multitag Deck ABC123 DEF456 GHI789` — Tag multiple cards at once.
 - `/tags` — See all your tags and how many cards are in each.
 - `/untag ABC123 Favorites` — Remove a tag from a card.
 - `/tagrename Favorites Keepers` — Rename a tag.
@@ -298,11 +339,14 @@ You can filter your `/collection` by tag to quickly find grouped cards.
 | `/card <name>` | Look up any MTG card |
 | `/market` | See market cards for sale |
 | `/buy <slot>` | Buy from the market |
+| `/toolshop` | Browse the Tool Shop |
 | `/give @user <id>` | Gift a card |
 | `/trade @user <id> <id>` | Trade cards 1-for-1 |
 | `/burn [id]` | Burn a card for gold |
+| `/bulkburn <tag>` | Burn all cards with a tag |
 | `/tagcreate <name>` | Create a tag |
 | `/tag <name> [id]` | Tag a card |
+| `/multitag <name> <ids>` | Tag multiple cards at once |
 | `/tags` | List your tags |
 | `/untag <id> [tag]` | Remove a tag |
 | `/wishadd <card>` | Watch for a card |
@@ -318,15 +362,23 @@ Your server may have **text shortcuts** enabled — quick commands you can type 
 | Shortcut | What it does |
 |----------|-------------|
 | `kd` | Drop 3 cards |
-| `kc` | View your collection |
+| `kld` | Drop 3 nonbasic lands |
+| `kcmd` | Drop 3 commanders |
+| `kcld <color>` | Drop 3 cards by color |
+| `kc [args]` | View your collection (sort, filter, search) |
 | `km` | View the market |
+| `kbuy <slot>` | Buy from market (A–L) |
+| `kts` | Browse the Tool Shop |
 | `kb [id]` | Burn a card for gold |
 | `kcd` | Check cooldowns |
 | `kt <tag> [id]` | Tag a card |
+| `kmt <tag> <ids>` | Tag multiple cards |
 | `klu [id]` | Look up a card |
+| `kg @user <id>` | Give a card |
 | `kwa <name>` | Add to wishlist |
+| `kwr <name>` | Remove from wishlist |
 
-Examples: `kc @User rarity album`, `kb ABC123`, `kt favorites`, `kwa Rhystic Study`
+Examples: `kd`, `kld`, `kcld blue`, `kc @User rarity album`, `kc s:rhystic`, `kb ABC123`, `kbuy A`, `kt favorites`, `kmt deck ABC123 DEF456`, `kg @User ABC123`, `kwa Rhystic Study`
 
 Happy collecting! May your pulls be mythic and your conditions be mint.
 ```
