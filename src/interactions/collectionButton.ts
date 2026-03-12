@@ -45,6 +45,8 @@ export async function handleCollectionPageButton(interaction: ButtonInteraction)
   const sort = (parts[3] ?? "recent") as CollectionSort;
   const viewMode = (parts[4] ?? "list") as "list" | "album";
   const tagName = parts[5]?.trim() || undefined;
+  const nameSearch = parts[6]?.trim() || undefined;
+  const typeFilterParam = parts[7]?.trim() || undefined;
 
   const nextPage = Number(pageRaw);
   if (!targetUserId || !Number.isInteger(nextPage) || nextPage < 1) {
@@ -53,7 +55,7 @@ export async function handleCollectionPageButton(interaction: ButtonInteraction)
   }
 
   const user = await interaction.client.users.fetch(targetUserId);
-  const view = await buildCollectionView(user, nextPage, sort, viewMode, interaction.user.id, tagName ?? null);
+  const view = await buildCollectionView(user, nextPage, sort, viewMode, interaction.user.id, tagName ?? null, nameSearch ?? null, typeFilterParam ?? null);
   if (!view) {
     await interaction.followUp({ content: "Tag no longer exists.", flags: 64 }).catch(() => {});
     return;
