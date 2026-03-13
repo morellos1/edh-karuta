@@ -1,5 +1,24 @@
 import { prisma } from "../db.js";
 
+/**
+ * Wrap a SQL column/expression so that punctuation characters are stripped
+ * before comparison.  Mirrors the JS-side `stripPunctuation` helper below.
+ */
+function sqlStrip(col: string): string {
+  // Same characters as stripPunctuation: ' - , . : ; " ! ?
+  const chars = ["'''", "'-'", "','", "'.'", "':'", "';'", "'\"'", "'!'", "'?'"];
+  let expr = col;
+  for (const c of chars) {
+    expr = `REPLACE(${expr}, ${c}, '')`;
+  }
+  return expr;
+}
+
+/** Strip punctuation on the JS side so both halves of the comparison match. */
+function stripPunctuation(s: string): string {
+  return s.replace(/['\-,.:;"!?]/g, "");
+}
+
 /** Add a card name to a user's wishlist for a specific guild. */
 export async function addWishlistEntry(
   userId: string,
@@ -17,12 +36,13 @@ export async function removeWishlistEntry(
   guildId: string,
   cardName: string
 ): Promise<boolean> {
+  const stripped = sqlStrip('"cardName"');
   const rows = await prisma.$queryRawUnsafe<{ id: number }[]>(
     `SELECT "id" FROM "Wishlist"
-     WHERE "userId" = ? AND "guildId" = ? AND "cardName" COLLATE NOCASE = ?`,
+     WHERE "userId" = ? AND "guildId" = ? AND ${stripped} COLLATE NOCASE = ?`,
     userId,
     guildId,
-    cardName
+    stripPunctuation(cardName)
   );
   if (!rows.length) return false;
 
@@ -60,13 +80,14 @@ export async function wishlistEntryExists(
   guildId: string,
   cardName: string
 ): Promise<boolean> {
+  const stripped = sqlStrip('"cardName"');
   const rows = await prisma.$queryRawUnsafe<{ id: number }[]>(
     `SELECT "id" FROM "Wishlist"
-     WHERE "userId" = ? AND "guildId" = ? AND "cardName" COLLATE NOCASE = ?
+     WHERE "userId" = ? AND "guildId" = ? AND ${stripped} COLLATE NOCASE = ?
      LIMIT 1`,
     userId,
     guildId,
-    cardName
+    stripPunctuation(cardName)
   );
   return rows.length > 0;
 }
@@ -94,14 +115,15 @@ export async function findWishlistWatchers(
 ): Promise<Map<string, string[]>> {
   if (!cardNames.length) return new Map();
 
+  const stripped = sqlStrip('"cardName"');
   const placeholders = cardNames.map(() => "?").join(", ");
   const entries = await prisma.$queryRawUnsafe<
     { cardName: string; userId: string }[]
   >(
     `SELECT "cardName", "userId" FROM "Wishlist"
-     WHERE "guildId" = ? AND "cardName" COLLATE NOCASE IN (${placeholders})`,
+     WHERE "guildId" = ? AND ${stripped} COLLATE NOCASE IN (${placeholders})`,
     guildId,
-    ...cardNames
+    ...cardNames.map(stripPunctuation)
   );
 
   const map = new Map<string, string[]>();
