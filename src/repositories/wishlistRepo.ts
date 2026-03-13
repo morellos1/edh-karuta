@@ -17,10 +17,19 @@ export async function removeWishlistEntry(
   guildId: string,
   cardName: string
 ): Promise<boolean> {
-  const result = await prisma.wishlist.deleteMany({
-    where: { userId, guildId, cardName }
+  const rows = await prisma.$queryRawUnsafe<{ id: number }[]>(
+    `SELECT "id" FROM "Wishlist"
+     WHERE "userId" = ? AND "guildId" = ? AND "cardName" COLLATE NOCASE = ?`,
+    userId,
+    guildId,
+    cardName
+  );
+  if (!rows.length) return false;
+
+  await prisma.wishlist.deleteMany({
+    where: { id: { in: rows.map((r) => r.id) } }
   });
-  return result.count > 0;
+  return true;
 }
 
 /** Get all wishlist entries for a user in a guild. */
@@ -51,10 +60,15 @@ export async function wishlistEntryExists(
   guildId: string,
   cardName: string
 ): Promise<boolean> {
-  const entry = await prisma.wishlist.findUnique({
-    where: { userId_guildId_cardName: { userId, guildId, cardName } }
-  });
-  return entry !== null;
+  const rows = await prisma.$queryRawUnsafe<{ id: number }[]>(
+    `SELECT "id" FROM "Wishlist"
+     WHERE "userId" = ? AND "guildId" = ? AND "cardName" COLLATE NOCASE = ?
+     LIMIT 1`,
+    userId,
+    guildId,
+    cardName
+  );
+  return rows.length > 0;
 }
 
 /** Count how many distinct users have this card name wishlisted (across all guilds). */
@@ -70,19 +84,26 @@ export async function getWishlistCardCount(cardName: string): Promise<number> {
  * Given a list of card names being dropped and a guild ID,
  * find all users who have any of those names on their wishlist.
  * Returns a map of cardName → userId[].
+ *
+ * Uses case-insensitive matching (COLLATE NOCASE) so that wishlist
+ * entries still match even if card-name casing drifts between Scryfall syncs.
  */
 export async function findWishlistWatchers(
   guildId: string,
   cardNames: string[]
 ): Promise<Map<string, string[]>> {
   if (!cardNames.length) return new Map();
-  const entries = await prisma.wishlist.findMany({
-    where: {
-      guildId,
-      cardName: { in: cardNames }
-    },
-    select: { cardName: true, userId: true }
-  });
+
+  const placeholders = cardNames.map(() => "?").join(", ");
+  const entries = await prisma.$queryRawUnsafe<
+    { cardName: string; userId: string }[]
+  >(
+    `SELECT "cardName", "userId" FROM "Wishlist"
+     WHERE "guildId" = ? AND "cardName" COLLATE NOCASE IN (${placeholders})`,
+    guildId,
+    ...cardNames
+  );
+
   const map = new Map<string, string[]>();
   for (const entry of entries) {
     const users = map.get(entry.cardName) ?? [];
