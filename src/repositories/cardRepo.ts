@@ -133,13 +133,22 @@ function baseDroppableWhere(
   };
 }
 
+/** Compute per-name selection weights.  Exported for testing. */
+export function computeSelectionWeights(
+  groups: { _count: { name: number } }[],
+  uniform: boolean
+): number[] {
+  return uniform
+    ? groups.map(() => 1)
+    : groups.map((g) => Math.log2(g._count.name + 1));
+}
+
 async function pickRandomCard(
   where: Prisma.CardWhereInput,
-  excludeNames: string[] = []
+  excludeNames: string[] = [],
+  options: { uniformWeight?: boolean } = {}
 ): Promise<Card | null> {
   // Get distinct card names with their print counts for weighted selection.
-  // Weight = log2(printCount + 1), so a card with 100 prints is ~6.7x more
-  // likely than a single-print card instead of 100x.
   let groups = await getCardPoolGroups(where);
 
   // Filter out card names already picked in this drop to prevent duplicate
@@ -151,8 +160,10 @@ async function pickRandomCard(
 
   if (groups.length === 0) return null;
 
-  // Weighted random selection using log-compressed print counts.
-  const weights = groups.map((g) => Math.log2(g._count.name + 1));
+  // When uniformWeight is true, every unique card name has equal probability.
+  // Otherwise, weight = log2(printCount + 1) so a card with 100 prints is
+  // ~6.7x more likely than a single-print card instead of 100x.
+  const weights = computeSelectionWeights(groups, options.uniformWeight ?? false);
   const totalWeight = weights.reduce((sum, w) => sum + w, 0);
   let roll = Math.random() * totalWeight;
 
@@ -259,24 +270,20 @@ export async function getRandomCommanderCards(
     throw new Error(`Not enough commander cards in pool to drop ${count} cards.`);
   }
 
+  // Commanders are almost exclusively rare/mythic, so the normal rarity
+  // distribution (50% common, 30% uncommon) would miss ~80% of rolls and
+  // fall back to the full pool every time.  Instead, skip rarity filtering
+  // and use uniform weighting per unique card name so every commander has
+  // an equal chance — regardless of how many variant printings it has.
   const cards: Card[] = [];
   const pickedIds: number[] = [];
   const pickedNames: string[] = [];
   while (cards.length < count) {
-    const targetRarity = rollTargetRarity();
-    const strictWhere: Prisma.CardWhereInput = {
-      ...baseDroppableWhere(pickedIds),
-      ...commanderWhereFilter(),
-      rarity: targetRarity
-    };
-
-    let candidate = await pickRandomCard(strictWhere, pickedNames);
-    if (!candidate) {
-      candidate = await pickRandomCard({
-        ...baseDroppableWhere(pickedIds),
-        ...commanderWhereFilter()
-      }, pickedNames);
-    }
+    const candidate = await pickRandomCard(
+      { ...baseDroppableWhere(pickedIds), ...commanderWhereFilter() },
+      pickedNames,
+      { uniformWeight: true }
+    );
     if (!candidate) {
       break;
     }
