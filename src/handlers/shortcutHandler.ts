@@ -484,7 +484,7 @@ async function handleGive(message: Message, args: string[], prefix: string): Pro
   }
 
   const image = getCardImageUrl(myCard.card);
-  const baseUsd = await resolveBasePrice(myCard.card.usdPrice, myCard.card.name);
+  const baseUsd = await resolveBasePrice(myCard.card.usdPrice, myCard.card.name, myCard.card.eurPrice);
   const gold = getGoldValue(String(baseUsd), myCard.condition);
   const stars = conditionToStars(myCard.condition);
 
@@ -816,7 +816,7 @@ async function handleBurn(message: Message, args: string[]): Promise<void> {
     return;
   }
 
-  const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name);
+  const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name, userCard.card.eurPrice);
   const gold = getGoldValue(String(baseUsd), userCard.condition);
   const image = getCardImageUrl(userCard.card);
 
@@ -982,7 +982,7 @@ async function handleLookup(message: Message, args: string[]): Promise<void> {
     return;
   }
 
-  const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name);
+  const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name, userCard.card.eurPrice);
   const displayPrice = formatConditionPrice(String(baseUsd), userCard.condition);
   const image = getCardImageUrl(userCard.card);
   const claimedAt = userCard.claimedAt.toISOString().split("T")[0];
