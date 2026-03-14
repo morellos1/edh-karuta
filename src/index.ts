@@ -96,6 +96,14 @@ client.once("ready", () => {
   startDropCleanupScheduler();
 });
 
+client.on("error", (error) => {
+  console.error("Discord client error:", error);
+});
+
+client.on("warn", (message) => {
+  console.warn("Discord client warning:", message);
+});
+
 client.on("interactionCreate", async (interaction: Interaction) => {
   try {
     if (interaction.isButton() && interaction.customId.startsWith(`${CLAIM_BUTTON_PREFIX}:`)) {
@@ -219,7 +227,10 @@ async function bootstrap() {
   await client.login(env.DISCORD_TOKEN);
 }
 
-void bootstrap();
+void bootstrap().catch((error) => {
+  console.error("Bootstrap failed:", error);
+  process.exit(1);
+});
 
 const shutdown = async () => {
   await prisma.$disconnect();
@@ -229,3 +240,11 @@ const shutdown = async () => {
 
 process.on("SIGINT", () => void shutdown());
 process.on("SIGTERM", () => void shutdown());
+
+process.on("unhandledRejection", (error) => {
+  console.error("Unhandled promise rejection:", error);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("Uncaught exception:", error);
+});
