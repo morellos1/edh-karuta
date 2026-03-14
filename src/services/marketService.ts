@@ -3,6 +3,7 @@ import { join } from "node:path";
 import type { CardLookup } from "../repositories/cardRepo.js";
 import { findCardPrintsByName } from "../repositories/cardRepo.js";
 
+const EUR_TO_USD = 1.15;
 const MARKET_REFRESH_MS = 3 * 60 * 60 * 1000; // 3 hours
 const MARKET_CARD_COUNT = 12;
 const MARKET_PRICE_MULTIPLIER = 10_000; // scryfall USD × 10000 = gold
@@ -10,6 +11,15 @@ const MARKET_PAGE_SIZE = 6;
 
 const MARKET_IDS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"] as const;
 export type MarketCardId = (typeof MARKET_IDS)[number];
+
+/** Resolve a card's base USD price, falling back to EUR converted. */
+function resolveCardUsd(card: { usdPrice: string | null; eurPrice: string | null }): number {
+  const usd = Number(card.usdPrice);
+  if (Number.isFinite(usd) && usd > 0) return usd;
+  const eur = Number(card.eurPrice);
+  if (Number.isFinite(eur) && eur > 0) return Math.round(eur * EUR_TO_USD * 100) / 100;
+  return 0;
+}
 
 export type MarketCardEntry = {
   id: MarketCardId;
@@ -135,12 +145,12 @@ export async function getMarketCardsForSlot(slotIndex: number): Promise<MarketCa
     const name = names[indices[i]];
     if (prevNames.has(name)) continue; // skip cards from previous rotation
     const prints = await findCardPrintsByName(name);
-    const withPrice = prints.filter((c) => c.usdPrice != null && Number(c.usdPrice) > 0);
+    const withPrice = prints.filter((c) => resolveCardUsd(c) > 0);
     const card = withPrice.length
-      ? withPrice.sort((a, b) => Number(a.usdPrice) - Number(b.usdPrice))[0]
+      ? withPrice.sort((a, b) => resolveCardUsd(a) - resolveCardUsd(b))[0]
       : prints[0];
     if (!card) continue;
-    const usd = card.usdPrice != null ? Number(card.usdPrice) : 0;
+    const usd = resolveCardUsd(card);
     const priceGold = Number.isFinite(usd) && usd > 0 ? Math.round(usd * MARKET_PRICE_MULTIPLIER) : 0;
     entries.push({
       id: MARKET_IDS[entries.length],

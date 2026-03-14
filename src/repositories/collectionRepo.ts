@@ -180,6 +180,8 @@ export async function getCollectionPage(
          CASE
            WHEN c.usdPrice IS NOT NULL AND CAST(c.usdPrice AS REAL) > 0
              THEN CAST(c.usdPrice AS REAL)
+           WHEN c.eurPrice IS NOT NULL AND CAST(c.eurPrice AS REAL) > 0
+             THEN ROUND(CAST(c.eurPrice AS REAL) * 1.15, 2)
            ELSE ?
          END
          *

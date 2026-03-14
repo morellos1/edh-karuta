@@ -40,7 +40,7 @@ async function buildCardEmbedAsync(card: CardLookup, printIndex: number, totalPr
     )
     .addFields(
       { name: "Rarity", value: formatRarity(card.rarity), inline: true },
-      { name: "Gold", value: formatBaseGold(card.usdPrice), inline: true },
+      { name: "Gold", value: formatBaseGold(card.usdPrice, card.eurPrice), inline: true },
       { name: "Colors", value: formatColorCircles(card.colors), inline: true },
       { name: "In circulation", value: `${circulation}`, inline: true },
       { name: "Wishlisted by", value: `${wishlisted}`, inline: true },
