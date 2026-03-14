@@ -17,6 +17,7 @@ model Card {
   releasedAt     String?    // YYYY-MM-DD for ordering first print
   lang            String?
   usdPrice        String?
+  eurPrice        String?
   manaCost        String?
   typeLine        String?
   oracleText      String?

@@ -71,13 +71,20 @@ export function getCardImageUrl(card: {
   return card.imagePng ?? card.imageLarge ?? card.imageNormal ?? card.imageSmall;
 }
 
+/** Fixed EUR → USD conversion rate. */
+const EUR_TO_USD = 1.15;
+
 /** Resolve the base USD price for a card, falling back to cheapest print or default. */
 export async function resolveBasePrice(
   cardUsdPrice: string | null,
-  cardName: string
+  cardName: string,
+  cardEurPrice?: string | null
 ): Promise<number> {
   if (cardUsdPrice != null && Number.isFinite(Number(cardUsdPrice))) {
     return Number(cardUsdPrice);
+  }
+  if (cardEurPrice != null && Number.isFinite(Number(cardEurPrice))) {
+    return Math.round(Number(cardEurPrice) * EUR_TO_USD * 100) / 100;
   }
   const { getCheapestPrintPricesByNames, getDefaultBasePriceUsd } = await import("../repositories/cardRepo.js");
   const priceMap = await getCheapestPrintPricesByNames([cardName]);

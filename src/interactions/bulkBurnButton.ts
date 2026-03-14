@@ -49,7 +49,7 @@ export async function handleBulkBurnConfirmButton(interaction: ButtonInteraction
   // Calculate gold and delete cards
   let totalGold = 0;
   for (const entry of cards) {
-    const baseUsd = await resolveBasePrice(entry.card.usdPrice, entry.card.name);
+    const baseUsd = await resolveBasePrice(entry.card.usdPrice, entry.card.name, entry.card.eurPrice);
     const gold = getGoldValue(String(baseUsd), entry.condition);
     totalGold += gold;
     await deleteUserCard(entry.id);

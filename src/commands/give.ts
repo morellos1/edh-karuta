@@ -46,7 +46,7 @@ export const giveCommand: SlashCommand = {
 
     const image = getCardImageUrl(myCard.card);
 
-    const baseUsd = await resolveBasePrice(myCard.card.usdPrice, myCard.card.name);
+    const baseUsd = await resolveBasePrice(myCard.card.usdPrice, myCard.card.name, myCard.card.eurPrice);
     const gold = getGoldValue(String(baseUsd), myCard.condition);
     const stars = conditionToStars(myCard.condition);
     const embed = new EmbedBuilder()

@@ -12,6 +12,7 @@ export type CardLookup = {
   collectorNumber: string;
   lang: string | null;
   usdPrice: string | null;
+  eurPrice: string | null;
   rarity: string | null;
   colors: string | null;
   colorIdentity: string | null;
@@ -34,6 +35,7 @@ function toCardLookup(card: Card): CardLookup {
     collectorNumber: card.collectorNumber,
     lang: card.lang,
     usdPrice: card.usdPrice,
+    eurPrice: card.eurPrice,
     rarity: card.rarity,
     colors: card.colors,
     colorIdentity: card.colorIdentity,
@@ -411,6 +413,7 @@ const cardSelect = {
   collectorNumber: true,
   lang: true,
   usdPrice: true,
+  eurPrice: true,
   rarity: true,
   colors: true,
   colorIdentity: true,

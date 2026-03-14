@@ -53,7 +53,7 @@ export const bulkburnCommand: SlashCommand = {
     // Calculate gold for each card
     const cardGolds: { card: (typeof cards)[number]; gold: number; baseUsd: number }[] = [];
     for (const entry of cards) {
-      const baseUsd = await resolveBasePrice(entry.card.usdPrice, entry.card.name);
+      const baseUsd = await resolveBasePrice(entry.card.usdPrice, entry.card.name, entry.card.eurPrice);
       const gold = getGoldValue(String(baseUsd), entry.condition);
       cardGolds.push({ card: entry, gold, baseUsd });
     }

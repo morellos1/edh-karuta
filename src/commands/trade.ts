@@ -64,8 +64,8 @@ export const tradeCommand: SlashCommand = {
     }
 
     const [baseUsdMy, baseUsdTheir] = await Promise.all([
-      resolveBasePrice(myCard.card.usdPrice, myCard.card.name),
-      resolveBasePrice(theirCard.card.usdPrice, theirCard.card.name)
+      resolveBasePrice(myCard.card.usdPrice, myCard.card.name, myCard.card.eurPrice),
+      resolveBasePrice(theirCard.card.usdPrice, theirCard.card.name, theirCard.card.eurPrice)
     ]);
     const myGold = getGoldValue(String(baseUsdMy), myCard.condition);
     const theirGold = getGoldValue(String(baseUsdTheir), theirCard.condition);

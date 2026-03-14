@@ -26,7 +26,7 @@ export const lookupCommand: SlashCommand = {
       return;
     }
 
-    const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name);
+    const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name, userCard.card.eurPrice);
     const displayPrice = formatConditionPrice(String(baseUsd), userCard.condition);
 
     const image = getCardImageUrl(userCard.card);

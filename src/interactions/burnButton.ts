@@ -26,7 +26,7 @@ export async function handleBurnConfirmButton(interaction: ButtonInteraction) {
     return;
   }
 
-  const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name);
+  const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name, userCard.card.eurPrice);
   const gold = getGoldValue(String(baseUsd), userCard.condition);
   const image = getCardImageUrl(userCard.card);
 
@@ -81,7 +81,7 @@ export async function handleBurnCancelButton(interaction: ButtonInteraction) {
     return;
   }
 
-  const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name);
+  const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name, userCard.card.eurPrice);
   const gold = getGoldValue(String(baseUsd), userCard.condition);
   const image = getCardImageUrl(userCard.card);
 
