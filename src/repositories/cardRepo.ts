@@ -386,7 +386,7 @@ export async function findCardByQuery(query: string): Promise<CardLookup | null>
 
   const rows = await prisma.$queryRawUnsafe<{ id: number }[]>(
     `SELECT id FROM Card
-     WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name,'''',''),'-',''),',',''),'.',''),':',''),';',''),'"',''),'!',''),'?','')
+     WHERE REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(name,'''''',''),'-',''),',',''),'.',''),':',''),';',''),'"',''),'!',''),'?','')
            LIKE '%' || ? || '%'
        AND isCommanderLegal = 1
        AND lang = 'en'

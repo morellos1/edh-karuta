@@ -6,7 +6,7 @@ import { prisma } from "../db.js";
  */
 function sqlStrip(col: string): string {
   // Same characters as stripPunctuation: ' - , . : ; " ! ?
-  const chars = ["'''", "'-'", "','", "'.'", "':'", "';'", "'\"'", "'!'", "'?'"];
+  const chars = ["''''", "'-'", "','", "'.'", "':'", "';'", "'\"'", "'!'", "'?'"];
   let expr = col;
   for (const c of chars) {
     expr = `REPLACE(${expr}, ${c}, '')`;
