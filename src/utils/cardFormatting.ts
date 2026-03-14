@@ -21,12 +21,17 @@ export function formatRarity(rarity: string | null | undefined): string {
     .join(" ");
 }
 
-/** Base price as gold (USD × 100), no condition multiplier. */
-export function formatBaseGold(usd: string | null | undefined): string {
-  if (!usd) return "N/A";
-  const parsed = Number(usd);
-  if (!Number.isFinite(parsed)) return "N/A";
-  return `${Math.round(parsed * 100)} gold`;
+/** Base price as gold (USD × 100), no condition multiplier. Falls back to EUR converted if USD is missing. */
+export function formatBaseGold(usd: string | null | undefined, eur?: string | null): string {
+  if (usd) {
+    const parsed = Number(usd);
+    if (Number.isFinite(parsed)) return `${Math.round(parsed * 100)} gold`;
+  }
+  if (eur) {
+    const parsed = Number(eur);
+    if (Number.isFinite(parsed)) return `${Math.round(parsed * EUR_TO_USD * 100)} gold`;
+  }
+  return "N/A";
 }
 
 export function formatColorCircles(colors: string | null | undefined): string {

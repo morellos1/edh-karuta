@@ -480,7 +480,9 @@ export async function findCardPrintsByName(name: string): Promise<CardLookup[]> 
 
 const DEFAULT_BASE_PRICE_USD = 0.1; // 10g before condition multiplier
 
-/** Cheapest USD price among all prints of each name that have a valid price. Names with no valid print return undefined (caller uses DEFAULT_BASE_PRICE_USD). */
+const EUR_TO_USD = 1.15;
+
+/** Cheapest USD price among all prints of each name that have a valid price (USD or EUR converted). Names with no valid print return undefined (caller uses DEFAULT_BASE_PRICE_USD). */
 export async function getCheapestPrintPricesByNames(
   names: string[]
 ): Promise<Map<string, number>> {
@@ -489,13 +491,19 @@ export async function getCheapestPrintPricesByNames(
   const cards = await prisma.card.findMany({
     where: {
       name: { in: unique },
-      usdPrice: { not: null }
+      OR: [
+        { usdPrice: { not: null } },
+        { eurPrice: { not: null } }
+      ]
     },
-    select: { name: true, usdPrice: true }
+    select: { name: true, usdPrice: true, eurPrice: true }
   });
   const map = new Map<string, number>();
   for (const c of cards) {
-    const num = Number(c.usdPrice);
+    let num = Number(c.usdPrice);
+    if (!Number.isFinite(num) || num <= 0) {
+      num = Math.round(Number(c.eurPrice) * EUR_TO_USD * 100) / 100;
+    }
     if (!Number.isFinite(num) || num <= 0) continue;
     const current = map.get(c.name);
     if (current === undefined || num < current) map.set(c.name, num);

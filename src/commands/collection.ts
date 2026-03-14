@@ -22,6 +22,18 @@ export const COLLECTION_BUTTON_PREFIX = "collection_page";
 export const COLLECTION_EXPORT_PREFIX = "collection_export";
 const GOLD_MAX_DIGITS = 7; // 9999999g max -> 8 chars total
 const GOLD_PAD_WIDTH = GOLD_MAX_DIGITS + 1; // 8
+const EUR_TO_USD = 1.15;
+
+/** Return a USD base price from the card's own usdPrice or eurPrice, or null if neither is usable. */
+function resolveInlinePrice(card: { usdPrice: string | null; eurPrice: string | null }): number | null {
+  if (card.usdPrice != null && Number.isFinite(Number(card.usdPrice))) {
+    return Number(card.usdPrice);
+  }
+  if (card.eurPrice != null && Number.isFinite(Number(card.eurPrice))) {
+    return Math.round(Number(card.eurPrice) * EUR_TO_USD * 100) / 100;
+  }
+  return null;
+}
 
 export type CollectionViewMode = "list" | "album";
 
@@ -121,7 +133,7 @@ export async function buildCollectionView(
   const namesNeedingPrice = [
     ...new Set(
       result.cards
-        .filter((e) => !e.card.usdPrice || !Number.isFinite(Number(e.card.usdPrice)))
+        .filter((e) => !resolveInlinePrice(e.card))
         .map((e) => e.card.name)
     )
   ];
@@ -139,10 +151,8 @@ export async function buildCollectionView(
   const description = result.cards.length
     ? result.cards
         .map((entry: (typeof result.cards)[number]) => {
-          const baseUsd =
-            entry.card.usdPrice != null && Number.isFinite(Number(entry.card.usdPrice))
-              ? Number(entry.card.usdPrice)
-              : (priceMap.get(entry.card.name) ?? defaultBase);
+          const baseUsd = resolveInlinePrice(entry.card)
+              ?? (priceMap.get(entry.card.name) ?? defaultBase);
           const stars = conditionToStars(entry.condition);
           const gold = formatGoldShort(baseUsd, entry.condition);
           if (sort === "color" || sort.startsWith("color_")) {
