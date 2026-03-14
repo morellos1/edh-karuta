@@ -7,6 +7,8 @@ import { gameConfig } from "../config.js";
 import type { SlashCommand } from "./types.js";
 import { getRandomCommanderCards } from "../repositories/cardRepo.js";
 import { getCommanderdropCooldownRemainingMs, setCommanderdropUsed } from "../repositories/botConfigRepo.js";
+import { consumeExtraCommanderDropTx } from "../repositories/extraCommanderDropRepo.js";
+import { prisma } from "../db.js";
 import { buildDropCollage } from "../services/collageService.js";
 import { attachDropMessage, createDropRecord } from "../services/dropService.js";
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
@@ -30,14 +32,24 @@ export const commanderdropCommand: SlashCommand = {
       return;
     }
 
+    let usedExtraCommanderDrop: number | null = null;
     const blocked = await withCommanderdropLock(interaction.user.id, async () => {
       const remainingMs = await getCommanderdropCooldownRemainingMs(interaction.user.id);
       if (remainingMs > 0) {
-        await interaction.reply({
-          content: `Commander Drop is on cooldown. Try again ${formatCooldownRemaining(remainingMs)}.`,
-          ephemeral: true
+        // Try to consume an extra commanderdrop
+        const remaining = await prisma.$transaction(async (tx) => {
+          return consumeExtraCommanderDropTx(tx, interaction.user.id);
         });
-        return true;
+        if (remaining === null) {
+          await interaction.reply({
+            content: `Commander Drop is on cooldown. Try again ${formatCooldownRemaining(remainingMs)}.`,
+            ephemeral: true
+          });
+          return true;
+        }
+        usedExtraCommanderDrop = remaining;
+        // Don't reset the default cooldown — it keeps ticking in the background
+        return false;
       }
       await setCommanderdropUsed(interaction.user.id);
       return false;
@@ -85,6 +97,12 @@ export const commanderdropCommand: SlashCommand = {
         messageId: message.id,
         expiresAt
       });
+
+      if (usedExtraCommanderDrop !== null) {
+        await interaction.followUp({
+          content: `<@${interaction.user.id}>, your Extra CommanderDrop has been consumed. You have ${usedExtraCommanderDrop} remaining.`
+        });
+      }
     } catch (error) {
       await interaction.editReply({
         content: `Commander Drop failed: ${(error as Error).message}`

@@ -2,7 +2,7 @@
 
 **Database:** SQLite (via Prisma ORM)
 **Schema file:** [`prisma/schema.prisma`](../prisma/schema.prisma)
-**Models:** 14 total
+**Models:** 15 total
 **Migrations:** 16 incremental migrations in `prisma/migrations/`
 
 ---
@@ -337,6 +337,21 @@ Five separate tables track cooldowns for different actions. Each stores only one
 |--------|------|-------------|-------------|
 | `userId` | String | PK | Discord user ID |
 | `lastUsedAt` | DateTime | — | Last land drop timestamp |
+
+---
+
+### ExtraCommanderDrop
+
+Purchased items that let users bypass the Commander Drop cooldown. Each row is a single-use token.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | Int | PK, auto-increment | Internal ID |
+| `userId` | String | Indexed (composite) | Discord user ID |
+| `createdAt` | DateTime | Default: now() | When purchased |
+| `usedAt` | DateTime? | Indexed (composite) | When consumed (null = unused) |
+
+**Indexes:** `(userId, usedAt)` — Count/find unused tokens for a user
 
 ---
 

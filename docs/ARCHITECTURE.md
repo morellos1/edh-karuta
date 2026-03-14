@@ -204,6 +204,7 @@ edh-karuta/
 │   │   ├── wishlistRepo.ts     #   Wishlist CRUD
 │   │   ├── tagRepo.ts          #   Tag management
 │   │   ├── botConfigRepo.ts    #   Config + cooldowns
+│   │   ├── extraCommanderDropRepo.ts # Extra commanderdrop inventory
 │   │   └── guildSettingsRepo.ts#   Guild settings
 │   ├── handlers/
 │   │   └── shortcutHandler.ts  # Text command → slash command routing
@@ -491,6 +492,8 @@ All gameplay parameters are externalized for easy tuning:
 | `dropExpireSeconds` | 60 | Seconds before unclaimed cards expire |
 | `maxWishlistSlots` | 10 | Max wishlist entries per server |
 | `autoDropIntervalSeconds` | 1800 | Auto-drop frequency (30 min) |
+| `toolshop.extraClaimPrice` | 25000 | Extra Claim cost (gold) |
+| `toolshop.extraCommanderDropPrice` | 10000 | Extra CommanderDrop cost (gold) |
 
 ---
 
