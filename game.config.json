@@ -14,7 +14,8 @@
     "mythicChance": 0.05
   },
   "toolshop": {
-    "extraClaimPrice": 25000
+    "extraClaimPrice": 25000,
+    "extraCommanderDropPrice": 10000
   },
   "dropCondition": {
     "poorChance": 0.5,

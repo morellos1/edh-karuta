@@ -35,6 +35,8 @@ import { buildMarketGrid } from "../services/collageService.js";
 import { buildMarketEmbed, buildMarketButtons } from "../commands/market.js";
 import { buildToolshopEmbed } from "../commands/toolshop.js";
 import { grantExtraClaims, getExtraClaimCount } from "../repositories/extraClaimRepo.js";
+import { grantExtraCommanderDrops, getExtraCommanderDropCount } from "../repositories/extraCommanderDropRepo.js";
+import { consumeExtraCommanderDropTx } from "../repositories/extraCommanderDropRepo.js";
 import { getRemainingCooldownMs } from "../services/cooldownService.js";
 import {
   getDropCooldownRemainingMs as getDropCdMs,
@@ -160,11 +162,13 @@ export async function handleShortcut(message: Message): Promise<void> {
       await handleMarket(message);
       break;
     case "buy": {
-      // Check if args form "extra claim [quantity]"
       const buyArgsLower = parsed.args.map((a) => a.toLowerCase());
       if (buyArgsLower[0] === "extra" && buyArgsLower[1] === "claim") {
         const qty = parsed.args[2] ? parseInt(parsed.args[2], 10) : 1;
         await handleBuyExtraClaim(message, Number.isFinite(qty) && qty >= 1 ? qty : 1);
+      } else if (buyArgsLower[0] === "extra" && buyArgsLower[1] === "commanderdrop") {
+        const qty = parsed.args[2] ? parseInt(parsed.args[2], 10) : 1;
+        await handleBuyExtraCommanderDrop(message, Number.isFinite(qty) && qty >= 1 ? qty : 1);
       } else {
         await handleBuy(message, parsed.args, prefix);
       }
@@ -322,13 +326,21 @@ async function handleLanddrop(message: Message): Promise<void> {
 async function handleCommanderdrop(message: Message): Promise<void> {
   if (!message.guildId) return;
 
+  let usedExtraCommanderDrop: number | null = null;
   const blocked = await withCommanderdropLock(message.author.id, async () => {
     const remainingMs = await getCommanderdropCooldownRemainingMs(message.author.id);
     if (remainingMs > 0) {
-      await message.reply({
-        content: `Commander Drop is on cooldown. Try again ${formatCooldownRemaining(remainingMs)}.`
+      const remaining = await prisma.$transaction(async (tx) => {
+        return consumeExtraCommanderDropTx(tx, message.author.id);
       });
-      return true;
+      if (remaining === null) {
+        await message.reply({
+          content: `Commander Drop is on cooldown. Try again ${formatCooldownRemaining(remainingMs)}.`
+        });
+        return true;
+      }
+      usedExtraCommanderDrop = remaining;
+      return false;
     }
     await setCommanderdropUsed(message.author.id);
     return false;
@@ -373,6 +385,12 @@ async function handleCommanderdrop(message: Message): Promise<void> {
       messageId: reply.id,
       expiresAt
     });
+
+    if (usedExtraCommanderDrop !== null && 'send' in message.channel) {
+      await message.channel.send({
+        content: `<@${message.author.id}>, your Extra CommanderDrop has been consumed. You have ${usedExtraCommanderDrop} remaining.`
+      });
+    }
   } catch (error) {
     await message.reply({ content: `Commander Drop failed: ${(error as Error).message}` });
   }
@@ -787,6 +805,51 @@ async function handleBuyExtraClaim(message: Message, quantity = 1): Promise<void
     const remaining = await getExtraClaimCount(userId);
     await message.reply({
       content: `You bought **${quantity}** Extra Claim${quantity !== 1 ? "s" : ""} for **${totalPrice.toLocaleString()}** gold. You now have **${remaining}** Extra Claim${remaining !== 1 ? "s" : ""}.`
+    });
+  } catch (err) {
+    if ((err as Error).message === "insufficient_gold") {
+      await message.reply({ content: "You no longer have enough gold for this purchase." });
+    } else {
+      await message.reply({ content: `Purchase failed: ${(err as Error).message}` });
+    }
+  }
+}
+
+async function handleBuyExtraCommanderDrop(message: Message, quantity = 1): Promise<void> {
+  const userId = message.author.id;
+  const unitPrice = gameConfig.toolshop.extraCommanderDropPrice;
+  const totalPrice = unitPrice * quantity;
+  const balance = await getGold(userId);
+
+  if (balance < totalPrice) {
+    await message.reply({
+      content: `You need **${totalPrice.toLocaleString()}** gold to buy **${quantity}** Extra CommanderDrop${quantity !== 1 ? "s" : ""}, but you only have **${balance.toLocaleString()}** gold.`
+    });
+    return;
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const inv = await tx.userInventory.findUnique({
+        where: { userId },
+        select: { gold: true }
+      });
+      if ((inv?.gold ?? 0) < totalPrice) {
+        throw new Error("insufficient_gold");
+      }
+      await tx.userInventory.upsert({
+        where: { userId },
+        create: { userId, gold: 0 },
+        update: { gold: { increment: -totalPrice } }
+      });
+      await tx.extraCommanderDrop.createMany({
+        data: Array.from({ length: quantity }, () => ({ userId }))
+      });
+    });
+
+    const remaining = await getExtraCommanderDropCount(userId);
+    await message.reply({
+      content: `You bought **${quantity}** Extra CommanderDrop${quantity !== 1 ? "s" : ""} for **${totalPrice.toLocaleString()}** gold. You now have **${remaining}** Extra CommanderDrop${remaining !== 1 ? "s" : ""}.`
     });
   } catch (err) {
     if ((err as Error).message === "insufficient_gold") {
