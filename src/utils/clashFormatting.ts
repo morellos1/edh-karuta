@@ -68,20 +68,27 @@ export function formatAttackPattern(pattern: string[]): string {
 export function buildStatsEmbed(
   stats: ClashStats,
   cardImageUrl: string | null,
-  condition: string
+  condition: string,
+  record?: string | null
 ): EmbedBuilder {
+  const fields = [
+    { name: "Attack", value: `${stats.attack}`, inline: true },
+    { name: "Defense", value: `${stats.defense}`, inline: true },
+    { name: "HP", value: `${stats.hp}`, inline: true },
+    { name: "Speed", value: `${stats.speed}`, inline: true },
+    { name: "Crit Rate", value: `${Math.round(stats.critRate * 100)}%`, inline: true },
+    { name: "Type", value: stats.colors.length > 0 ? stats.colors.map((c) => `${colorEmoji(c)} ${colorName(c)}`).join(", ") : `${colorEmoji("C")} Colorless`, inline: true },
+    { name: "Attack Pattern", value: formatAttackPattern(stats.attackPattern), inline: false }
+  ];
+
+  if (record) {
+    fields.push({ name: "Record", value: record, inline: true });
+  }
+
   const embed = new EmbedBuilder()
     .setTitle(`${stats.name} - Clash Stats`)
     .setColor(0xffa500)
-    .addFields(
-      { name: "Attack", value: `${stats.attack}`, inline: true },
-      { name: "Defense", value: `${stats.defense}`, inline: true },
-      { name: "HP", value: `${stats.hp}`, inline: true },
-      { name: "Speed", value: `${stats.speedMs}ms`, inline: true },
-      { name: "Crit Rate", value: `${Math.round(stats.critRate * 100)}%`, inline: true },
-      { name: "Type", value: stats.colors.length > 0 ? stats.colors.map((c) => `${colorEmoji(c)} ${colorName(c)}`).join(", ") : `${colorEmoji("C")} Colorless`, inline: true },
-      { name: "Attack Pattern", value: formatAttackPattern(stats.attackPattern), inline: false }
-    );
+    .addFields(...fields);
 
   if (cardImageUrl) {
     embed.setThumbnail(cardImageUrl);
@@ -170,8 +177,30 @@ export function buildVictoryEmbed(
   statsA: ClashStats,
   statsB: ClashStats
 ): EmbedBuilder {
-  const lastEvents = result.events.slice(-3);
-  const log = lastEvents.map(formatBattleEvent).join("\n");
+  const allLogLines = result.events.map(formatBattleEvent);
+  const hpSection =
+    `**${result.winner === statsA.name ? statsA.name : statsB.name}**\n` +
+    `${hpBar(result.winner === statsA.name ? result.winnerHp : result.loserHp, result.winner === statsA.name ? statsA.hp : statsB.hp)}\n\n` +
+    `**${result.winner === statsA.name ? statsB.name : statsA.name}**\n` +
+    `${hpBar(result.winner === statsA.name ? result.loserHp : result.winnerHp, result.winner === statsA.name ? statsB.hp : statsA.hp)}`;
+
+  const summaryLine = result.isDraw
+    ? `Stalemate after ${result.events.length} attacks! **${result.winner}** wins by tiebreak.`
+    : result.events.length >= 100
+      ? `Stalemate after ${result.events.length} attacks! **${result.winner}** wins with more HP remaining.`
+      : `**${result.winner}** defeats **${result.loser}** in ${result.events.length} attacks!`;
+
+  // Build full description, truncating log from the front if it exceeds Discord's 4096 char limit
+  const overhead = hpSection.length + summaryLine.length + 20; // separators + newlines
+  const maxLogChars = 4096 - overhead;
+  let log = allLogLines.join("\n");
+  if (log.length > maxLogChars) {
+    // Trim from the beginning to keep the most recent events visible
+    while (log.length > maxLogChars && allLogLines.length > 1) {
+      allLogLines.shift();
+      log = "...\n" + allLogLines.join("\n");
+    }
+  }
 
   const finalHpA = result.winner === statsA.name ? result.winnerHp : result.loserHp;
   const finalHpB = result.winner === statsB.name ? result.winnerHp : result.loserHp;
@@ -183,11 +212,7 @@ export function buildVictoryEmbed(
       `**${statsA.name}**\n${hpBar(finalHpA, statsA.hp)}\n\n` +
       `**${statsB.name}**\n${hpBar(finalHpB, statsB.hp)}\n\n` +
       `---\n${log}\n\n` +
-      (result.isDraw
-        ? `Stalemate after ${result.events.length} attacks! **${result.winner}** wins by tiebreak.`
-        : result.events.length >= 100
-          ? `Stalemate after ${result.events.length} attacks! **${result.winner}** wins with more HP remaining.`
-          : `**${result.winner}** defeats **${result.loser}** in ${result.events.length} attacks!`)
+      summaryLine
     )
     .setFooter({ text: `Total attacks: ${result.events.length}` });
 
@@ -209,7 +234,7 @@ export function buildChallengeEmbed(
     .setDescription(
       `**${challengerName}** challenges anyone to a Clash Battle!\n\n` +
       `Their creature: **${challengerStats.name}**\n` +
-      `ATK: ${challengerStats.attack} | DEF: ${challengerStats.defense} | HP: ${challengerStats.hp} | SPD: ${challengerStats.speedMs}ms\n\n` +
+      `ATK: ${challengerStats.attack} | DEF: ${challengerStats.defense} | HP: ${challengerStats.hp} | SPD: ${challengerStats.speed}\n\n` +
       `Click **Accept** to fight with your set creature!`
     );
 

@@ -54,7 +54,9 @@ export const setcreatureCommand: SlashCommand = {
         userCardId: userCard.id
       },
       update: {
-        userCardId: userCard.id
+        userCardId: userCard.id,
+        clashWins: 0,
+        clashLosses: 0
       }
     });
 
