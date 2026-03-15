@@ -24,5 +24,10 @@
     "poorMultiplier": 1,
     "goodMultiplier": 3,
     "mintMultiplier": 10
+  },
+  "clash": {
+    "challengeExpireSeconds": 60,
+    "maxAttacks": 100,
+    "editDelayMs": 2000
   }
 }
