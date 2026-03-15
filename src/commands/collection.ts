@@ -35,7 +35,7 @@ function resolveInlinePrice(card: { usdPrice: string | null; eurPrice: string | 
   return null;
 }
 
-export type CollectionViewMode = "list" | "album";
+export type CollectionViewMode = "list" | "album" | "combined";
 
 function conditionToStars(condition: string | null | undefined): string {
   const c = (condition ?? "good").toLowerCase();
@@ -68,7 +68,7 @@ export async function buildCollectionView(
   nameSearch?: string | null;
   typeFilter?: string | null;
 } | null> {
-  const pageSize = viewMode === "album" ? 8 : 10;
+  const pageSize = (viewMode === "album" || viewMode === "combined") ? 8 : 10;
   const tagId = tagName != null && tagName.trim() ? await getTagIdForUser(user.id, tagName) : null;
   if (tagName != null && tagName.trim() && tagId == null) {
     return null;
@@ -108,6 +108,80 @@ export async function buildCollectionView(
         .setDisabled(result.page >= result.totalPages),
       new ButtonBuilder()
         .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.totalPages}:${sort}:album:${tagParam}:${searchParam}:${typeParam}:last`)
+        .setLabel("⏭")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(result.page >= result.totalPages)
+    );
+    if (viewerId === user.id) {
+      row.addComponents(
+        new ButtonBuilder()
+          .setCustomId(`${COLLECTION_EXPORT_PREFIX}:${user.id}:${tagParam}`)
+          .setLabel("Export")
+          .setStyle(ButtonStyle.Secondary)
+      );
+    }
+    return {
+      content: pageInfo,
+      embed: embed.toJSON(),
+      components: [row],
+      file: { buffer: gridBuffer, name: "collection-grid.webp" },
+      nameSearch,
+      typeFilter
+    };
+  }
+
+  if (viewMode === "combined") {
+    const gridBuffer = await buildCollectionGrid(result.cards.map((e) => e.card));
+
+    const namesNeedingPrice = [
+      ...new Set(
+        result.cards
+          .filter((e) => !resolveInlinePrice(e.card))
+          .map((e) => e.card.name)
+      )
+    ];
+    const priceMap = namesNeedingPrice.length
+      ? await getCheapestPrintPricesByNames(namesNeedingPrice)
+      : new Map<string, number>();
+    const defaultBase = getDefaultBasePriceUsd();
+
+    const listLines = result.cards
+      .map((entry, i) => {
+        const baseUsd = resolveInlinePrice(entry.card)
+            ?? (priceMap.get(entry.card.name) ?? defaultBase);
+        const mult = getConditionMultiplier(entry.condition);
+        const gold = Math.round(baseUsd * 100 * mult);
+        return `**${i + 1}.** \`${entry.displayId}\` — ${entry.card.name} — **${gold.toLocaleString()}** Gold`;
+      })
+      .join("\n");
+
+    const description = result.cards.length ? listLines : "No cards collected yet.";
+
+    const embed = new EmbedBuilder()
+      .setTitle(`${user.username}'s Collection${titleSuffix}${filterSuffix}`)
+      .setDescription(description)
+      .setImage("attachment://collection-grid.webp")
+      .setFooter({
+        text: `💰 ${goldBalance} Gold · Combined · ${pageInfo}`
+      });
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:1:${sort}:combined:${tagParam}:${searchParam}:${typeParam}:first`)
+        .setLabel("⏮")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(result.page <= 1),
+      new ButtonBuilder()
+        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page - 1}:${sort}:combined:${tagParam}:${searchParam}:${typeParam}:prev`)
+        .setLabel("⬅")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(result.page <= 1),
+      new ButtonBuilder()
+        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page + 1}:${sort}:combined:${tagParam}:${searchParam}:${typeParam}:next`)
+        .setLabel("➡")
+        .setStyle(ButtonStyle.Secondary)
+        .setDisabled(result.page >= result.totalPages),
+      new ButtonBuilder()
+        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.totalPages}:${sort}:combined:${tagParam}:${searchParam}:${typeParam}:last`)
         .setLabel("⏭")
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(result.page >= result.totalPages)
@@ -262,7 +336,8 @@ export const collectionCommand: SlashCommand = {
         .setRequired(false)
         .addChoices(
           { name: "List", value: "list" },
-          { name: "Album (2×4 grid)", value: "album" }
+          { name: "Album (2×4 grid)", value: "album" },
+          { name: "Combined (list + grid)", value: "combined" }
         )
     )
     .addStringOption((opt) =>
@@ -295,7 +370,7 @@ export const collectionCommand: SlashCommand = {
     const nameSearch = interaction.options.getString("search", false)?.trim() ?? null;
     const typeFilter = interaction.options.getString("type", false)?.trim() ?? null;
 
-    if (viewMode === "album") {
+    if (viewMode === "album" || viewMode === "combined") {
       await interaction.deferReply();
     }
 
@@ -310,7 +385,7 @@ export const collectionCommand: SlashCommand = {
       return;
     }
 
-    if (viewMode === "album" && view.file) {
+    if ((viewMode === "album" || viewMode === "combined") && view.file) {
       const payload = {
         content: view.content ?? undefined,
         embeds: view.embed ? [view.embed] : [],

@@ -43,7 +43,7 @@ export async function handleCollectionPageButton(interaction: ButtonInteraction)
   const targetUserId = parts[1];
   const pageRaw = parts[2];
   const sort = (parts[3] ?? "recent") as CollectionSort;
-  const viewMode = (parts[4] ?? "list") as "list" | "album";
+  const viewMode = (parts[4] ?? "list") as "list" | "album" | "combined";
   const tagName = parts[5]?.trim() || undefined;
   const nameSearch = parts[6]?.trim() || undefined;
   const typeFilterParam = parts[7]?.trim() || undefined;
