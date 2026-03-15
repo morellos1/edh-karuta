@@ -46,6 +46,10 @@ import { shortcutCommand } from "./commands/shortcut.js";
 import { handleShortcut } from "./handlers/shortcutHandler.js";
 import { startBotDropScheduler } from "./services/botDropScheduler.js";
 import { startDropCleanupScheduler } from "./services/dropCleanupService.js";
+import { setcreatureCommand } from "./commands/setcreature.js";
+import { clashstatsCommand } from "./commands/clashstats.js";
+import { clashCommand, CLASH_ACCEPT_PREFIX, CLASH_DECLINE_PREFIX } from "./commands/clash.js";
+import { handleClashButtons } from "./interactions/clashButton.js";
 
 const commands = [
   dropCommand,
@@ -75,7 +79,10 @@ const commands = [
   wlCommand,
   toolshopCommand,
   setprefixCommand,
-  shortcutCommand
+  shortcutCommand,
+  setcreatureCommand,
+  clashstatsCommand,
+  clashCommand
 ];
 const commandMap = new Collection<string, SlashCommand>();
 for (const command of commands) {
@@ -163,6 +170,14 @@ client.on("interactionCreate", async (interaction: Interaction) => {
         interaction.customId.startsWith(`${TRADE_DECLINE_PREFIX}:`))
     ) {
       await handleTradeGiveButtons(interaction);
+      return;
+    }
+    if (
+      interaction.isButton() &&
+      (interaction.customId.startsWith(`${CLASH_ACCEPT_PREFIX}:`) ||
+        interaction.customId.startsWith(`${CLASH_DECLINE_PREFIX}:`))
+    ) {
+      await handleClashButtons(interaction);
       return;
     }
 

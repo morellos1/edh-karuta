@@ -58,6 +58,7 @@ model UserCard {
   card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
   drop Drop @relation(fields: [dropId], references: [id], onDelete: Cascade)
   tags UserCardTag[]
+  clashCreatures ClashCreature[]
 
   @@index([userId, claimedAt])
   @@index([userId, dropId])
@@ -185,4 +186,14 @@ model GuildSettings {
   prefix           String  @default("k")
   shortcutsEnabled Boolean @default(false)
   dropChannelId    String?
+}
+
+model ClashCreature {
+  id         Int      @id @default(autoincrement())
+  discordId  String
+  guildId    String
+  userCardId Int
+  userCard   UserCard @relation(fields: [userCardId], references: [id], onDelete: Cascade)
+
+  @@unique([discordId, guildId])
 }

@@ -44,7 +44,12 @@ const gameConfigSchema = z.object({
     poorMultiplier: z.number().min(0),
     goodMultiplier: z.number().min(0),
     mintMultiplier: z.number().min(0)
-  })
+  }),
+  clash: z.object({
+    challengeExpireSeconds: z.number().int().min(1).default(60),
+    maxAttacks: z.number().int().min(1).default(100),
+    editDelayMs: z.number().int().min(500).default(2000)
+  }).default({ challengeExpireSeconds: 60, maxAttacks: 100, editDelayMs: 2000 })
 });
 
 const gameConfigRaw = JSON.parse(readFileSync(gameConfigPath, "utf-8"));
