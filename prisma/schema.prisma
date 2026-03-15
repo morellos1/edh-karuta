@@ -32,6 +32,7 @@ model Card {
   layout          String?
   isBasicLand     Boolean    @default(false)
   isCommanderLegal Boolean   @default(false)
+  isMeldResult    Boolean    @default(false)
   rarity          String?
   randomWeight    Int        @default(1)
   createdAt       DateTime   @default(now())

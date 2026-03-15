@@ -466,9 +466,14 @@ export function simulateBattle(a: ClashStats, b: ClashStats, maxAttacks = 100): 
 // Validation Helpers
 // ---------------------------------------------------------------------------
 
-/** Check if a card's type line makes it a legendary creature (not planeswalker). */
-export function isLegendaryCreature(typeLine: string | null | undefined): boolean {
+/** Check if a card's type line makes it a legendary creature (not planeswalker).
+ *  Meld result cards are excluded — they cannot be played individually. */
+export function isLegendaryCreature(
+  typeLine: string | null | undefined,
+  options?: { isMeldResult?: boolean }
+): boolean {
   if (!typeLine) return false;
+  if (options?.isMeldResult) return false;
   const first = typeLine.split(" // ")[0];
   return first.includes("Legendary") && first.includes("Creature");
 }

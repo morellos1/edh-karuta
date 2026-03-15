@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isBasicLand, shouldKeepCard } from "./scryfallSync.js";
+import { isBasicLand, isMeldResult, shouldKeepCard } from "./scryfallSync.js";
 
 test("scryfall filter rejects basic lands", () => {
   const card = {
@@ -56,4 +56,41 @@ test("scryfall filter keeps commander-legal english paper cards", () => {
     type_line: "Creature - Human"
   } as const;
   assert.equal(shouldKeepCard(card as any), true);
+});
+
+test("isMeldResult identifies meld result cards", () => {
+  const meldResult = {
+    id: "abc",
+    name: "Mishra, Lost to Phyrexia",
+    layout: "meld",
+    all_parts: [
+      { id: "x", component: "meld_part", name: "Mishra, Claimed by Gix" },
+      { id: "y", component: "meld_part", name: "Phyrexian Dragon Engine" },
+      { id: "abc", component: "meld_result", name: "Mishra, Lost to Phyrexia" }
+    ]
+  } as any;
+  assert.equal(isMeldResult(meldResult), true);
+});
+
+test("isMeldResult returns false for meld part cards", () => {
+  const meldPart = {
+    id: "x",
+    name: "Mishra, Claimed by Gix",
+    layout: "meld",
+    all_parts: [
+      { id: "x", component: "meld_part", name: "Mishra, Claimed by Gix" },
+      { id: "y", component: "meld_part", name: "Phyrexian Dragon Engine" },
+      { id: "abc", component: "meld_result", name: "Mishra, Lost to Phyrexia" }
+    ]
+  } as any;
+  assert.equal(isMeldResult(meldPart), false);
+});
+
+test("isMeldResult returns false for non-meld cards", () => {
+  const normal = {
+    id: "z",
+    name: "Sol Ring",
+    layout: "normal"
+  } as any;
+  assert.equal(isMeldResult(normal), false);
 });
