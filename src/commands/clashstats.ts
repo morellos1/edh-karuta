@@ -1,5 +1,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import type { SlashCommand } from "./types.js";
+import { prisma } from "../db.js";
 import { getUserCardByDisplayId } from "../repositories/userCardRepo.js";
 import { buildClashStats, isLegendaryCreature } from "../services/clashService.js";
 import { getCardImageUrl } from "../utils/cardFormatting.js";
@@ -36,7 +37,17 @@ export const clashstatsCommand: SlashCommand = {
 
     const stats = buildClashStats(userCard.card, userCard.condition);
     const imageUrl = getCardImageUrl(userCard.card);
-    const embed = buildStatsEmbed(stats, imageUrl, userCard.condition);
+
+    // Look up W/L record if this card is set as a clash creature
+    let record: string | null = null;
+    const clashCreature = await prisma.clashCreature.findFirst({
+      where: { userCardId: userCard.id }
+    });
+    if (clashCreature) {
+      record = `${clashCreature.clashWins}W ${clashCreature.clashLosses}L`;
+    }
+
+    const embed = buildStatsEmbed(stats, imageUrl, userCard.condition, record);
 
     await interaction.reply({ embeds: [embed] });
   }

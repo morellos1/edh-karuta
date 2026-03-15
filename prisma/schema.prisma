@@ -189,11 +189,13 @@ model GuildSettings {
 }
 
 model ClashCreature {
-  id         Int      @id @default(autoincrement())
-  discordId  String
-  guildId    String
-  userCardId Int
-  userCard   UserCard @relation(fields: [userCardId], references: [id], onDelete: Cascade)
+  id          Int      @id @default(autoincrement())
+  discordId   String
+  guildId     String
+  userCardId  Int
+  clashWins   Int      @default(0)
+  clashLosses Int      @default(0)
+  userCard    UserCard @relation(fields: [userCardId], references: [id], onDelete: Cascade)
 
   @@unique([discordId, guildId])
 }

@@ -7,7 +7,8 @@ export type ClashStats = {
   attack: number;
   defense: number;
   hp: number;
-  speedMs: number;
+  speed: number;     // normalized 0-100 (higher = faster)
+  speedMs: number;   // internal: ms between attacks
   cmc: number;
   critRate: number;
   attackPattern: string[]; // "W"|"U"|"B"|"R"|"G"|"C"|"G/W" etc.
@@ -154,6 +155,11 @@ export function parseCMC(manaCost: string | null | undefined): number {
 /** CMC → speed in milliseconds between attacks. */
 export function calcSpeedMs(cmc: number): number {
   return 1500 + cmc * 250;
+}
+
+/** CMC → normalized speed stat (0-100, higher = faster). */
+export function calcSpeed(cmc: number): number {
+  return Math.max(5, Math.min(100, 100 - cmc * 6));
 }
 
 /**
@@ -304,6 +310,7 @@ export function buildClashStats(card: CardDataForClash, condition: string): Clas
     attack: normalizeStat(power),
     defense: normalizeStat(toughness),
     hp: calcHP(wordCount),
+    speed: calcSpeed(cmc),
     speedMs: calcSpeedMs(cmc),
     cmc,
     critRate: critRateFromCondition(condition),

@@ -165,6 +165,25 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
           embeds: [victoryEmbed],
           components: []
         });
+
+        // Update W/L records for both creatures
+        const winnerId = result.winner === statsA.name ? challengerId : accepterId;
+        const loserId = result.winner === statsA.name ? accepterId : challengerId;
+        await Promise.all([
+          prisma.clashCreature.updateMany({
+            where: { discordId: winnerId, guildId },
+            data: { clashWins: { increment: 1 } }
+          }),
+          prisma.clashCreature.updateMany({
+            where: { discordId: loserId, guildId },
+            data: { clashLosses: { increment: 1 } }
+          })
+        ]);
+
+        // Send a separate victory announcement mentioning both users
+        await interaction.followUp({
+          content: `<@${winnerId}> has defeated <@${loserId}> in a clash battle!`
+        });
       } else {
         const battleEmbed = buildBattleEmbed(
           statsA, statsB, eventsUpToNow, i + 1, maxAttacks, imageUrlA, imageUrlB
