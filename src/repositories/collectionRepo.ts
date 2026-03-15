@@ -33,7 +33,8 @@ export async function getCollectionPage(
     if (typeFilter === "Commander") {
       baseWhere.card = {
         ...(baseWhere.card as Record<string, unknown> ?? {}),
-        layout: { notIn: ["flip", "battle"] },
+        layout: { notIn: ["flip"] },
+        NOT: { typeLine: { contains: "Battle" } },
         OR: [
           { typeLine: { contains: "Legendary" }, AND: { typeLine: { contains: "Creature" } } },
           { typeLine: { contains: "Planeswalker" }, oracleText: { contains: "can be your commander" } },
@@ -69,7 +70,7 @@ export async function getCollectionPage(
   }
   if (typeFilter) {
     if (typeFilter === "Commander") {
-      extraClauses.push(`(c.layout NOT IN ('flip', 'battle') AND ((c.typeLine LIKE '%Legendary%' AND c.typeLine LIKE '%Creature%') OR (c.typeLine LIKE '%Planeswalker%' AND c.oracleText LIKE '%can be your commander%') OR (c.typeLine LIKE '%Legendary%' AND c.typeLine LIKE '%Vehicle%' AND c.power IS NOT NULL AND c.toughness IS NOT NULL) OR (c.typeLine LIKE '%Legendary%' AND c.typeLine LIKE '%Spacecraft%' AND c.power IS NOT NULL AND c.toughness IS NOT NULL)))`);
+      extraClauses.push(`(c.layout NOT IN ('flip') AND c.typeLine NOT LIKE '%Battle%' AND ((c.typeLine LIKE '%Legendary%' AND c.typeLine LIKE '%Creature%') OR (c.typeLine LIKE '%Planeswalker%' AND c.oracleText LIKE '%can be your commander%') OR (c.typeLine LIKE '%Legendary%' AND c.typeLine LIKE '%Vehicle%' AND c.power IS NOT NULL AND c.toughness IS NOT NULL) OR (c.typeLine LIKE '%Legendary%' AND c.typeLine LIKE '%Spacecraft%' AND c.power IS NOT NULL AND c.toughness IS NOT NULL)))`);
     } else {
       extraClauses.push(`c.typeLine LIKE ?`);
       extraParams.push(`%${typeFilter}%`);

@@ -228,19 +228,21 @@ export async function getRandomDroppableCards(
 }
 
 /**
- * Layouts whose front face is never a valid commander even when the combined
- * type_line (front // back) contains "Legendary Creature".
+ * Exclude card types/layouts whose front face is never a valid commander even
+ * when the combined type_line (front // back) contains "Legendary Creature".
  *
  * - flip:   Kamigawa flip cards — the top (front) half is a non-legendary
  *           creature; only the flipped (back) half is legendary.
- * - battle: Siege battles that transform into legendary creatures — the front
- *           face is a Battle, not a Legendary Creature.
+ * - Battle: Siege battles that transform into legendary creatures — the front
+ *           face is a Battle, not a Legendary Creature.  Scryfall uses
+ *           layout "transform" for these, so we filter by type_line instead.
  */
-const NON_COMMANDER_LAYOUTS = ["flip", "battle"];
+const NON_COMMANDER_LAYOUTS = ["flip"];
 
 function commanderWhereFilter(): Prisma.CardWhereInput {
   return {
     layout: { notIn: NON_COMMANDER_LAYOUTS },
+    NOT: { typeLine: { contains: "Battle" } },
     OR: [
       // Legendary creatures
       {
