@@ -33,7 +33,12 @@ export async function getCollectionPage(
     if (typeFilter === "Commander") {
       baseWhere.card = {
         ...(baseWhere.card as Record<string, unknown> ?? {}),
-        isCommanderLegal: true
+        OR: [
+          { typeLine: { contains: "Legendary" }, AND: { typeLine: { contains: "Creature" } } },
+          { typeLine: { contains: "Planeswalker" }, oracleText: { contains: "can be your commander" } },
+          { typeLine: { contains: "Legendary" }, AND: { typeLine: { contains: "Vehicle" } }, power: { not: null }, toughness: { not: null } },
+          { typeLine: { contains: "Legendary" }, AND: { typeLine: { contains: "Spacecraft" } }, power: { not: null }, toughness: { not: null } }
+        ]
       };
     } else {
       baseWhere.card = {
@@ -63,7 +68,7 @@ export async function getCollectionPage(
   }
   if (typeFilter) {
     if (typeFilter === "Commander") {
-      extraClauses.push(`c.isCommanderLegal = 1`);
+      extraClauses.push(`((c.typeLine LIKE '%Legendary%' AND c.typeLine LIKE '%Creature%') OR (c.typeLine LIKE '%Planeswalker%' AND c.oracleText LIKE '%can be your commander%') OR (c.typeLine LIKE '%Legendary%' AND c.typeLine LIKE '%Vehicle%' AND c.power IS NOT NULL AND c.toughness IS NOT NULL) OR (c.typeLine LIKE '%Legendary%' AND c.typeLine LIKE '%Spacecraft%' AND c.power IS NOT NULL AND c.toughness IS NOT NULL))`);
     } else {
       extraClauses.push(`c.typeLine LIKE ?`);
       extraParams.push(`%${typeFilter}%`);
