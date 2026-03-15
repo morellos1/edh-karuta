@@ -18,6 +18,7 @@ type ScryfallCard = {
   id: string;
   object: string;
   name: string;
+  layout?: string;
   set: string;
   set_name?: string;
   collector_number: string;
@@ -130,6 +131,7 @@ async function flushBatch(batch: ScryfallCard[]) {
 
     const fields = {
       name: card.name,
+      layout: card.layout ?? null,
       setCode: card.set.toLowerCase(),
       setName: card.set_name ?? null,
       collectorNumber: card.collector_number.toLowerCase(),

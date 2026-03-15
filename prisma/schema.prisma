@@ -29,6 +29,7 @@ model Card {
   imageSmall      String?
   imageNormal     String?
   imageLarge      String?
+  layout          String?
   isBasicLand     Boolean    @default(false)
   isCommanderLegal Boolean   @default(false)
   rarity          String?
