@@ -30,10 +30,17 @@ export async function getCollectionPage(
     };
   }
   if (typeFilter) {
-    baseWhere.card = {
-      ...(baseWhere.card as Record<string, unknown> ?? {}),
-      typeLine: { contains: typeFilter }
-    };
+    if (typeFilter === "Commander") {
+      baseWhere.card = {
+        ...(baseWhere.card as Record<string, unknown> ?? {}),
+        isCommanderLegal: true
+      };
+    } else {
+      baseWhere.card = {
+        ...(baseWhere.card as Record<string, unknown> ?? {}),
+        typeLine: { contains: typeFilter }
+      };
+    }
   }
 
   // Color-specific sorts: put cards containing the target color first (or
@@ -55,8 +62,12 @@ export async function getCollectionPage(
     extraParams.push(`%${nameSearch}%`);
   }
   if (typeFilter) {
-    extraClauses.push(`c.typeLine LIKE ?`);
-    extraParams.push(`%${typeFilter}%`);
+    if (typeFilter === "Commander") {
+      extraClauses.push(`c.isCommanderLegal = 1`);
+    } else {
+      extraClauses.push(`c.typeLine LIKE ?`);
+      extraParams.push(`%${typeFilter}%`);
+    }
   }
   const extraWhere = extraClauses.length ? ` AND ${extraClauses.join(" AND ")}` : "";
 

@@ -94,7 +94,8 @@ const SORT_KEYWORDS: Record<string, CollectionSort> = {
 
 const VIEW_KEYWORDS: Record<string, CollectionViewMode> = {
   album: "album",
-  list: "list"
+  list: "list",
+  combined: "combined"
 };
 
 const TYPE_KEYWORDS: Record<string, string> = {
@@ -104,7 +105,8 @@ const TYPE_KEYWORDS: Record<string, string> = {
   instant: "Instant",
   sorcery: "Sorcery",
   land: "Land",
-  planeswalker: "Planeswalker"
+  planeswalker: "Planeswalker",
+  commander: "Commander"
 };
 
 interface ParsedShortcut {
@@ -615,7 +617,7 @@ async function handleCollection(message: Message, args: string[]): Promise<void>
     return;
   }
 
-  if (viewMode === "album" && view.file) {
+  if ((viewMode === "album" || viewMode === "combined") && view.file) {
     await message.reply({
       content: view.content ?? undefined,
       embeds: view.embed ? [view.embed] : [],
