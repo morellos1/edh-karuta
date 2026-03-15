@@ -358,7 +358,8 @@ export const collectionCommand: SlashCommand = {
           { name: "Instant", value: "Instant" },
           { name: "Sorcery", value: "Sorcery" },
           { name: "Land", value: "Land" },
-          { name: "Planeswalker", value: "Planeswalker" }
+          { name: "Planeswalker", value: "Planeswalker" },
+          { name: "Commander", value: "Commander" }
         )
     ),
   async execute(interaction: ChatInputCommandInteraction) {

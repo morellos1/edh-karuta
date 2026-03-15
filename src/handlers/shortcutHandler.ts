@@ -105,7 +105,8 @@ const TYPE_KEYWORDS: Record<string, string> = {
   instant: "Instant",
   sorcery: "Sorcery",
   land: "Land",
-  planeswalker: "Planeswalker"
+  planeswalker: "Planeswalker",
+  commander: "Commander"
 };
 
 interface ParsedShortcut {
