@@ -6,12 +6,12 @@ import type { ClashStats, BattleEvent, BattleResult } from "../services/clashSer
 // ---------------------------------------------------------------------------
 
 const COLOR_EMOJI: Record<string, string> = {
-  W: "\u2b50", // star (white/light)
-  U: "\ud83d\udca7", // droplet (blue/water)
-  B: "\ud83d\udc80", // skull (black/dark)
-  R: "\ud83d\udd25", // fire (red)
-  G: "\ud83c\udf3f", // herb (green/nature)
-  C: "\u2b1c"  // white square (colorless/neutral)
+  W: "\u26aa", // ⚪ white circle
+  U: "\ud83d\udfe6", // 🟦 blue square
+  B: "\u26ab", // ⚫ black circle
+  R: "\ud83d\udd34", // 🔴 red circle
+  G: "\ud83d\udfe2", // 🟢 green circle
+  C: "\ud83d\udcbf"  // 💿 colorless
 };
 
 const COLOR_NAME: Record<string, string> = {
@@ -62,7 +62,7 @@ export function formatAttackPattern(pattern: string[]): string {
 }
 
 // ---------------------------------------------------------------------------
-// Stats Embed (for /setcreature and /clashstats)
+// Stats Embed (for /setcreature and /creaturestats)
 // ---------------------------------------------------------------------------
 
 export function buildStatsEmbed(
@@ -77,7 +77,7 @@ export function buildStatsEmbed(
     { name: "HP", value: `${stats.hp}`, inline: true },
     { name: "Speed", value: `${stats.speed}`, inline: true },
     { name: "Crit Rate", value: `${Math.round(stats.critRate * 100)}%`, inline: true },
-    { name: "Type", value: stats.colors.length > 0 ? stats.colors.map((c) => `${colorEmoji(c)} ${colorName(c)}`).join(", ") : `${colorEmoji("C")} Colorless`, inline: true },
+    { name: "Type", value: stats.colors.length > 0 ? stats.colors.map((c) => colorEmoji(c)).join(" ") : colorEmoji("C"), inline: true },
     { name: "Attack Pattern", value: formatAttackPattern(stats.attackPattern), inline: false }
   ];
 
@@ -105,8 +105,7 @@ export function buildStatsEmbed(
 
 export function formatBattleEvent(event: BattleEvent): string {
   const emoji = colorEmoji(event.attackColor);
-  const name = colorName(event.attackColor);
-  let line = `**${event.attacker}** uses a ${emoji} ${name} attack on **${event.defender}** for **${event.damage}** dmg!`;
+  let line = `**${event.attacker}** uses a ${emoji} attack for **${event.damage}** dmg!`;
 
   if (event.isCrit) {
     line += " **CRITICAL HIT!**";
