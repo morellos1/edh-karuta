@@ -7,7 +7,7 @@ import type { ClashStats, BattleEvent, BattleResult } from "../services/clashSer
 
 const COLOR_EMOJI: Record<string, string> = {
   W: "\u26aa", // ⚪ white circle
-  U: "\ud83d\udfe6", // 🟦 blue square
+  U: "\ud83d\udd35", // 🔵 blue circle
   B: "\u26ab", // ⚫ black circle
   R: "\ud83d\udd34", // 🔴 red circle
   G: "\ud83d\udfe2", // 🟢 green circle
