@@ -227,8 +227,20 @@ export async function getRandomDroppableCards(
   return cards.map(toCardLookup);
 }
 
+/**
+ * Layouts whose front face is never a valid commander even when the combined
+ * type_line (front // back) contains "Legendary Creature".
+ *
+ * - flip:   Kamigawa flip cards — the top (front) half is a non-legendary
+ *           creature; only the flipped (back) half is legendary.
+ * - battle: Siege battles that transform into legendary creatures — the front
+ *           face is a Battle, not a Legendary Creature.
+ */
+const NON_COMMANDER_LAYOUTS = ["flip", "battle"];
+
 function commanderWhereFilter(): Prisma.CardWhereInput {
   return {
+    layout: { notIn: NON_COMMANDER_LAYOUTS },
     OR: [
       // Legendary creatures
       {
