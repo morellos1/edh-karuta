@@ -19,6 +19,7 @@ export const toolshopCommand: SlashCommand = {
 export function buildToolshopEmbed(): EmbedBuilder {
   const extraClaimPrice = gameConfig.toolshop.extraClaimPrice.toLocaleString();
   const extraCommanderDropPrice = gameConfig.toolshop.extraCommanderDropPrice.toLocaleString();
+  const extraLandDropPrice = gameConfig.toolshop.extraLandDropPrice.toLocaleString();
 
   return new EmbedBuilder()
     .setTitle("Browse Tool Shop")
@@ -28,7 +29,10 @@ export function buildToolshopEmbed(): EmbedBuilder {
       `\`\`\`diff\n- ${extraClaimPrice} Gold\n> /buy extra claim\n\`\`\`\n` +
       `**Extra CommanderDrop**\n` +
       `*Allows you to use /commanderdrop even when it is on cooldown.*\n` +
-      `\`\`\`diff\n- ${extraCommanderDropPrice} Gold\n> /buy extra commanderdrop\n\`\`\``
+      `\`\`\`diff\n- ${extraCommanderDropPrice} Gold\n> /buy extra commanderdrop\n\`\`\`\n` +
+      `**Extra LandDrop**\n` +
+      `*Allows you to use /landdrop even when it is on cooldown.*\n` +
+      `\`\`\`diff\n- ${extraLandDropPrice} Gold\n> /buy extra landdrop\n\`\`\``
     )
     .setColor(0x2b2d31);
 }

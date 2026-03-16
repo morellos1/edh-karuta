@@ -183,6 +183,15 @@ model ExtraCommanderDrop {
   @@index([userId, usedAt])
 }
 
+model ExtraLandDrop {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  createdAt DateTime @default(now())
+  usedAt    DateTime?
+
+  @@index([userId, usedAt])
+}
+
 model GuildSettings {
   guildId          String  @id
   prefix           String  @default("k")

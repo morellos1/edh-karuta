@@ -10,6 +10,7 @@ import { generateDisplayId } from "../utils/displayId.js";
 import { gameConfig } from "../config.js";
 import { grantExtraClaims, getExtraClaimCount } from "../repositories/extraClaimRepo.js";
 import { grantExtraCommanderDrops, getExtraCommanderDropCount } from "../repositories/extraCommanderDropRepo.js";
+import { grantExtraLandDrops, getExtraLandDropCount } from "../repositories/extraLandDropRepo.js";
 
 function parseMarketId(input: string): MarketCardId | null {
   const upper = input.trim().toUpperCase();
@@ -92,6 +93,44 @@ async function handleBuyExtraCommanderDrop(interaction: ChatInputCommandInteract
   });
 }
 
+async function handleBuyExtraLandDrop(interaction: ChatInputCommandInteraction, quantity: number): Promise<void> {
+  const userId = interaction.user.id;
+  const unitPrice = gameConfig.toolshop.extraLandDropPrice;
+  const totalPrice = unitPrice * quantity;
+  const balance = await getGold(userId);
+
+  if (balance < totalPrice) {
+    await interaction.reply({
+      content: `You need **${totalPrice.toLocaleString()}** gold to buy **${quantity}** Extra LandDrop${quantity !== 1 ? "s" : ""}, but you only have **${balance.toLocaleString()}** gold.`,
+      ephemeral: true
+    });
+    return;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const inv = await tx.userInventory.findUnique({
+      where: { userId },
+      select: { gold: true }
+    });
+    if ((inv?.gold ?? 0) < totalPrice) {
+      throw new Error("insufficient_gold");
+    }
+    await tx.userInventory.upsert({
+      where: { userId },
+      create: { userId, gold: 0 },
+      update: { gold: { increment: -totalPrice } }
+    });
+    await tx.extraLandDrop.createMany({
+      data: Array.from({ length: quantity }, () => ({ userId }))
+    });
+  });
+
+  const remaining = await getExtraLandDropCount(userId);
+  await interaction.reply({
+    content: `You bought **${quantity}** Extra LandDrop${quantity !== 1 ? "s" : ""} for **${totalPrice.toLocaleString()}** gold. You now have **${remaining}** Extra LandDrop${remaining !== 1 ? "s" : ""}.`
+  });
+}
+
 export const buyCommand: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName("buy")
@@ -99,7 +138,7 @@ export const buyCommand: SlashCommand = {
     .addStringOption((opt) =>
       opt
         .setName("id")
-        .setDescription("Card ID from the market (A–L), 'extra claim', or 'extra commanderdrop'")
+        .setDescription("Card ID from the market (A–L), 'extra claim', 'extra commanderdrop', or 'extra landdrop'")
         .setRequired(true)
     ),
   async execute(interaction: ChatInputCommandInteraction) {
@@ -124,6 +163,17 @@ export const buyCommand: SlashCommand = {
         return;
       }
       await handleBuyExtraCommanderDrop(interaction, quantity);
+      return;
+    }
+
+    const extraLandDropMatch = idArg.toLowerCase().match(/^extra\s+landdrop(?:\s+(\d+))?$/);
+    if (extraLandDropMatch) {
+      const quantity = extraLandDropMatch[1] ? parseInt(extraLandDropMatch[1], 10) : 1;
+      if (quantity < 1 || !Number.isFinite(quantity)) {
+        await interaction.reply({ content: "Quantity must be a positive number.", ephemeral: true });
+        return;
+      }
+      await handleBuyExtraLandDrop(interaction, quantity);
       return;
     }
 

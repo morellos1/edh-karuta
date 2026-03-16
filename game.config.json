@@ -15,7 +15,8 @@
   },
   "toolshop": {
     "extraClaimPrice": 25000,
-    "extraCommanderDropPrice": 10000
+    "extraCommanderDropPrice": 10000,
+    "extraLandDropPrice": 5000
   },
   "dropCondition": {
     "poorChance": 0.5,
