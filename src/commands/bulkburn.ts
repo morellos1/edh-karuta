@@ -4,7 +4,8 @@ import {
   ButtonStyle,
   ChatInputCommandInteraction,
   EmbedBuilder,
-  SlashCommandBuilder
+  SlashCommandBuilder,
+  type APIEmbed
 } from "discord.js";
 import type { SlashCommand } from "./types.js";
 import { getTagIdForUser } from "../repositories/tagRepo.js";
@@ -17,8 +18,10 @@ export const BULKBURN_CONFIRM_PREFIX = "bulkburn_confirm";
 export const BULKBURN_CANCEL_PREFIX = "bulkburn_cancel";
 export const BULKBURN_DUP_CONFIRM_PREFIX = "bulkburn_dup_confirm";
 export const BULKBURN_DUP_CANCEL_PREFIX = "bulkburn_dup_cancel";
+export const BULKBURN_DUP_PAGE_PREFIX = "bulkburn_dup_page";
 
 const PREVIEW_COUNT = 5;
+const DUP_PAGE_SIZE = 10;
 
 export type KeepStrategy = "cheapest" | "highest";
 
@@ -63,6 +66,106 @@ export function findDuplicatesToBurn(
   }
 
   return toBurn;
+}
+
+/**
+ * Resolve all user cards into DuplicateBurnEntry[] with gold values.
+ */
+export async function resolveBurnEntries(userId: string): Promise<DuplicateBurnEntry[]> {
+  const allCards = await getAllUserCards(userId);
+  const allEntries: DuplicateBurnEntry[] = [];
+  for (const entry of allCards) {
+    const baseUsd = await resolveBasePrice(entry.card.usdPrice, entry.card.name, entry.card.eurPrice);
+    const gold = getGoldValue(String(baseUsd), entry.condition);
+    allEntries.push({ card: entry, gold, baseUsd });
+  }
+  return allEntries;
+}
+
+/**
+ * Build the paginated embed + components for the duplicates burn confirmation.
+ */
+export function buildDuplicateBurnView(
+  userId: string,
+  toBurn: DuplicateBurnEntry[],
+  keep: KeepStrategy,
+  page: number
+): {
+  embed: APIEmbed;
+  components: ActionRowBuilder<ButtonBuilder>[];
+} {
+  const totalPages = Math.max(1, Math.ceil(toBurn.length / DUP_PAGE_SIZE));
+  const safePage = Math.max(1, Math.min(page, totalPages));
+  const start = (safePage - 1) * DUP_PAGE_SIZE;
+  const pageItems = toBurn.slice(start, start + DUP_PAGE_SIZE);
+
+  const totalGold = toBurn.reduce((sum, c) => sum + c.gold, 0);
+  const keepLabel = keep === "cheapest" ? "cheapest" : "most expensive";
+
+  const lines = pageItems.map((c, i) => {
+    const idx = start + i + 1;
+    const stars = conditionToStars(c.card.condition);
+    const set = c.card.card.setCode.toUpperCase();
+    return `**${idx}.** \`${c.card.displayId}\` · \`${stars}\` · **${c.card.card.name}** (${set}) · ${c.gold} gold`;
+  });
+
+  const description = [
+    `<@${userId}>, you will receive:`,
+    "",
+    `💰 **${totalGold} Gold**\\*`,
+    "",
+    `Burning **${toBurn.length}** duplicate cards (keeping the **${keepLabel}** copy of each):`,
+    "",
+    ...lines
+  ].join("\n");
+
+  const embed = new EmbedBuilder()
+    .setTitle("Burn Duplicate Cards")
+    .setDescription(description)
+    .setColor(0x808080)
+    .setFooter({ text: `*Gold values are approximate · Page ${safePage}/${totalPages} · ${toBurn.length} cards` });
+
+  // Row 1: pagination
+  const paginationRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:1:${keep}`)
+      .setLabel("⏮")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(safePage <= 1),
+    new ButtonBuilder()
+      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:${safePage - 1}:${keep}`)
+      .setLabel("⬅")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(safePage <= 1),
+    new ButtonBuilder()
+      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:${safePage + 1}:${keep}`)
+      .setLabel("➡")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(safePage >= totalPages),
+    new ButtonBuilder()
+      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:${totalPages}:${keep}`)
+      .setLabel("⏭")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(safePage >= totalPages)
+  );
+
+  // Row 2: confirm / cancel
+  const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${BULKBURN_DUP_CANCEL_PREFIX}:${userId}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("❌"),
+    new ButtonBuilder()
+      .setCustomId(`${BULKBURN_DUP_CONFIRM_PREFIX}:${userId}:${keep}`)
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji("🔥")
+      .setLabel("Burn Duplicates")
+  );
+
+  return {
+    embed: embed.toJSON(),
+    components: [paginationRow, actionRow]
+  };
 }
 
 export const bulkburnCommand: SlashCommand = {
@@ -189,18 +292,10 @@ async function executeDuplicates(interaction: ChatInputCommandInteraction) {
 
   await interaction.deferReply();
 
-  const allCards = await getAllUserCards(userId);
-  if (allCards.length === 0) {
+  const allEntries = await resolveBurnEntries(userId);
+  if (allEntries.length === 0) {
     await interaction.editReply({ content: "You have no cards in your collection." });
     return;
-  }
-
-  // Calculate gold for each card
-  const allEntries: DuplicateBurnEntry[] = [];
-  for (const entry of allCards) {
-    const baseUsd = await resolveBasePrice(entry.card.usdPrice, entry.card.name, entry.card.eurPrice);
-    const gold = getGoldValue(String(baseUsd), entry.condition);
-    allEntries.push({ card: entry, gold, baseUsd });
   }
 
   const toBurn = findDuplicatesToBurn(allEntries, keep);
@@ -210,50 +305,10 @@ async function executeDuplicates(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  const totalGold = toBurn.reduce((sum, c) => sum + c.gold, 0);
-  const keepLabel = keep === "cheapest" ? "cheapest" : "most expensive";
-
-  // Build preview lines (first N cards to burn)
-  const previewLines = toBurn.slice(0, PREVIEW_COUNT).map((c) => {
-    const stars = conditionToStars(c.card.condition);
-    const set = c.card.card.setCode.toUpperCase();
-    return `🔥 \`${c.card.displayId}\` · \`${stars}\` · **${c.card.card.name}** (${set}) · ${c.gold} gold`;
-  });
-
-  const description = [
-    `<@${userId}>, you will receive:`,
-    "",
-    `💰 **${totalGold} Gold**\\*`,
-    "",
-    `Burning **${toBurn.length}** duplicate cards (keeping the **${keepLabel}** copy of each):`,
-    ...previewLines
-  ].join("\n");
-
-  const footerParts = ["*Gold values are approximate"];
-  if (toBurn.length > PREVIEW_COUNT) {
-    footerParts.push(`Showing cards 1–${PREVIEW_COUNT} of ${toBurn.length}`);
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle("Burn Duplicate Cards")
-    .setDescription(description)
-    .setColor(0x808080)
-    .setFooter({ text: footerParts.join(" · ") });
-
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${BULKBURN_DUP_CANCEL_PREFIX}:${userId}`)
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji("❌"),
-    new ButtonBuilder()
-      .setCustomId(`${BULKBURN_DUP_CONFIRM_PREFIX}:${userId}:${keep}`)
-      .setStyle(ButtonStyle.Danger)
-      .setEmoji("🔥")
-      .setLabel("Burn Duplicates")
-  );
+  const view = buildDuplicateBurnView(userId, toBurn, keep, 1);
 
   await interaction.editReply({
-    embeds: [embed],
-    components: [row]
+    embeds: [view.embed],
+    components: view.components
   });
 }

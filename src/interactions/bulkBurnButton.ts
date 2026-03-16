@@ -2,7 +2,7 @@ import type { ButtonInteraction } from "discord.js";
 import { EmbedBuilder } from "discord.js";
 import { getTagIdForUser } from "../repositories/tagRepo.js";
 import { getAllCardsByTag } from "../repositories/collectionRepo.js";
-import { deleteUserCard, getAllUserCards } from "../repositories/userCardRepo.js";
+import { deleteUserCard } from "../repositories/userCardRepo.js";
 import { addGold } from "../repositories/inventoryRepo.js";
 import { getGoldValue } from "../services/conditionService.js";
 import { resolveBasePrice } from "../utils/cardFormatting.js";
@@ -10,8 +10,9 @@ import {
   BULKBURN_CONFIRM_PREFIX,
   BULKBURN_CANCEL_PREFIX,
   findDuplicatesToBurn,
-  type KeepStrategy,
-  type DuplicateBurnEntry
+  resolveBurnEntries,
+  buildDuplicateBurnView,
+  type KeepStrategy
 } from "../commands/bulkburn.js";
 
 export async function handleBulkBurnConfirmButton(interaction: ButtonInteraction) {
@@ -109,6 +110,44 @@ export async function handleBulkBurnCancelButton(interaction: ButtonInteraction)
   });
 }
 
+export async function handleBulkBurnDupPageButton(interaction: ButtonInteraction) {
+  const parts = interaction.customId.split(":");
+  const ownerId = parts[1];
+  const page = Number(parts[2]);
+  const keep = (parts[3] ?? "cheapest") as KeepStrategy;
+
+  if (interaction.user.id !== ownerId) {
+    await interaction.reply({ content: "This is not your burn confirmation.", ephemeral: true }).catch(() => {});
+    return;
+  }
+
+  await interaction.deferUpdate();
+
+  const allEntries = await resolveBurnEntries(ownerId);
+  const toBurn = findDuplicatesToBurn(allEntries, keep);
+
+  if (toBurn.length === 0) {
+    await interaction.editReply({
+      embeds: [
+        new EmbedBuilder()
+          .setTitle("Burn Duplicate Cards")
+          .setDescription("No duplicate cards found. They may have already been burned.")
+          .setColor(0xed4245)
+          .toJSON()
+      ],
+      components: []
+    });
+    return;
+  }
+
+  const view = buildDuplicateBurnView(ownerId, toBurn, keep, page);
+
+  await interaction.editReply({
+    embeds: [view.embed],
+    components: view.components
+  });
+}
+
 export async function handleBulkBurnDupConfirmButton(interaction: ButtonInteraction) {
   const parts = interaction.customId.split(":");
   const ownerId = parts[1];
@@ -119,28 +158,8 @@ export async function handleBulkBurnDupConfirmButton(interaction: ButtonInteract
     return;
   }
 
-  const allCards = await getAllUserCards(ownerId);
-  if (allCards.length === 0) {
-    await interaction.update({
-      embeds: [
-        new EmbedBuilder()
-          .setTitle("Burn Duplicate Cards")
-          .setDescription("No cards found. They may have already been burned.")
-          .setColor(0xed4245)
-      ],
-      components: []
-    });
-    return;
-  }
-
   // Re-calculate duplicates at confirmation time
-  const allEntries: DuplicateBurnEntry[] = [];
-  for (const entry of allCards) {
-    const baseUsd = await resolveBasePrice(entry.card.usdPrice, entry.card.name, entry.card.eurPrice);
-    const gold = getGoldValue(String(baseUsd), entry.condition);
-    allEntries.push({ card: entry, gold, baseUsd });
-  }
-
+  const allEntries = await resolveBurnEntries(ownerId);
   const toBurn = findDuplicatesToBurn(allEntries, keep);
 
   if (toBurn.length === 0) {
