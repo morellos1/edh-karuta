@@ -7,6 +7,8 @@ import { gameConfig } from "../config.js";
 import type { SlashCommand } from "./types.js";
 import { getRandomLandCards } from "../repositories/cardRepo.js";
 import { getLanddropCooldownRemainingMs, setLanddropUsed } from "../repositories/botConfigRepo.js";
+import { consumeExtraLandDropTx } from "../repositories/extraLandDropRepo.js";
+import { prisma } from "../db.js";
 import { buildDropCollage } from "../services/collageService.js";
 import { attachDropMessage, createDropRecord } from "../services/dropService.js";
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
@@ -30,14 +32,24 @@ export const landdropCommand: SlashCommand = {
       return;
     }
 
+    let usedExtraLandDrop: number | null = null;
     const blocked = await withLanddropLock(interaction.user.id, async () => {
       const remainingMs = await getLanddropCooldownRemainingMs(interaction.user.id);
       if (remainingMs > 0) {
-        await interaction.reply({
-          content: `Land Drop is on cooldown. Try again ${formatCooldownRemaining(remainingMs)}.`,
-          ephemeral: true
+        // Try to consume an extra landdrop
+        const remaining = await prisma.$transaction(async (tx) => {
+          return consumeExtraLandDropTx(tx, interaction.user.id);
         });
-        return true;
+        if (remaining === null) {
+          await interaction.reply({
+            content: `Land Drop is on cooldown. Try again ${formatCooldownRemaining(remainingMs)}.`,
+            ephemeral: true
+          });
+          return true;
+        }
+        usedExtraLandDrop = remaining;
+        // Don't reset the default cooldown — it keeps ticking in the background
+        return false;
       }
       await setLanddropUsed(interaction.user.id);
       return false;
@@ -85,6 +97,12 @@ export const landdropCommand: SlashCommand = {
         messageId: message.id,
         expiresAt
       });
+
+      if (usedExtraLandDrop !== null) {
+        await interaction.followUp({
+          content: `<@${interaction.user.id}>, your Extra LandDrop has been consumed. You have ${usedExtraLandDrop} remaining.`
+        });
+      }
     } catch (error) {
       await interaction.editReply({
         content: `Land Drop failed: ${(error as Error).message}`

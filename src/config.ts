@@ -29,8 +29,9 @@ const gameConfigSchema = z.object({
   autoDropIntervalSeconds: z.number().int().min(1),
   toolshop: z.object({
     extraClaimPrice: z.number().int().min(0).default(25000),
-    extraCommanderDropPrice: z.number().int().min(0).default(10000)
-  }).default({ extraClaimPrice: 25000, extraCommanderDropPrice: 10000 }),
+    extraCommanderDropPrice: z.number().int().min(0).default(10000),
+    extraLandDropPrice: z.number().int().min(0).default(5000)
+  }).default({ extraClaimPrice: 25000, extraCommanderDropPrice: 10000, extraLandDropPrice: 5000 }),
   dropRarity: z.object({
     commonChance: z.number().min(0).max(1),
     uncommonChance: z.number().min(0).max(1),
