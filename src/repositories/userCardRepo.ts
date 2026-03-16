@@ -34,6 +34,15 @@ export async function getLastCollectedCard(userId: string) {
   });
 }
 
+/** All user cards with their card data (no pagination). */
+export async function getAllUserCards(userId: string) {
+  return prisma.userCard.findMany({
+    where: { userId },
+    include: { card: true },
+    orderBy: { claimedAt: "desc" }
+  });
+}
+
 export async function deleteUserCard(id: number) {
   return prisma.userCard.delete({
     where: { id }
