@@ -57,7 +57,7 @@ export const clashCommand: SlashCommand = {
     }
 
     // Verify it's still a legendary creature (shouldn't change but be safe)
-    if (!isLegendaryCreature(clashCreature.userCard.card.typeLine)) {
+    if (!isLegendaryCreature(clashCreature.userCard.card.typeLine, { isMeldResult: clashCreature.userCard.card.isMeldResult })) {
       await prisma.clashCreature.delete({ where: { id: clashCreature.id } });
       await interaction.reply({
         content: "Your set creature is no longer eligible. Use `/setcreature <id>` to set a new one.",

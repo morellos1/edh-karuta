@@ -27,7 +27,7 @@ export const creaturestatsCommand: SlashCommand = {
       return;
     }
 
-    if (!isLegendaryCreature(userCard.card.typeLine)) {
+    if (!isLegendaryCreature(userCard.card.typeLine, { isMeldResult: userCard.card.isMeldResult })) {
       await interaction.reply({
         content: "Only legendary creatures have Clash stats.",
         ephemeral: true

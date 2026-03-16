@@ -38,7 +38,7 @@ async function loadClashCreature(userId: string, guildId: string) {
   if (!record) return null;
   // Verify ownership
   if (record.userCard.userId !== userId) return null;
-  if (!isLegendaryCreature(record.userCard.card.typeLine)) return null;
+  if (!isLegendaryCreature(record.userCard.card.typeLine, { isMeldResult: record.userCard.card.isMeldResult })) return null;
   return record;
 }
 

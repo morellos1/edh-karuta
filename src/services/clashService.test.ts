@@ -232,6 +232,17 @@ test("isLegendaryCreature uses first face for DFCs", () => {
   );
 });
 
+test("isLegendaryCreature rejects meld result cards", () => {
+  assert.equal(
+    isLegendaryCreature("Legendary Creature — Phyrexian Dragon Angel", { isMeldResult: true }),
+    false
+  );
+  assert.equal(
+    isLegendaryCreature("Legendary Creature — Demon", { isMeldResult: false }),
+    true
+  );
+});
+
 // ---------------------------------------------------------------------------
 // buildClashStats
 // ---------------------------------------------------------------------------

@@ -42,6 +42,11 @@ type ScryfallCard = {
     type_line?: string;
     oracle_text?: string;
   }>;
+  all_parts?: Array<{
+    id: string;
+    component: string;
+    name: string;
+  }>;
 };
 
 const MANA_COLOR_SYMBOLS = new Set(["W", "U", "B", "R", "G"]);
@@ -73,6 +78,18 @@ export function getImageUris(card: ScryfallCard) {
     return card.card_faces[0].image_uris;
   }
   return {};
+}
+
+/**
+ * Meld result cards (e.g. "Mishra, Lost to Phyrexia") cannot be played
+ * individually — they only exist when two other cards meld together.
+ * Identify them via the Scryfall `all_parts` array.
+ */
+export function isMeldResult(card: ScryfallCard): boolean {
+  if (card.layout !== "meld" || !card.all_parts) return false;
+  return card.all_parts.some(
+    (part) => part.component === "meld_result" && part.name === card.name
+  );
 }
 
 export function isBasicLand(card: ScryfallCard) {
@@ -129,6 +146,8 @@ async function flushBatch(batch: ScryfallCard[]) {
     const manaCost = card.mana_cost ?? firstFace?.mana_cost ?? null;
     const colorsFromMana = extractColorsFromManaCost(manaCost).join(",");
 
+    const meldResult = isMeldResult(card);
+
     const fields = {
       name: card.name,
       layout: card.layout ?? null,
@@ -151,7 +170,10 @@ async function flushBatch(batch: ScryfallCard[]) {
       imageNormal: image.normal ?? null,
       imageLarge: image.large ?? null,
       isBasicLand: isBasicLand(card),
-      isCommanderLegal: card.legalities?.commander === "legal",
+      // Meld results cannot be played individually — mark them as not legal
+      // so they are excluded from all drop pools and commander selection.
+      isCommanderLegal: meldResult ? false : card.legalities?.commander === "legal",
+      isMeldResult: meldResult,
       rarity: card.rarity ?? null
     };
 

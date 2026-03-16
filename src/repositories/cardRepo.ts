@@ -127,6 +127,7 @@ function baseDroppableWhere(
     id: excludeIds.length ? { notIn: excludeIds } : undefined,
     isBasicLand: false,
     isCommanderLegal: true,
+    isMeldResult: false,
     lang: "en",
     imagePng: { not: null },
     ...(filterColor ? { colors: { contains: filterColor } } : {})
@@ -242,6 +243,7 @@ const NON_COMMANDER_LAYOUTS = ["flip"];
 function commanderWhereFilter(): Prisma.CardWhereInput {
   return {
     layout: { notIn: NON_COMMANDER_LAYOUTS },
+    isMeldResult: false,
     NOT: { typeLine: { contains: "Battle" } },
     OR: [
       // Legendary creatures

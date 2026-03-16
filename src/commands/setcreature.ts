@@ -32,7 +32,7 @@ export const setcreatureCommand: SlashCommand = {
       return;
     }
 
-    if (!isLegendaryCreature(userCard.card.typeLine)) {
+    if (!isLegendaryCreature(userCard.card.typeLine, { isMeldResult: userCard.card.isMeldResult })) {
       await interaction.reply({
         content: "Only legendary creatures are eligible for Clash battles.",
         ephemeral: true
