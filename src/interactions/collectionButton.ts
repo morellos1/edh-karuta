@@ -1,8 +1,8 @@
 import type { ButtonInteraction } from "discord.js";
 import { AttachmentBuilder } from "discord.js";
-import { COLLECTION_BUTTON_PREFIX, COLLECTION_EXPORT_PREFIX, buildCollectionView } from "../commands/collection.js";
+import { COLLECTION_BUTTON_PREFIX, COLLECTION_EXPORT_PREFIX, COLLECTION_COPYIDS_PREFIX, buildCollectionView } from "../commands/collection.js";
 import type { CollectionSort } from "../repositories/collectionRepo.js";
-import { getAllForExport, getAllCardsByTag, formatCollectionAsMoxfield } from "../repositories/collectionRepo.js";
+import { getAllForExport, getAllCardsByTag, formatCollectionAsMoxfield, getCollectionPage } from "../repositories/collectionRepo.js";
 import { getTagIdForUser } from "../repositories/tagRepo.js";
 
 export async function handleCollectionPageButton(interaction: ButtonInteraction) {
@@ -31,6 +31,26 @@ export async function handleCollectionPageButton(interaction: ButtonInteraction)
       content: "Here’s your collection in Moxfield format. You can import this into Moxfield.",
       files: [attachment]
     });
+    return;
+  }
+
+  if (prefix === COLLECTION_COPYIDS_PREFIX) {
+    const targetUserId = parts[1];
+    if (!targetUserId || interaction.user.id !== targetUserId) {
+      await interaction.reply({ content: "You can only copy IDs from your own collection.", ephemeral: true }).catch(() => {});
+      return;
+    }
+    const cpPage = Number(parts[2]);
+    const cpSort = (parts[3] ?? "recent") as CollectionSort;
+    const cpViewMode = (parts[4] ?? "list") as "list" | "album" | "combined";
+    const cpTag = parts[5]?.trim() || undefined;
+    const cpSearch = parts[6]?.trim() || undefined;
+    const cpType = parts[7]?.trim() || undefined;
+    const pageSize = (cpViewMode === "album" || cpViewMode === "combined") ? 8 : 10;
+    const tagId = cpTag ? await getTagIdForUser(targetUserId, cpTag) : undefined;
+    const result = await getCollectionPage(targetUserId, cpPage, cpSort, pageSize, tagId ?? undefined, cpSearch, cpType);
+    const ids = result.cards.map((e) => e.displayId).join(" ") + " ";
+    await interaction.reply({ content: `\`\`\`\n${ids}\n\`\`\``, ephemeral: true }).catch(() => {});
     return;
   }
 
