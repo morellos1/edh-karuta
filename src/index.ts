@@ -6,7 +6,7 @@ import { setdropchannelCommand } from "./commands/setdropchannel.js";
 import { colordropCommand } from "./commands/colordrop.js";
 import { commanderdropCommand } from "./commands/commanderdrop.js";
 import { landdropCommand } from "./commands/landdrop.js";
-import { COLLECTION_BUTTON_PREFIX, COLLECTION_EXPORT_PREFIX, collectionCommand } from "./commands/collection.js";
+import { COLLECTION_BUTTON_PREFIX, COLLECTION_EXPORT_PREFIX, COLLECTION_COPYIDS_PREFIX, collectionCommand } from "./commands/collection.js";
 import { cardCommand } from "./commands/card.js";
 import { lookupCommand } from "./commands/lookup.js";
 import { burnCommand } from "./commands/burn.js";
@@ -120,7 +120,8 @@ client.on("interactionCreate", async (interaction: Interaction) => {
     if (
       interaction.isButton() &&
       (interaction.customId.startsWith(`${COLLECTION_BUTTON_PREFIX}:`) ||
-        interaction.customId.startsWith(`${COLLECTION_EXPORT_PREFIX}:`))
+        interaction.customId.startsWith(`${COLLECTION_EXPORT_PREFIX}:`) ||
+        interaction.customId.startsWith(`${COLLECTION_COPYIDS_PREFIX}:`))
     ) {
       await handleCollectionPageButton(interaction);
       return;

@@ -20,6 +20,7 @@ import { buildCollectionGrid } from "../services/collageService.js";
 
 export const COLLECTION_BUTTON_PREFIX = "collection_page";
 export const COLLECTION_EXPORT_PREFIX = "collection_export";
+export const COLLECTION_COPYIDS_PREFIX = "col_cpids";
 const GOLD_MAX_DIGITS = 7; // 9999999g max -> 8 chars total
 const GOLD_PAD_WIDTH = GOLD_MAX_DIGITS + 1; // 8
 const EUR_TO_USD = 1.15;
@@ -112,18 +113,20 @@ export async function buildCollectionView(
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(result.page >= result.totalPages)
     );
+    const albumRows: ActionRowBuilder<ButtonBuilder>[] = [row];
     if (viewerId === user.id) {
-      row.addComponents(
+      const utilRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setCustomId(`${COLLECTION_EXPORT_PREFIX}:${user.id}:${tagParam}`)
           .setLabel("Export")
           .setStyle(ButtonStyle.Secondary)
       );
+      albumRows.push(utilRow);
     }
     return {
       content: pageInfo,
       embed: embed.toJSON(),
-      components: [row],
+      components: albumRows,
       file: { buffer: gridBuffer, name: "collection-grid.webp" },
       nameSearch,
       typeFilter
@@ -186,18 +189,24 @@ export async function buildCollectionView(
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(result.page >= result.totalPages)
     );
+    const rows: ActionRowBuilder<ButtonBuilder>[] = [row];
     if (viewerId === user.id) {
-      row.addComponents(
+      const utilRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder()
           .setCustomId(`${COLLECTION_EXPORT_PREFIX}:${user.id}:${tagParam}`)
           .setLabel("Export")
+          .setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder()
+          .setCustomId(`${COLLECTION_COPYIDS_PREFIX}:${user.id}:${result.page}:${sort}:combined:${tagParam}:${searchParam}:${typeParam}`)
+          .setLabel("CopyIds")
           .setStyle(ButtonStyle.Secondary)
       );
+      rows.push(utilRow);
     }
     return {
       content: pageInfo,
       embed: embed.toJSON(),
-      components: [row],
+      components: rows,
       file: { buffer: gridBuffer, name: "collection-grid.webp" },
       nameSearch,
       typeFilter
@@ -268,18 +277,24 @@ export async function buildCollectionView(
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(result.page >= result.totalPages)
   );
+  const rows: ActionRowBuilder<ButtonBuilder>[] = [row];
   if (viewerId === user.id) {
-    row.addComponents(
+    const utilRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(`${COLLECTION_EXPORT_PREFIX}:${user.id}:${tagParam}`)
         .setLabel("Export")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`${COLLECTION_COPYIDS_PREFIX}:${user.id}:${result.page}:${sort}:list:${tagParam}:${searchParam}:${typeParam}`)
+        .setLabel("CopyIds")
         .setStyle(ButtonStyle.Secondary)
     );
+    rows.push(utilRow);
   }
 
   return {
     embed: embed.toJSON(),
-    components: [row],
+    components: rows,
     nameSearch,
     typeFilter
   };
