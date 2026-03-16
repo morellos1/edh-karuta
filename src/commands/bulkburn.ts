@@ -125,25 +125,25 @@ export function buildDuplicateBurnView(
     .setColor(0x808080)
     .setFooter({ text: `*Gold values are approximate · Page ${safePage}/${totalPages} · ${toBurn.length} cards` });
 
-  // Row 1: pagination
+  // Row 1: pagination (suffix ensures unique customIds even when page numbers collide)
   const paginationRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
-      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:1:${keep}`)
+      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:1:${keep}:first`)
       .setLabel("⏮")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(safePage <= 1),
     new ButtonBuilder()
-      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:${safePage - 1}:${keep}`)
+      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:${safePage - 1}:${keep}:prev`)
       .setLabel("⬅")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(safePage <= 1),
     new ButtonBuilder()
-      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:${safePage + 1}:${keep}`)
+      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:${safePage + 1}:${keep}:next`)
       .setLabel("➡")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(safePage >= totalPages),
     new ButtonBuilder()
-      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:${totalPages}:${keep}`)
+      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:${totalPages}:${keep}:last`)
       .setLabel("⏭")
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(safePage >= totalPages)
