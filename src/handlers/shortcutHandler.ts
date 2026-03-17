@@ -22,6 +22,7 @@ import { getGoldValue } from "../services/conditionService.js";
 import { getCardImageUrl, resolveBasePrice } from "../utils/cardFormatting.js";
 import { BURN_CONFIRM_PREFIX, BURN_CANCEL_PREFIX } from "../commands/burn.js";
 import { createMultiBurnSession, buildMultiBurnView, type MultiBurnCard } from "../services/multiBurnStore.js";
+import { createMultiTagSession, buildMultiTagView, type MultiTagCard } from "../services/multiTagStore.js";
 import {
   getMarketSlot,
   getMarketCardsForSlot,
@@ -47,7 +48,7 @@ import {
   getColordropCooldownRemainingMs,
   getLanddropCooldownRemainingMs
 } from "../repositories/botConfigRepo.js";
-import { addCardToTag, addCardsToTag } from "../repositories/tagRepo.js";
+import { addCardToTag } from "../repositories/tagRepo.js";
 import { GIVE_ACCEPT_PREFIX, GIVE_DECLINE_PREFIX } from "../interactions/tradeGiveButton.js";
 import { conditionToStars } from "../utils/cardFormatting.js";
 import {
@@ -1122,7 +1123,7 @@ async function handleDeck(message: Message, args: string[], prefix: string): Pro
   const tagname = args[0].trim();
   const cardIds = args.slice(1).map((a) => a.trim()).filter(Boolean);
 
-  const resolved: { id: number; displayId: string; name: string }[] = [];
+  const cards: MultiTagCard[] = [];
   const notFound: string[] = [];
   const notOwned: string[] = [];
 
@@ -1133,11 +1134,13 @@ async function handleDeck(message: Message, args: string[], prefix: string): Pro
     } else if (userCard.userId !== userId) {
       notOwned.push(displayId);
     } else {
-      resolved.push({ id: userCard.id, displayId: userCard.displayId, name: userCard.card.name });
+      if (!cards.some((c) => c.userCardId === userCard.id)) {
+        cards.push({ userCardId: userCard.id, displayId: userCard.displayId, name: userCard.card.name });
+      }
     }
   }
 
-  if (resolved.length === 0) {
+  if (cards.length === 0) {
     const lines: string[] = [];
     if (notFound.length > 0) lines.push(`Not found: ${notFound.map((id) => `\`${id}\``).join(", ")}`);
     if (notOwned.length > 0) lines.push(`Not yours: ${notOwned.map((id) => `\`${id}\``).join(", ")}`);
@@ -1145,21 +1148,19 @@ async function handleDeck(message: Message, args: string[], prefix: string): Pro
     return;
   }
 
-  const result = await addCardsToTag(userId, resolved.map((r) => r.id), tagname);
+  const sessionId = createMultiTagSession(userId, tagname, cards);
+  const view = buildMultiTagView(userId, sessionId, tagname, cards, 1);
 
-  if (!result.ok) {
-    await message.reply({
-      content: `You don't have a tag named **${tagname}**. Create it with \`/tagcreate\`.`
-    });
-    return;
-  }
+  const errorLines: string[] = [];
+  if (notFound.length > 0) errorLines.push(`Not found: ${notFound.map((id) => `\`${id}\``).join(", ")}`);
+  if (notOwned.length > 0) errorLines.push(`Not yours: ${notOwned.map((id) => `\`${id}\``).join(", ")}`);
+  const errorPrefix = errorLines.length > 0 ? errorLines.join("\n") : undefined;
 
-  const taggedLines = resolved.map((r) => `**${r.name}** (\`${r.displayId}\`)`).join(", ");
-  const parts: string[] = [`Tagged ${taggedLines} with **${tagname}**.`];
-  if (notFound.length > 0) parts.push(`Not found: ${notFound.map((id) => `\`${id}\``).join(", ")}`);
-  if (notOwned.length > 0) parts.push(`Not yours: ${notOwned.map((id) => `\`${id}\``).join(", ")}`);
-
-  await message.reply({ content: parts.join("\n") });
+  await message.reply({
+    content: errorPrefix,
+    embeds: [view.embed],
+    components: view.components
+  });
 }
 
 async function handleLookup(message: Message, args: string[]): Promise<void> {

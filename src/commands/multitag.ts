@@ -1,7 +1,11 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from "discord.js";
 import type { SlashCommand } from "./types.js";
 import { getUserCardByDisplayId } from "../repositories/userCardRepo.js";
-import { addCardsToTag } from "../repositories/tagRepo.js";
+import {
+  createMultiTagSession,
+  buildMultiTagView,
+  type MultiTagCard
+} from "../services/multiTagStore.js";
 
 export const multitagCommand: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -24,8 +28,10 @@ export const multitagCommand: SlashCommand = {
       return;
     }
 
+    await interaction.deferReply();
+
     // Resolve display IDs to user card records
-    const resolved: { id: number; displayId: string; name: string }[] = [];
+    const cards: MultiTagCard[] = [];
     const notFound: string[] = [];
     const notOwned: string[] = [];
 
@@ -36,33 +42,32 @@ export const multitagCommand: SlashCommand = {
       } else if (userCard.userId !== userId) {
         notOwned.push(displayId);
       } else {
-        resolved.push({ id: userCard.id, displayId: userCard.displayId, name: userCard.card.name });
+        if (!cards.some((c) => c.userCardId === userCard.id)) {
+          cards.push({ userCardId: userCard.id, displayId: userCard.displayId, name: userCard.card.name });
+        }
       }
     }
 
-    if (resolved.length === 0) {
+    if (cards.length === 0) {
       const lines: string[] = [];
       if (notFound.length > 0) lines.push(`Not found: ${notFound.map((id) => `\`${id}\``).join(", ")}`);
       if (notOwned.length > 0) lines.push(`Not yours: ${notOwned.map((id) => `\`${id}\``).join(", ")}`);
-      await interaction.reply({ content: lines.join("\n") || "No valid cards provided.", ephemeral: true });
+      await interaction.editReply({ content: lines.join("\n") || "No valid cards provided." });
       return;
     }
 
-    const result = await addCardsToTag(userId, resolved.map((r) => r.id), tagname);
+    const sessionId = createMultiTagSession(userId, tagname, cards);
+    const view = buildMultiTagView(userId, sessionId, tagname, cards, 1);
 
-    if (!result.ok) {
-      await interaction.reply({
-        content: `You don't have a tag named **${tagname}**. Create it with \`/tagcreate\`.`,
-        ephemeral: true
-      });
-      return;
-    }
+    const errorLines: string[] = [];
+    if (notFound.length > 0) errorLines.push(`Not found: ${notFound.map((id) => `\`${id}\``).join(", ")}`);
+    if (notOwned.length > 0) errorLines.push(`Not yours: ${notOwned.map((id) => `\`${id}\``).join(", ")}`);
+    const errorPrefix = errorLines.length > 0 ? errorLines.join("\n") : undefined;
 
-    const taggedLines = resolved.map((r) => `**${r.name}** (\`${r.displayId}\`)`).join(", ");
-    const parts: string[] = [`Tagged ${taggedLines} with **${tagname}**.`];
-    if (notFound.length > 0) parts.push(`Not found: ${notFound.map((id) => `\`${id}\``).join(", ")}`);
-    if (notOwned.length > 0) parts.push(`Not yours: ${notOwned.map((id) => `\`${id}\``).join(", ")}`);
-
-    await interaction.reply({ content: parts.join("\n") });
+    await interaction.editReply({
+      content: errorPrefix,
+      embeds: [view.embed],
+      components: view.components
+    });
   }
 };
