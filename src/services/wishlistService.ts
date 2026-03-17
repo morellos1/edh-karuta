@@ -11,6 +11,8 @@ export async function buildWishlistNotification(
   const watchers = await findWishlistWatchers(guildId, cardNames);
   if (!watchers.size) return null;
 
+  console.log(`[wishlist] Found ${watchers.size} wishlisted card(s) in drop`);
+
   // Collect unique user IDs across all matched cards
   const userIds = new Set<string>();
   for (const ids of watchers.values()) {
