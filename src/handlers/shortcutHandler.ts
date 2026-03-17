@@ -48,7 +48,7 @@ import {
   getColordropCooldownRemainingMs,
   getLanddropCooldownRemainingMs
 } from "../repositories/botConfigRepo.js";
-import { addCardToTag } from "../repositories/tagRepo.js";
+import { addCardToTag, isCardInFavoriteTag, getFavoriteCardIds, setTagFavorite } from "../repositories/tagRepo.js";
 import { GIVE_ACCEPT_PREFIX, GIVE_DECLINE_PREFIX } from "../interactions/tradeGiveButton.js";
 import { conditionToStars } from "../utils/cardFormatting.js";
 import {
@@ -206,6 +206,12 @@ export async function handleShortcut(message: Message): Promise<void> {
       break;
     case "wr":
       await handleWishremove(message, parsed.args, prefix);
+      break;
+    case "fav":
+      await handleFav(message, parsed.args, prefix);
+      break;
+    case "unfav":
+      await handleUnfav(message, parsed.args, prefix);
       break;
     default:
       // Not a recognized shortcut, ignore
@@ -955,6 +961,11 @@ async function handleBurn(message: Message, args: string[]): Promise<void> {
     return;
   }
 
+  if (await isCardInFavoriteTag(userId, userCard.id)) {
+    await message.reply({ content: "That card is in a favorited tag and cannot be burned." });
+    return;
+  }
+
   const baseUsd = await resolveBasePrice(userCard.card.usdPrice, userCard.card.name, userCard.card.eurPrice);
   const gold = getGoldValue(String(baseUsd), userCard.condition);
   const image = getCardImageUrl(userCard.card);
@@ -995,6 +1006,9 @@ async function handleMultiBurn(message: Message, userId: string, args: string[])
   const cards: MultiBurnCard[] = [];
   const notFound: string[] = [];
   const notOwned: string[] = [];
+  const skippedFavorites: string[] = [];
+
+  const favoriteIds = await getFavoriteCardIds(userId);
 
   for (const id of ids) {
     const uc = await getUserCardByDisplayId(id);
@@ -1008,6 +1022,11 @@ async function handleMultiBurn(message: Message, userId: string, args: string[])
     }
     // Avoid duplicates if same ID passed twice
     if (cards.some(c => c.userCardId === uc.id)) continue;
+
+    if (favoriteIds.has(uc.id)) {
+      skippedFavorites.push(id);
+      continue;
+    }
 
     const baseUsd = await resolveBasePrice(uc.card.usdPrice, uc.card.name, uc.card.eurPrice);
     const gold = getGoldValue(String(baseUsd), uc.condition);
@@ -1028,6 +1047,9 @@ async function handleMultiBurn(message: Message, userId: string, args: string[])
   }
   if (notOwned.length > 0) {
     errorLines.push(`Not in your collection: ${notOwned.map(id => `\`${id}\``).join(", ")}`);
+  }
+  if (skippedFavorites.length > 0) {
+    errorLines.push(`Skipped (favorited): ${skippedFavorites.map(id => `\`${id}\``).join(", ")}`);
   }
 
   if (cards.length === 0) {
@@ -1268,5 +1290,54 @@ async function handleWishremove(message: Message, args: string[], prefix: string
 
   await message.reply({
     content: `**${cardName}** was not found on your wishlist. Use \`/wl\` to view your wishlist.`
+  });
+}
+
+async function handleFav(message: Message, args: string[], prefix: string): Promise<void> {
+  const tagName = args.join(" ").trim();
+  if (!tagName) {
+    await message.reply({ content: `Usage: \`${prefix}fav <tagname>\`` });
+    return;
+  }
+
+  const userId = message.author.id;
+  const result = await setTagFavorite(userId, tagName, true);
+
+  if (!result.ok) {
+    const messages: Record<string, string> = {
+      tag_not_found: "Tag not found. Use `/tags` to list your tags.",
+      already_favorite: `Tag **${tagName}** is already favorited.`,
+      limit_reached: "You can only favorite up to **5** tags. Unfavorite one first with `/unfav`."
+    };
+    await message.reply({ content: messages[result.reason!] ?? "Could not favorite that tag." });
+    return;
+  }
+
+  await message.reply({
+    content: `Tag **${tagName}** is now favorited. Cards in this tag are protected from burning.`
+  });
+}
+
+async function handleUnfav(message: Message, args: string[], prefix: string): Promise<void> {
+  const tagName = args.join(" ").trim();
+  if (!tagName) {
+    await message.reply({ content: `Usage: \`${prefix}unfav <tagname>\`` });
+    return;
+  }
+
+  const userId = message.author.id;
+  const result = await setTagFavorite(userId, tagName, false);
+
+  if (!result.ok) {
+    const messages: Record<string, string> = {
+      tag_not_found: "Tag not found. Use `/tags` to list your tags.",
+      not_favorite: `Tag **${tagName}** is not favorited.`
+    };
+    await message.reply({ content: messages[result.reason!] ?? "Could not unfavorite that tag." });
+    return;
+  }
+
+  await message.reply({
+    content: `Tag **${tagName}** is no longer favorited.`
   });
 }

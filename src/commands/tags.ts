@@ -16,7 +16,7 @@ export const tagsCommand: SlashCommand = {
     const description =
       tags.length > 0
         ? tags
-            .map((t) => `**${t.name}** — ${t.cardCount} card${t.cardCount !== 1 ? "s" : ""}`)
+            .map((t) => `${t.isFavorite ? "❤️ " : ""}**${t.name}** — ${t.cardCount} card${t.cardCount !== 1 ? "s" : ""}`)
             .join("\n")
         : "No tags yet. Create one with `/tagcreate`.";
 

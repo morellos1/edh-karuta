@@ -103,10 +103,11 @@ model UserInventory {
 }
 
 model Tag {
-  id        Int      @id @default(autoincrement())
-  userId    String
-  name      String
-  createdAt DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  userId     String
+  name       String
+  isFavorite Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
   userCardTags UserCardTag[]
 

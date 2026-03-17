@@ -1,6 +1,6 @@
 import type { ButtonInteraction } from "discord.js";
 import { EmbedBuilder } from "discord.js";
-import { getTagIdForUser } from "../repositories/tagRepo.js";
+import { getTagIdForUser, getFavoriteCardIds } from "../repositories/tagRepo.js";
 import { getAllCardsByTag } from "../repositories/collectionRepo.js";
 import { deleteUserCard } from "../repositories/userCardRepo.js";
 import { addGold } from "../repositories/inventoryRepo.js";
@@ -186,7 +186,8 @@ export async function handleBulkBurnDupPageButton(interaction: ButtonInteraction
   await interaction.deferUpdate();
 
   const allEntries = await resolveBurnEntries(ownerId);
-  const toBurn = findDuplicatesToBurn(allEntries, keep);
+  const favoriteIds = await getFavoriteCardIds(ownerId);
+  const { toBurn, skippedFavorites } = findDuplicatesToBurn(allEntries, keep, favoriteIds);
 
   if (toBurn.length === 0) {
     await interaction.editReply({
@@ -202,7 +203,7 @@ export async function handleBulkBurnDupPageButton(interaction: ButtonInteraction
     return;
   }
 
-  const view = buildDuplicateBurnView(ownerId, toBurn, keep, page);
+  const view = buildDuplicateBurnView(ownerId, toBurn, keep, page, skippedFavorites.length);
 
   await interaction.editReply({
     embeds: [view.embed],
@@ -222,7 +223,8 @@ export async function handleBulkBurnDupConfirmButton(interaction: ButtonInteract
 
   // Re-calculate duplicates at confirmation time
   const allEntries = await resolveBurnEntries(ownerId);
-  const toBurn = findDuplicatesToBurn(allEntries, keep);
+  const favoriteIds = await getFavoriteCardIds(ownerId);
+  const { toBurn, skippedFavorites } = findDuplicatesToBurn(allEntries, keep, favoriteIds);
 
   if (toBurn.length === 0) {
     await interaction.update({
@@ -245,6 +247,10 @@ export async function handleBulkBurnDupConfirmButton(interaction: ButtonInteract
 
   await addGold(ownerId, totalGold);
 
+  const skippedNote = skippedFavorites.length > 0
+    ? `\n${skippedFavorites.length} card${skippedFavorites.length !== 1 ? "s" : ""} skipped (favorited).`
+    : "";
+
   const embed = new EmbedBuilder()
     .setTitle("Burn Duplicate Cards")
     .setDescription(
@@ -253,7 +259,7 @@ export async function handleBulkBurnDupConfirmButton(interaction: ButtonInteract
         "",
         `💰 **${totalGold} Gold**`,
         "",
-        `**${toBurn.length} duplicate cards have been burned.**`
+        `**${toBurn.length} duplicate cards have been burned.**${skippedNote}`
       ].join("\n")
     )
     .setColor(0x57f287); // green

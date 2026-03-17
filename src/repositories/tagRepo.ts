@@ -58,7 +58,7 @@ export async function getTagsByUserId(userId: string, page: number = 1, pageSize
     prisma.tag.count({ where: { userId } })
   ]);
   return {
-    tags: tags.map((t) => ({ id: t.id, name: t.name, cardCount: t._count.userCardTags })),
+    tags: tags.map((t) => ({ id: t.id, name: t.name, isFavorite: t.isFavorite, cardCount: t._count.userCardTags })),
     total,
     page: Math.max(1, page),
     totalPages: Math.max(1, Math.ceil(total / pageSize))
@@ -141,4 +141,50 @@ export async function stripTagsFromUserCard(userCardId: number) {
 export async function getTagIdForUser(userId: string, tagName: string): Promise<number | null> {
   const tag = await findTagByUserAndName(userId, tagName.trim());
   return tag?.id ?? null;
+}
+
+/** Set a tag's favorite status. Returns false if tag not found or already in desired state. */
+export async function setTagFavorite(userId: string, tagName: string, isFavorite: boolean): Promise<{ ok: boolean; reason?: string }> {
+  const tag = await findTagByUserAndName(userId, tagName.trim());
+  if (!tag) return { ok: false, reason: "tag_not_found" };
+  if (tag.isFavorite === isFavorite) return { ok: false, reason: isFavorite ? "already_favorite" : "not_favorite" };
+  if (isFavorite) {
+    const count = await getFavoriteTagCount(userId);
+    if (count >= 5) return { ok: false, reason: "limit_reached" };
+  }
+  await prisma.tag.update({ where: { id: tag.id }, data: { isFavorite } });
+  return { ok: true };
+}
+
+/** Count how many tags the user has marked as favorite. */
+export async function getFavoriteTagCount(userId: string): Promise<number> {
+  return prisma.tag.count({ where: { userId, isFavorite: true } });
+}
+
+/** Check if a specific user card is in any of the user's favorited tags. */
+export async function isCardInFavoriteTag(userId: string, userCardId: number): Promise<boolean> {
+  const result = await prisma.userCardTag.findFirst({
+    where: {
+      userCardId,
+      tag: { userId, isFavorite: true }
+    }
+  });
+  return result !== null;
+}
+
+/** Get the set of userCardIds that are in any favorited tag for a user. */
+export async function getFavoriteCardIds(userId: string): Promise<Set<number>> {
+  const entries = await prisma.userCardTag.findMany({
+    where: {
+      tag: { userId, isFavorite: true }
+    },
+    select: { userCardId: true }
+  });
+  return new Set(entries.map(e => e.userCardId));
+}
+
+/** Check if a tag is favorited. */
+export async function isTagFavorited(userId: string, tagName: string): Promise<boolean> {
+  const tag = await findTagByUserAndName(userId, tagName.trim());
+  return tag?.isFavorite ?? false;
 }
