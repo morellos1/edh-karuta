@@ -23,6 +23,8 @@ import { tagCommand } from "./commands/tag.js";
 import { multitagCommand } from "./commands/multitag.js";
 import { tagsCommand } from "./commands/tags.js";
 import { untagCommand } from "./commands/untag.js";
+import { favCommand } from "./commands/fav.js";
+import { unfavCommand } from "./commands/unfav.js";
 import { wishaddCommand } from "./commands/wishadd.js";
 import { wishremoveCommand } from "./commands/wishremove.js";
 import { wlCommand } from "./commands/wl.js";
@@ -76,6 +78,8 @@ const commands = [
   multitagCommand,
   tagsCommand,
   untagCommand,
+  favCommand,
+  unfavCommand,
   wishaddCommand,
   wishremoveCommand,
   wlCommand,

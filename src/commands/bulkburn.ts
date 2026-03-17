@@ -8,7 +8,7 @@ import {
   type APIEmbed
 } from "discord.js";
 import type { SlashCommand } from "./types.js";
-import { getTagIdForUser } from "../repositories/tagRepo.js";
+import { getTagIdForUser, isTagFavorited, getFavoriteCardIds } from "../repositories/tagRepo.js";
 import { getAllCardsByTag } from "../repositories/collectionRepo.js";
 import { getAllUserCards } from "../repositories/userCardRepo.js";
 import { getGoldValue } from "../services/conditionService.js";
@@ -35,11 +35,15 @@ export interface DuplicateBurnEntry {
 /**
  * Given all user cards with resolved gold values, find duplicates by card name
  * and return the entries that should be burned (everything except the kept copy).
+ * Cards in favoriteCardIds are never burned.
  */
 export function findDuplicatesToBurn(
   allEntries: DuplicateBurnEntry[],
-  keep: KeepStrategy
-): DuplicateBurnEntry[] {
+  keep: KeepStrategy,
+  favoriteCardIds?: Set<number>
+): { toBurn: DuplicateBurnEntry[]; skippedFavorites: DuplicateBurnEntry[] } {
+  const favorites = favoriteCardIds ?? new Set<number>();
+
   // Group by card name
   const groups = new Map<string, DuplicateBurnEntry[]>();
   for (const entry of allEntries) {
@@ -53,6 +57,7 @@ export function findDuplicatesToBurn(
   }
 
   const toBurn: DuplicateBurnEntry[] = [];
+  const skippedFavorites: DuplicateBurnEntry[] = [];
   for (const [, group] of groups) {
     if (group.length <= 1) continue;
 
@@ -62,11 +67,17 @@ export function findDuplicatesToBurn(
       keep === "cheapest" ? a.gold - b.gold : b.gold - a.gold
     );
 
-    // Keep the first (the one we want to keep), burn the rest
-    toBurn.push(...group.slice(1));
+    // Keep the first (the one we want to keep), burn the rest — but skip favorites
+    for (let i = 1; i < group.length; i++) {
+      if (favorites.has(group[i].card.id)) {
+        skippedFavorites.push(group[i]);
+      } else {
+        toBurn.push(group[i]);
+      }
+    }
   }
 
-  return toBurn;
+  return { toBurn, skippedFavorites };
 }
 
 /**
@@ -90,7 +101,8 @@ export function buildDuplicateBurnView(
   userId: string,
   toBurn: DuplicateBurnEntry[],
   keep: KeepStrategy,
-  page: number
+  page: number,
+  skippedFavoriteCount: number = 0
 ): {
   embed: APIEmbed;
   components: ActionRowBuilder<ButtonBuilder>[];
@@ -124,7 +136,7 @@ export function buildDuplicateBurnView(
     .setTitle("Burn Duplicate Cards")
     .setDescription(description)
     .setColor(0x808080)
-    .setFooter({ text: `*Gold values are approximate · Page ${safePage}/${totalPages} · ${toBurn.length} cards` });
+    .setFooter({ text: `*Gold values are approximate · Page ${safePage}/${totalPages} · ${toBurn.length} cards${skippedFavoriteCount > 0 ? ` · ${skippedFavoriteCount} skipped (favorited)` : ""}` });
 
   // Row 1: pagination (suffix ensures unique customIds even when page numbers collide)
   const paginationRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -312,6 +324,14 @@ async function executeTag(interaction: ChatInputCommandInteraction) {
     return;
   }
 
+  if (await isTagFavorited(userId, tagName)) {
+    await interaction.reply({
+      content: `Tag **${tagName}** is set as favorites and cannot be burned.`,
+      ephemeral: true
+    });
+    return;
+  }
+
   await interaction.deferReply();
 
   const cards = await getAllCardsByTag(userId, tagId);
@@ -350,14 +370,18 @@ async function executeDuplicates(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  const toBurn = findDuplicatesToBurn(allEntries, keep);
+  const favoriteIds = await getFavoriteCardIds(userId);
+  const { toBurn, skippedFavorites } = findDuplicatesToBurn(allEntries, keep, favoriteIds);
 
   if (toBurn.length === 0) {
-    await interaction.editReply({ content: "You have no duplicate cards to burn." });
+    const msg = skippedFavorites.length > 0
+      ? `You have no duplicate cards to burn (${skippedFavorites.length} skipped due to favorites).`
+      : "You have no duplicate cards to burn.";
+    await interaction.editReply({ content: msg });
     return;
   }
 
-  const view = buildDuplicateBurnView(userId, toBurn, keep, 1);
+  const view = buildDuplicateBurnView(userId, toBurn, keep, 1, skippedFavorites.length);
 
   await interaction.editReply({
     embeds: [view.embed],

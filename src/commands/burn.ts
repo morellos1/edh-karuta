@@ -10,6 +10,7 @@ import type { SlashCommand } from "./types.js";
 import { getLastCollectedCard, getUserCardByDisplayId } from "../repositories/userCardRepo.js";
 import { getGoldValue } from "../services/conditionService.js";
 import { getCardImageUrl, resolveBasePrice } from "../utils/cardFormatting.js";
+import { isCardInFavoriteTag } from "../repositories/tagRepo.js";
 
 export const BURN_CONFIRM_PREFIX = "burn_confirm";
 export const BURN_CANCEL_PREFIX = "burn_cancel";
@@ -42,6 +43,14 @@ export const burnCommand: SlashCommand = {
     if (userCard.userId !== userId) {
       await interaction.reply({
         content: "That card is not in your collection.",
+        ephemeral: true
+      });
+      return;
+    }
+
+    if (await isCardInFavoriteTag(userId, userCard.id)) {
+      await interaction.reply({
+        content: "That card is in a favorited tag and cannot be burned.",
         ephemeral: true
       });
       return;
