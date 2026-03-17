@@ -14,6 +14,18 @@ import { getAllUserCards } from "../repositories/userCardRepo.js";
 import { getGoldValue } from "../services/conditionService.js";
 import { resolveBasePrice, conditionToStars } from "../utils/cardFormatting.js";
 
+/**
+ * Format skipped-favorites entries into a message line (like the kb command does).
+ * Returns undefined if nothing was skipped.
+ */
+export function formatSkippedFavorites(skipped: DuplicateBurnEntry[]): string | undefined {
+  if (skipped.length === 0) return undefined;
+  const items = skipped.map(
+    (c) => `\`${c.card.displayId}\` **${c.card.card.name}**`
+  );
+  return `Skipped (favorited): ${items.join(", ")}`;
+}
+
 export const BULKBURN_CONFIRM_PREFIX = "bulkburn_confirm";
 export const BULKBURN_CANCEL_PREFIX = "bulkburn_cancel";
 export const BULKBURN_DUP_CONFIRM_PREFIX = "bulkburn_dup_confirm";
@@ -382,8 +394,10 @@ async function executeDuplicates(interaction: ChatInputCommandInteraction) {
   }
 
   const view = buildDuplicateBurnView(userId, toBurn, keep, 1, skippedFavorites.length);
+  const skippedContent = formatSkippedFavorites(skippedFavorites);
 
   await interaction.editReply({
+    content: skippedContent ?? "",
     embeds: [view.embed],
     components: view.components
   });

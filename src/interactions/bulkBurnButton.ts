@@ -13,6 +13,7 @@ import {
   resolveBurnEntries,
   buildDuplicateBurnView,
   buildTagBurnView,
+  formatSkippedFavorites,
   type KeepStrategy,
   type TagBurnEntry
 } from "../commands/bulkburn.js";
@@ -204,8 +205,10 @@ export async function handleBulkBurnDupPageButton(interaction: ButtonInteraction
   }
 
   const view = buildDuplicateBurnView(ownerId, toBurn, keep, page, skippedFavorites.length);
+  const skippedContent = formatSkippedFavorites(skippedFavorites);
 
   await interaction.editReply({
+    content: skippedContent ?? "",
     embeds: [view.embed],
     components: view.components
   });
