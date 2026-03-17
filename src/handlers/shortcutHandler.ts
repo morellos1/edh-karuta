@@ -21,6 +21,7 @@ import { getUserCardByDisplayId, getLastCollectedCard } from "../repositories/us
 import { getGoldValue } from "../services/conditionService.js";
 import { getCardImageUrl, resolveBasePrice } from "../utils/cardFormatting.js";
 import { BURN_CONFIRM_PREFIX, BURN_CANCEL_PREFIX } from "../commands/burn.js";
+import { createMultiBurnSession, buildMultiBurnView, type MultiBurnCard } from "../services/multiBurnStore.js";
 import {
   getMarketSlot,
   getMarketCardsForSlot,
@@ -928,6 +929,14 @@ async function handleBuyExtraLandDrop(message: Message, quantity = 1): Promise<v
 
 async function handleBurn(message: Message, args: string[]): Promise<void> {
   const userId = message.author.id;
+
+  // Multiple IDs → multi-burn flow
+  if (args.length > 1) {
+    await handleMultiBurn(message, userId, args);
+    return;
+  }
+
+  // Single ID (or no ID = last collected) → original flow
   const idArg = args[0]?.trim();
   const userCard = idArg
     ? await getUserCardByDisplayId(idArg)
@@ -977,6 +986,63 @@ async function handleBurn(message: Message, args: string[]): Promise<void> {
   await message.reply({
     embeds: [embed],
     components: [row]
+  });
+}
+
+async function handleMultiBurn(message: Message, userId: string, args: string[]): Promise<void> {
+  const ids = args.map(a => a.trim()).filter(Boolean);
+  const cards: MultiBurnCard[] = [];
+  const notFound: string[] = [];
+  const notOwned: string[] = [];
+
+  for (const id of ids) {
+    const uc = await getUserCardByDisplayId(id);
+    if (!uc) {
+      notFound.push(id);
+      continue;
+    }
+    if (uc.userId !== userId) {
+      notOwned.push(id);
+      continue;
+    }
+    // Avoid duplicates if same ID passed twice
+    if (cards.some(c => c.userCardId === uc.id)) continue;
+
+    const baseUsd = await resolveBasePrice(uc.card.usdPrice, uc.card.name, uc.card.eurPrice);
+    const gold = getGoldValue(String(baseUsd), uc.condition);
+    cards.push({
+      userCardId: uc.id,
+      displayId: uc.displayId,
+      name: uc.card.name,
+      setCode: uc.card.setCode,
+      condition: uc.condition,
+      gold
+    });
+  }
+
+  // Report errors first
+  const errorLines: string[] = [];
+  if (notFound.length > 0) {
+    errorLines.push(`Card${notFound.length !== 1 ? "s" : ""} not found: ${notFound.map(id => `\`${id}\``).join(", ")}`);
+  }
+  if (notOwned.length > 0) {
+    errorLines.push(`Not in your collection: ${notOwned.map(id => `\`${id}\``).join(", ")}`);
+  }
+
+  if (cards.length === 0) {
+    await message.reply({ content: errorLines.length > 0 ? errorLines.join("\n") : "No valid cards to burn." });
+    return;
+  }
+
+  const sessionId = createMultiBurnSession(userId, cards);
+  const view = buildMultiBurnView(userId, sessionId, cards, 1);
+
+  const errorPrefix = errorLines.length > 0 ? errorLines.join("\n") + "\n" : undefined;
+
+  await message.reply({
+    content: errorPrefix,
+    embeds: [view.embed],
+    components: view.components
   });
 }
 
