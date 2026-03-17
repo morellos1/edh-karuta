@@ -31,6 +31,7 @@ import { handleCollectionPageButton } from "./interactions/collectionButton.js";
 import { handleCardPrintButton, handleCardWishaddButton, CARD_PRINT_PREFIX, CARD_WISHADD_PREFIX } from "./interactions/cardPrintButton.js";
 import { handleBurnConfirmButton, handleBurnCancelButton } from "./interactions/burnButton.js";
 import { handleBulkBurnConfirmButton, handleBulkBurnCancelButton, handleBulkBurnTagPageButton, handleBulkBurnDupPageButton, handleBulkBurnDupConfirmButton, handleBulkBurnDupCancelButton } from "./interactions/bulkBurnButton.js";
+import { handleMultiBurnConfirmButton, handleMultiBurnCancelButton, handleMultiBurnPageButton, MULTIBURN_CONFIRM_PREFIX, MULTIBURN_CANCEL_PREFIX, MULTIBURN_PAGE_PREFIX } from "./interactions/multiBurnButton.js";
 import {
   GIVE_ACCEPT_PREFIX,
   GIVE_DECLINE_PREFIX,
@@ -177,6 +178,18 @@ client.on("interactionCreate", async (interaction: Interaction) => {
     }
     if (interaction.isButton() && interaction.customId.startsWith(`${BULKBURN_DUP_CANCEL_PREFIX}:`)) {
       await handleBulkBurnDupCancelButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith(`${MULTIBURN_PAGE_PREFIX}:`)) {
+      await handleMultiBurnPageButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith(`${MULTIBURN_CONFIRM_PREFIX}:`)) {
+      await handleMultiBurnConfirmButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith(`${MULTIBURN_CANCEL_PREFIX}:`)) {
+      await handleMultiBurnCancelButton(interaction);
       return;
     }
     if (
