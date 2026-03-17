@@ -19,8 +19,9 @@ export const BULKBURN_CANCEL_PREFIX = "bulkburn_cancel";
 export const BULKBURN_DUP_CONFIRM_PREFIX = "bulkburn_dup_confirm";
 export const BULKBURN_DUP_CANCEL_PREFIX = "bulkburn_dup_cancel";
 export const BULKBURN_DUP_PAGE_PREFIX = "bulkburn_dup_page";
+export const BULKBURN_TAG_PAGE_PREFIX = "bulkburn_tag_page";
 
-const PREVIEW_COUNT = 5;
+const TAG_PAGE_SIZE = 10;
 const DUP_PAGE_SIZE = 10;
 
 export type KeepStrategy = "cheapest" | "highest";
@@ -168,6 +169,97 @@ export function buildDuplicateBurnView(
   };
 }
 
+export interface TagBurnEntry {
+  card: Awaited<ReturnType<typeof getAllCardsByTag>>[number];
+  gold: number;
+  baseUsd: number;
+}
+
+/**
+ * Build the paginated embed + components for the tag burn confirmation.
+ */
+export function buildTagBurnView(
+  userId: string,
+  tagName: string,
+  entries: TagBurnEntry[],
+  page: number
+): {
+  embed: APIEmbed;
+  components: ActionRowBuilder<ButtonBuilder>[];
+} {
+  const totalPages = Math.max(1, Math.ceil(entries.length / TAG_PAGE_SIZE));
+  const safePage = Math.max(1, Math.min(page, totalPages));
+  const start = (safePage - 1) * TAG_PAGE_SIZE;
+  const pageItems = entries.slice(start, start + TAG_PAGE_SIZE);
+
+  const totalGold = entries.reduce((sum, c) => sum + c.gold, 0);
+
+  const lines = pageItems.map((c, i) => {
+    const idx = start + i + 1;
+    const stars = conditionToStars(c.card.condition);
+    const set = c.card.card.setCode.toUpperCase();
+    return `**${idx}.** \`${c.card.displayId}\` · \`${stars}\` · **${c.card.card.name}** (${set}) · ${c.gold} gold`;
+  });
+
+  const description = [
+    `<@${userId}>, you will receive:`,
+    "",
+    `💰 **${totalGold} Gold**\\*`,
+    "",
+    `You are burning these **${entries.length}** cards:`,
+    "",
+    ...lines
+  ].join("\n");
+
+  const embed = new EmbedBuilder()
+    .setTitle("Burn Cards")
+    .setDescription(description)
+    .setColor(0x808080)
+    .setFooter({ text: `*Gold values are approximate · Page ${safePage}/${totalPages} · ${entries.length} cards` });
+
+  // Row 1: pagination
+  const paginationRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${BULKBURN_TAG_PAGE_PREFIX}:${userId}:1:${tagName}:first`)
+      .setLabel("⏮")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(safePage <= 1),
+    new ButtonBuilder()
+      .setCustomId(`${BULKBURN_TAG_PAGE_PREFIX}:${userId}:${safePage - 1}:${tagName}:prev`)
+      .setLabel("⬅")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(safePage <= 1),
+    new ButtonBuilder()
+      .setCustomId(`${BULKBURN_TAG_PAGE_PREFIX}:${userId}:${safePage + 1}:${tagName}:next`)
+      .setLabel("➡")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(safePage >= totalPages),
+    new ButtonBuilder()
+      .setCustomId(`${BULKBURN_TAG_PAGE_PREFIX}:${userId}:${totalPages}:${tagName}:last`)
+      .setLabel("⏭")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(safePage >= totalPages)
+  );
+
+  // Row 2: confirm / cancel
+  const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${BULKBURN_CANCEL_PREFIX}:${userId}:${tagName}`)
+      .setStyle(ButtonStyle.Secondary)
+      .setEmoji("❌"),
+    new ButtonBuilder()
+      .setCustomId(`${BULKBURN_CONFIRM_PREFIX}:${userId}:${tagName}`)
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji("🔥")
+      .setLabel("Burn All")
+  );
+
+  return {
+    embed: embed.toJSON(),
+    components: [paginationRow, actionRow]
+  };
+}
+
 export const bulkburnCommand: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName("bulkburn")
@@ -231,58 +323,18 @@ async function executeTag(interaction: ChatInputCommandInteraction) {
   }
 
   // Calculate gold for each card
-  const cardGolds: { card: (typeof cards)[number]; gold: number; baseUsd: number }[] = [];
+  const entries: TagBurnEntry[] = [];
   for (const entry of cards) {
     const baseUsd = await resolveBasePrice(entry.card.usdPrice, entry.card.name, entry.card.eurPrice);
     const gold = getGoldValue(String(baseUsd), entry.condition);
-    cardGolds.push({ card: entry, gold, baseUsd });
+    entries.push({ card: entry, gold, baseUsd });
   }
 
-  const totalGold = cardGolds.reduce((sum, c) => sum + c.gold, 0);
-
-  // Build preview lines (first N cards)
-  const previewLines = cardGolds.slice(0, PREVIEW_COUNT).map((c) => {
-    const stars = conditionToStars(c.card.condition);
-    const set = c.card.card.setCode.toUpperCase();
-    return `🔥 \`${c.card.displayId}\` · \`${stars}\` · **${c.card.card.name}** (${set})`;
-  });
-
-  const description = [
-    `<@${userId}>, you will receive:`,
-    "",
-    `💰 **${totalGold} Gold**\\*`,
-    "",
-    `You are burning these **${cards.length}** cards:`,
-    ...previewLines
-  ].join("\n");
-
-  const footerParts = ["*Gold values are approximate"];
-  if (cards.length > PREVIEW_COUNT) {
-    footerParts.push(`Showing cards 1–${PREVIEW_COUNT} of ${cards.length}`);
-  }
-
-  const embed = new EmbedBuilder()
-    .setTitle("Burn Cards")
-    .setDescription(description)
-    .setColor(0x808080)
-    .setFooter({ text: footerParts.join(" · ") });
-
-  // Encode tag name in customId so the button handler can re-query
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${BULKBURN_CANCEL_PREFIX}:${userId}:${tagName}`)
-      .setStyle(ButtonStyle.Secondary)
-      .setEmoji("❌"),
-    new ButtonBuilder()
-      .setCustomId(`${BULKBURN_CONFIRM_PREFIX}:${userId}:${tagName}`)
-      .setStyle(ButtonStyle.Danger)
-      .setEmoji("🔥")
-      .setLabel("Burn All")
-  );
+  const view = buildTagBurnView(userId, tagName, entries, 1);
 
   await interaction.editReply({
-    embeds: [embed],
-    components: [row]
+    embeds: [view.embed],
+    components: view.components
   });
 }
 
