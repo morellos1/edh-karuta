@@ -155,7 +155,7 @@ export const buyCommand: SlashCommand = {
       return;
     }
 
-    const extraCmdDropMatch = idArg.toLowerCase().match(/^extra\s+commanderdrop(?:\s+(\d+))?$/);
+    const extraCmdDropMatch = idArg.toLowerCase().match(/^extra\s+(?:commanderdrop|cmd)(?:\s+(\d+))?$/);
     if (extraCmdDropMatch) {
       const quantity = extraCmdDropMatch[1] ? parseInt(extraCmdDropMatch[1], 10) : 1;
       if (quantity < 1 || !Number.isFinite(quantity)) {
@@ -166,7 +166,7 @@ export const buyCommand: SlashCommand = {
       return;
     }
 
-    const extraLandDropMatch = idArg.toLowerCase().match(/^extra\s+landdrop(?:\s+(\d+))?$/);
+    const extraLandDropMatch = idArg.toLowerCase().match(/^extra\s+(?:landdrop|ld)(?:\s+(\d+))?$/);
     if (extraLandDropMatch) {
       const quantity = extraLandDropMatch[1] ? parseInt(extraLandDropMatch[1], 10) : 1;
       if (quantity < 1 || !Number.isFinite(quantity)) {
