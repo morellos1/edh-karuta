@@ -172,10 +172,10 @@ export async function handleShortcut(message: Message): Promise<void> {
       if (buyArgsLower[0] === "extra" && buyArgsLower[1] === "claim") {
         const qty = parsed.args[2] ? parseInt(parsed.args[2], 10) : 1;
         await handleBuyExtraClaim(message, Number.isFinite(qty) && qty >= 1 ? qty : 1);
-      } else if (buyArgsLower[0] === "extra" && buyArgsLower[1] === "commanderdrop") {
+      } else if (buyArgsLower[0] === "extra" && (buyArgsLower[1] === "commanderdrop" || buyArgsLower[1] === "cmd")) {
         const qty = parsed.args[2] ? parseInt(parsed.args[2], 10) : 1;
         await handleBuyExtraCommanderDrop(message, Number.isFinite(qty) && qty >= 1 ? qty : 1);
-      } else if (buyArgsLower[0] === "extra" && buyArgsLower[1] === "landdrop") {
+      } else if (buyArgsLower[0] === "extra" && (buyArgsLower[1] === "landdrop" || buyArgsLower[1] === "ld")) {
         const qty = parsed.args[2] ? parseInt(parsed.args[2], 10) : 1;
         await handleBuyExtraLandDrop(message, Number.isFinite(qty) && qty >= 1 ? qty : 1);
       } else {
