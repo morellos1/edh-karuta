@@ -1,16 +1,14 @@
 import { EmbedBuilder } from "discord.js";
 import type { ClashStats, BattleEvent, BattleResult } from "../services/clashService.js";
+import { COLOR_CIRCLE_BY_SYMBOL } from "./cardFormatting.js";
 
 // ---------------------------------------------------------------------------
-// Color Emoji Mapping
+// Color Emoji Mapping — extends cardFormatting's COLOR_CIRCLE_BY_SYMBOL with
+// a "C" (colorless) entry for clash-specific usage.
 // ---------------------------------------------------------------------------
 
 const COLOR_EMOJI: Record<string, string> = {
-  W: "\u26aa", // ⚪ white circle
-  U: "\ud83d\udd35", // 🔵 blue circle
-  B: "\u26ab", // ⚫ black circle
-  R: "\ud83d\udd34", // 🔴 red circle
-  G: "\ud83d\udfe2", // 🟢 green circle
+  ...COLOR_CIRCLE_BY_SYMBOL,
   C: "\ud83d\udcbf"  // 💿 colorless
 };
 

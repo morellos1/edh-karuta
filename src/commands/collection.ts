@@ -14,16 +14,16 @@ import { getTagIdForUser } from "../repositories/tagRepo.js";
 import { getCheapestPrintPricesByNames, getDefaultBasePriceUsd } from "../repositories/cardRepo.js";
 import { getGold } from "../repositories/inventoryRepo.js";
 import type { SlashCommand } from "./types.js";
-import { formatColorCollectionLine } from "../utils/cardFormatting.js";
+import { formatColorCollectionLine, conditionToStars, EUR_TO_USD } from "../utils/cardFormatting.js";
 import { getConditionMultiplier } from "../services/conditionService.js";
 import { buildCollectionGrid } from "../services/collageService.js";
+import { buildPaginationRow } from "../utils/pagination.js";
 
 export const COLLECTION_BUTTON_PREFIX = "collection_page";
 export const COLLECTION_EXPORT_PREFIX = "collection_export";
 export const COLLECTION_COPYIDS_PREFIX = "col_cpids";
 const GOLD_MAX_DIGITS = 7; // 9999999g max -> 8 chars total
 const GOLD_PAD_WIDTH = GOLD_MAX_DIGITS + 1; // 8
-const EUR_TO_USD = 1.15;
 
 /** Return a USD base price from the card's own usdPrice or eurPrice, or null if neither is usable. */
 function resolveInlinePrice(card: { usdPrice: string | null; eurPrice: string | null }): number | null {
@@ -37,13 +37,6 @@ function resolveInlinePrice(card: { usdPrice: string | null; eurPrice: string | 
 }
 
 export type CollectionViewMode = "list" | "album" | "combined";
-
-function conditionToStars(condition: string | null | undefined): string {
-  const c = (condition ?? "good").toLowerCase();
-  if (c === "poor") return "★☆☆";
-  if (c === "mint") return "★★★";
-  return "★★☆"; // good or fallback
-}
 
 function formatGoldShort(baseUsd: number, condition: string | null | undefined): string {
   const mult = getConditionMultiplier(condition);
@@ -91,28 +84,7 @@ export async function buildCollectionView(
       .setFooter({
         text: `💰 ${goldBalance} Gold · Album · ${pageInfo}`
       });
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:1:${sort}:album:${tagParam}:${searchParam}:${typeParam}:first`)
-        .setLabel("⏮")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(result.page <= 1),
-      new ButtonBuilder()
-        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page - 1}:${sort}:album:${tagParam}:${searchParam}:${typeParam}:prev`)
-        .setLabel("⬅")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(result.page <= 1),
-      new ButtonBuilder()
-        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page + 1}:${sort}:album:${tagParam}:${searchParam}:${typeParam}:next`)
-        .setLabel("➡")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(result.page >= result.totalPages),
-      new ButtonBuilder()
-        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.totalPages}:${sort}:album:${tagParam}:${searchParam}:${typeParam}:last`)
-        .setLabel("⏭")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(result.page >= result.totalPages)
-    );
+    const row = buildPaginationRow(COLLECTION_BUTTON_PREFIX, `${user.id}:${sort}:album:${tagParam}:${searchParam}:${typeParam}`, result.page, result.totalPages);
     const albumRows: ActionRowBuilder<ButtonBuilder>[] = [row];
     if (viewerId === user.id) {
       const utilRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -167,28 +139,7 @@ export async function buildCollectionView(
       .setFooter({
         text: `💰 ${goldBalance} Gold · Combined · ${pageInfo}`
       });
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:1:${sort}:combined:${tagParam}:${searchParam}:${typeParam}:first`)
-        .setLabel("⏮")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(result.page <= 1),
-      new ButtonBuilder()
-        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page - 1}:${sort}:combined:${tagParam}:${searchParam}:${typeParam}:prev`)
-        .setLabel("⬅")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(result.page <= 1),
-      new ButtonBuilder()
-        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page + 1}:${sort}:combined:${tagParam}:${searchParam}:${typeParam}:next`)
-        .setLabel("➡")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(result.page >= result.totalPages),
-      new ButtonBuilder()
-        .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.totalPages}:${sort}:combined:${tagParam}:${searchParam}:${typeParam}:last`)
-        .setLabel("⏭")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(result.page >= result.totalPages)
-    );
+    const row = buildPaginationRow(COLLECTION_BUTTON_PREFIX, `${user.id}:${sort}:combined:${tagParam}:${searchParam}:${typeParam}`, result.page, result.totalPages);
     const rows: ActionRowBuilder<ButtonBuilder>[] = [row];
     if (viewerId === user.id) {
       const utilRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -255,28 +206,7 @@ export async function buildCollectionView(
       text: `💰 ${goldBalance} Gold · Sort: ${sortLabelStr} | Page ${result.page}/${result.totalPages} | Total: ${result.total}`
     });
 
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:1:${sort}:list:${tagParam}:${searchParam}:${typeParam}:first`)
-      .setLabel("⏮")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(result.page <= 1),
-    new ButtonBuilder()
-      .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page - 1}:${sort}:list:${tagParam}:${searchParam}:${typeParam}:prev`)
-      .setLabel("⬅")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(result.page <= 1),
-    new ButtonBuilder()
-      .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.page + 1}:${sort}:list:${tagParam}:${searchParam}:${typeParam}:next`)
-      .setLabel("➡")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(result.page >= result.totalPages),
-    new ButtonBuilder()
-      .setCustomId(`${COLLECTION_BUTTON_PREFIX}:${user.id}:${result.totalPages}:${sort}:list:${tagParam}:${searchParam}:${typeParam}:last`)
-      .setLabel("⏭")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(result.page >= result.totalPages)
-  );
+  const row = buildPaginationRow(COLLECTION_BUTTON_PREFIX, `${user.id}:${sort}:list:${tagParam}:${searchParam}:${typeParam}`, result.page, result.totalPages);
   const rows: ActionRowBuilder<ButtonBuilder>[] = [row];
   if (viewerId === user.id) {
     const utilRow = new ActionRowBuilder<ButtonBuilder>().addComponents(

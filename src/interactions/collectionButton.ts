@@ -60,13 +60,14 @@ export async function handleCollectionPageButton(interaction: ButtonInteraction)
 
   await interaction.deferUpdate();
 
+  // customId format: collection_page:<userId>:<sort>:<viewMode>:<tag>:<search>:<type>:<page>:<direction>
   const targetUserId = parts[1];
-  const pageRaw = parts[2];
-  const sort = (parts[3] ?? "recent") as CollectionSort;
-  const viewMode = (parts[4] ?? "list") as "list" | "album" | "combined";
-  const tagName = parts[5]?.trim() || undefined;
-  const nameSearch = parts[6]?.trim() || undefined;
-  const typeFilterParam = parts[7]?.trim() || undefined;
+  const sort = (parts[2] ?? "recent") as CollectionSort;
+  const viewMode = (parts[3] ?? "list") as "list" | "album" | "combined";
+  const tagName = parts[4]?.trim() || undefined;
+  const nameSearch = parts[5]?.trim() || undefined;
+  const typeFilterParam = parts[6]?.trim() || undefined;
+  const pageRaw = parts[7];
 
   const nextPage = Number(pageRaw);
   if (!targetUserId || !Number.isInteger(nextPage) || nextPage < 1) {

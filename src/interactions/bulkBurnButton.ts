@@ -114,12 +114,12 @@ export async function handleBulkBurnCancelButton(interaction: ButtonInteraction)
 }
 
 export async function handleBulkBurnTagPageButton(interaction: ButtonInteraction) {
-  // customId format: bulkburn_tag_page:<userId>:<page>:<tagName>:<direction>
+  // customId format: bulkburn_tag_page:<userId>:<tagName>:<page>:<direction>
   const parts = interaction.customId.split(":");
   const ownerId = parts[1];
-  const page = Number(parts[2]);
-  // Tag name is between parts[3] and the last part (direction suffix)
-  const tagName = parts.slice(3, -1).join(":");
+  // Page is second-to-last, direction is last; tagName is everything in between
+  const page = Number(parts[parts.length - 2]);
+  const tagName = parts.slice(2, -2).join(":");
 
   if (interaction.user.id !== ownerId) {
     await interaction.reply({ content: "This is not your burn confirmation.", ephemeral: true }).catch(() => {});
@@ -174,10 +174,11 @@ export async function handleBulkBurnTagPageButton(interaction: ButtonInteraction
 }
 
 export async function handleBulkBurnDupPageButton(interaction: ButtonInteraction) {
+  // customId format: bulkburn_dup_page:<userId>:<keep>:<page>:<direction>
   const parts = interaction.customId.split(":");
   const ownerId = parts[1];
-  const page = Number(parts[2]);
-  const keep = (parts[3] ?? "cheapest") as KeepStrategy;
+  const keep = (parts[2] ?? "cheapest") as KeepStrategy;
+  const page = Number(parts[3]);
 
   if (interaction.user.id !== ownerId) {
     await interaction.reply({ content: "This is not your burn confirmation.", ephemeral: true }).catch(() => {});

@@ -190,6 +190,46 @@ async function pickRandomCard(
   });
 }
 
+/**
+ * Shared pick loop: pick `count` unique cards from the pool defined by
+ * `baseWhereFn(pickedIds)`.  When `useRarityRoll` is true, each iteration
+ * rolls a target rarity and falls back to the full pool on miss.
+ */
+async function pickMultipleCards(
+  count: number,
+  baseWhereFn: (pickedIds: number[]) => Prisma.CardWhereInput,
+  options: { useRarityRoll?: boolean; uniformWeight?: boolean } = {}
+): Promise<CardLookup[]> {
+  const cards: Card[] = [];
+  const pickedIds: number[] = [];
+  const pickedNames: string[] = [];
+  const pickOpts = options.uniformWeight ? { uniformWeight: true } : {};
+
+  while (cards.length < count) {
+    let candidate: Card | null = null;
+    if (options.useRarityRoll) {
+      const targetRarity = rollTargetRarity();
+      candidate = await pickRandomCard(
+        { ...baseWhereFn(pickedIds), rarity: targetRarity },
+        pickedNames,
+        pickOpts
+      );
+      if (!candidate) {
+        candidate = await pickRandomCard(baseWhereFn(pickedIds), pickedNames, pickOpts);
+      }
+    } else {
+      candidate = await pickRandomCard(baseWhereFn(pickedIds), pickedNames, pickOpts);
+    }
+    if (!candidate) break;
+
+    pickedIds.push(candidate.id);
+    pickedNames.push(candidate.name);
+    cards.push(candidate);
+  }
+
+  return cards.map(toCardLookup);
+}
+
 export async function getRandomDroppableCards(
   count: number,
   filterColor?: DropColorSymbol
@@ -201,31 +241,7 @@ export async function getRandomDroppableCards(
     throw new Error(`Not enough cards in pool to drop ${count} cards.`);
   }
 
-  const cards: Card[] = [];
-  const pickedIds: number[] = [];
-  const pickedNames: string[] = [];
-  while (cards.length < count) {
-    const targetRarity = rollTargetRarity();
-    const strictWhere: Prisma.CardWhereInput = {
-      ...baseDroppableWhere(pickedIds, filterColor),
-      rarity: targetRarity
-    };
-
-    let candidate = await pickRandomCard(strictWhere, pickedNames);
-    if (!candidate) {
-      // Fallback if the targeted rarity pool is exhausted.
-      candidate = await pickRandomCard(baseDroppableWhere(pickedIds, filterColor), pickedNames);
-    }
-    if (!candidate) {
-      break;
-    }
-
-    pickedIds.push(candidate.id);
-    pickedNames.push(candidate.name);
-    cards.push(candidate);
-  }
-
-  return cards.map(toCardLookup);
+  return pickMultipleCards(count, (ids) => baseDroppableWhere(ids, filterColor), { useRarityRoll: true });
 }
 
 /**
@@ -291,25 +307,11 @@ export async function getRandomCommanderCards(
   // fall back to the full pool every time.  Instead, skip rarity filtering
   // and use uniform weighting per unique card name so every commander has
   // an equal chance — regardless of how many variant printings it has.
-  const cards: Card[] = [];
-  const pickedIds: number[] = [];
-  const pickedNames: string[] = [];
-  while (cards.length < count) {
-    const candidate = await pickRandomCard(
-      { ...baseDroppableWhere(pickedIds), ...commanderWhereFilter() },
-      pickedNames,
-      { uniformWeight: true }
-    );
-    if (!candidate) {
-      break;
-    }
-
-    pickedIds.push(candidate.id);
-    pickedNames.push(candidate.name);
-    cards.push(candidate);
-  }
-
-  return cards.map(toCardLookup);
+  return pickMultipleCards(
+    count,
+    (ids) => ({ ...baseDroppableWhere(ids), ...commanderWhereFilter() }),
+    { uniformWeight: true }
+  );
 }
 
 export async function getRandomLandCards(
@@ -325,36 +327,11 @@ export async function getRandomLandCards(
     throw new Error(`Not enough nonbasic land cards in pool to drop ${count} cards.`);
   }
 
-  const cards: Card[] = [];
-  const pickedIds: number[] = [];
-  const pickedNames: string[] = [];
-  while (cards.length < count) {
-    const targetRarity = rollTargetRarity();
-    const strictWhere: Prisma.CardWhereInput = {
-      ...baseDroppableWhere(pickedIds),
-      typeLine: { contains: "Land" },
-      isBasicLand: false,
-      rarity: targetRarity
-    };
-
-    let candidate = await pickRandomCard(strictWhere, pickedNames);
-    if (!candidate) {
-      candidate = await pickRandomCard({
-        ...baseDroppableWhere(pickedIds),
-        typeLine: { contains: "Land" },
-        isBasicLand: false
-      }, pickedNames);
-    }
-    if (!candidate) {
-      break;
-    }
-
-    pickedIds.push(candidate.id);
-    pickedNames.push(candidate.name);
-    cards.push(candidate);
-  }
-
-  return cards.map(toCardLookup);
+  return pickMultipleCards(
+    count,
+    (ids) => ({ ...baseDroppableWhere(ids), typeLine: { contains: "Land" }, isBasicLand: false }),
+    { useRarityRoll: true }
+  );
 }
 
 /**
@@ -503,7 +480,7 @@ export async function findCardPrintsByName(name: string): Promise<CardLookup[]> 
 
 const DEFAULT_BASE_PRICE_USD = 0.1; // 10g before condition multiplier
 
-const EUR_TO_USD = 1.15;
+import { EUR_TO_USD } from "../utils/cardFormatting.js";
 
 /** Cheapest USD price among all prints of each name that have a valid price (USD or EUR converted). Names with no valid print return undefined (caller uses DEFAULT_BASE_PRICE_USD). */
 export async function getCheapestPrintPricesByNames(
