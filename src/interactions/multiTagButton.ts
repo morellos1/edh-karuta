@@ -108,11 +108,11 @@ export async function handleMultiTagCancelButton(interaction: ButtonInteraction)
 }
 
 export async function handleMultiTagPageButton(interaction: ButtonInteraction) {
-  // customId format: multitag_page:<userId>:<page>:<sessionId>:<direction>
+  // customId format: multitag_page:<userId>:<sessionId>:<page>:<direction>
   const parts = interaction.customId.split(":");
   const ownerId = parts[1];
-  const page = Number(parts[2]);
-  const sessionId = parts[3];
+  const sessionId = parts[2];
+  const page = Number(parts[3]);
 
   if (interaction.user.id !== ownerId) {
     await interaction.reply({ content: "This is not your tag confirmation.", ephemeral: true }).catch(() => {});

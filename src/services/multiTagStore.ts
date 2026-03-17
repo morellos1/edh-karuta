@@ -13,6 +13,8 @@ import {
   ButtonBuilder as ButtonBuilderClass,
   ButtonStyle
 } from "discord.js";
+import { buildPaginationRow } from "../utils/pagination.js";
+import { SessionStore } from "./sessionStore.js";
 
 export interface MultiTagCard {
   userCardId: number;
@@ -24,49 +26,20 @@ interface MultiTagSession {
   userId: string;
   tagName: string;
   cards: MultiTagCard[];
-  createdAt: number;
 }
 
-const SESSION_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-const sessions = new Map<string, MultiTagSession>();
-
-let counter = 0;
-
-function generateSessionId(): string {
-  counter = (counter + 1) % 1_000_000;
-  return `${Date.now().toString(36)}${counter.toString(36)}`;
-}
-
-/** Purge expired sessions (called lazily). */
-function purgeExpired() {
-  const now = Date.now();
-  for (const [id, session] of sessions) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
-      sessions.delete(id);
-    }
-  }
-}
+const store = new SessionStore<MultiTagSession>();
 
 export function createMultiTagSession(userId: string, tagName: string, cards: MultiTagCard[]): string {
-  purgeExpired();
-  const id = generateSessionId();
-  sessions.set(id, { userId, tagName, cards, createdAt: Date.now() });
-  return id;
+  return store.create({ userId, tagName, cards });
 }
 
 export function getMultiTagSession(id: string): MultiTagSession | undefined {
-  const session = sessions.get(id);
-  if (!session) return undefined;
-  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
-    sessions.delete(id);
-    return undefined;
-  }
-  return session;
+  return store.get(id);
 }
 
 export function deleteMultiTagSession(id: string): void {
-  sessions.delete(id);
+  store.delete(id);
 }
 
 // ── View builder ──────────────────────────────────────────────────────
@@ -113,29 +86,9 @@ export function buildMultiTagView(
 
   // Row 1: pagination (only if more than 1 page)
   if (totalPages > 1) {
-    const paginationRow = new ActionRowBuilderClass<ButtonBuilderClass>().addComponents(
-      new ButtonBuilderClass()
-        .setCustomId(`${MULTITAG_PAGE_PREFIX}:${userId}:1:${sessionId}:first`)
-        .setLabel("⏮")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(safePage <= 1),
-      new ButtonBuilderClass()
-        .setCustomId(`${MULTITAG_PAGE_PREFIX}:${userId}:${safePage - 1}:${sessionId}:prev`)
-        .setLabel("⬅")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(safePage <= 1),
-      new ButtonBuilderClass()
-        .setCustomId(`${MULTITAG_PAGE_PREFIX}:${userId}:${safePage + 1}:${sessionId}:next`)
-        .setLabel("➡")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(safePage >= totalPages),
-      new ButtonBuilderClass()
-        .setCustomId(`${MULTITAG_PAGE_PREFIX}:${userId}:${totalPages}:${sessionId}:last`)
-        .setLabel("⏭")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(safePage >= totalPages)
+    rows.push(
+      buildPaginationRow(MULTITAG_PAGE_PREFIX, `${userId}:${sessionId}`, safePage, totalPages) as unknown as ActionRowBuilder<ButtonBuilder>
     );
-    rows.push(paginationRow as unknown as ActionRowBuilder<ButtonBuilder>);
   }
 
   // Row 2 (or 1): confirm / cancel

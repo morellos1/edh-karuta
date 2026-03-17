@@ -12,7 +12,9 @@ import { getTagIdForUser, isTagFavorited, getFavoriteCardIds } from "../reposito
 import { getAllCardsByTag } from "../repositories/collectionRepo.js";
 import { getAllUserCards } from "../repositories/userCardRepo.js";
 import { getGoldValue } from "../services/conditionService.js";
-import { resolveBasePrice, conditionToStars } from "../utils/cardFormatting.js";
+import { conditionToStars } from "../utils/cardFormatting.js";
+import { getCheapestPrintPricesByNames, getDefaultBasePriceUsd } from "../repositories/cardRepo.js";
+import { buildPaginationRow } from "../utils/pagination.js";
 
 /**
  * Format skipped-favorites entries into a message line (like the kb command does).
@@ -94,12 +96,34 @@ export function findDuplicatesToBurn(
 
 /**
  * Resolve all user cards into DuplicateBurnEntry[] with gold values.
+ * Batches price lookups to avoid N+1 queries.
  */
 export async function resolveBurnEntries(userId: string): Promise<DuplicateBurnEntry[]> {
   const allCards = await getAllUserCards(userId);
+
+  // Batch-fetch prices for cards missing a USD price
+  const namesNeedingPrice = [
+    ...new Set(
+      allCards
+        .filter((e) => e.card.usdPrice == null || !Number.isFinite(Number(e.card.usdPrice)))
+        .map((e) => e.card.name)
+    )
+  ];
+  const priceMap = namesNeedingPrice.length
+    ? await getCheapestPrintPricesByNames(namesNeedingPrice)
+    : new Map<string, number>();
+  const defaultBase = getDefaultBasePriceUsd();
+
   const allEntries: DuplicateBurnEntry[] = [];
   for (const entry of allCards) {
-    const baseUsd = await resolveBasePrice(entry.card.usdPrice, entry.card.name, entry.card.eurPrice);
+    let baseUsd: number;
+    if (entry.card.usdPrice != null && Number.isFinite(Number(entry.card.usdPrice))) {
+      baseUsd = Number(entry.card.usdPrice);
+    } else if (entry.card.eurPrice != null && Number.isFinite(Number(entry.card.eurPrice))) {
+      baseUsd = Math.round(Number(entry.card.eurPrice) * 1.15 * 100) / 100;
+    } else {
+      baseUsd = priceMap.get(entry.card.name) ?? defaultBase;
+    }
     const gold = getGoldValue(String(baseUsd), entry.condition);
     allEntries.push({ card: entry, gold, baseUsd });
   }
@@ -150,29 +174,8 @@ export function buildDuplicateBurnView(
     .setColor(0x808080)
     .setFooter({ text: `*Gold values are approximate · Page ${safePage}/${totalPages} · ${toBurn.length} cards${skippedFavoriteCount > 0 ? ` · ${skippedFavoriteCount} skipped (favorited)` : ""}` });
 
-  // Row 1: pagination (suffix ensures unique customIds even when page numbers collide)
-  const paginationRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:1:${keep}:first`)
-      .setLabel("⏮")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(safePage <= 1),
-    new ButtonBuilder()
-      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:${safePage - 1}:${keep}:prev`)
-      .setLabel("⬅")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(safePage <= 1),
-    new ButtonBuilder()
-      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:${safePage + 1}:${keep}:next`)
-      .setLabel("➡")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(safePage >= totalPages),
-    new ButtonBuilder()
-      .setCustomId(`${BULKBURN_DUP_PAGE_PREFIX}:${userId}:${totalPages}:${keep}:last`)
-      .setLabel("⏭")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(safePage >= totalPages)
-  );
+  // Row 1: pagination
+  const paginationRow = buildPaginationRow(BULKBURN_DUP_PAGE_PREFIX, `${userId}:${keep}`, safePage, totalPages);
 
   // Row 2: confirm / cancel
   const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -242,28 +245,7 @@ export function buildTagBurnView(
     .setFooter({ text: `*Gold values are approximate · Page ${safePage}/${totalPages} · ${entries.length} cards` });
 
   // Row 1: pagination
-  const paginationRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${BULKBURN_TAG_PAGE_PREFIX}:${userId}:1:${tagName}:first`)
-      .setLabel("⏮")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(safePage <= 1),
-    new ButtonBuilder()
-      .setCustomId(`${BULKBURN_TAG_PAGE_PREFIX}:${userId}:${safePage - 1}:${tagName}:prev`)
-      .setLabel("⬅")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(safePage <= 1),
-    new ButtonBuilder()
-      .setCustomId(`${BULKBURN_TAG_PAGE_PREFIX}:${userId}:${safePage + 1}:${tagName}:next`)
-      .setLabel("➡")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(safePage >= totalPages),
-    new ButtonBuilder()
-      .setCustomId(`${BULKBURN_TAG_PAGE_PREFIX}:${userId}:${totalPages}:${tagName}:last`)
-      .setLabel("⏭")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(safePage >= totalPages)
-  );
+  const paginationRow = buildPaginationRow(BULKBURN_TAG_PAGE_PREFIX, `${userId}:${tagName}`, safePage, totalPages);
 
   // Row 2: confirm / cancel
   const actionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -354,10 +336,29 @@ async function executeTag(interaction: ChatInputCommandInteraction) {
     return;
   }
 
-  // Calculate gold for each card
+  // Batch-fetch prices for cards missing a USD price
+  const namesNeedingPrice = [
+    ...new Set(
+      cards
+        .filter((e) => e.card.usdPrice == null || !Number.isFinite(Number(e.card.usdPrice)))
+        .map((e) => e.card.name)
+    )
+  ];
+  const priceMap = namesNeedingPrice.length
+    ? await getCheapestPrintPricesByNames(namesNeedingPrice)
+    : new Map<string, number>();
+  const defaultBase = getDefaultBasePriceUsd();
+
   const entries: TagBurnEntry[] = [];
   for (const entry of cards) {
-    const baseUsd = await resolveBasePrice(entry.card.usdPrice, entry.card.name, entry.card.eurPrice);
+    let baseUsd: number;
+    if (entry.card.usdPrice != null && Number.isFinite(Number(entry.card.usdPrice))) {
+      baseUsd = Number(entry.card.usdPrice);
+    } else if (entry.card.eurPrice != null && Number.isFinite(Number(entry.card.eurPrice))) {
+      baseUsd = Math.round(Number(entry.card.eurPrice) * 1.15 * 100) / 100;
+    } else {
+      baseUsd = priceMap.get(entry.card.name) ?? defaultBase;
+    }
     const gold = getGoldValue(String(baseUsd), entry.condition);
     entries.push({ card: entry, gold, baseUsd });
   }

@@ -5,8 +5,6 @@
  * store them here keyed by a short session ID, and embed that session ID
  * in the button customIds so the confirm/cancel handlers can retrieve the
  * list of cards to burn.
- *
- * Sessions expire after 5 minutes to avoid unbounded memory growth.
  */
 
 import type { ActionRowBuilder, APIEmbed, ButtonBuilder } from "discord.js";
@@ -17,6 +15,8 @@ import {
   ButtonStyle
 } from "discord.js";
 import { conditionToStars } from "../utils/cardFormatting.js";
+import { buildPaginationRow } from "../utils/pagination.js";
+import { SessionStore } from "./sessionStore.js";
 
 export interface MultiBurnCard {
   userCardId: number;
@@ -30,49 +30,20 @@ export interface MultiBurnCard {
 interface MultiBurnSession {
   userId: string;
   cards: MultiBurnCard[];
-  createdAt: number;
 }
 
-const SESSION_TTL_MS = 5 * 60 * 1000; // 5 minutes
-
-const sessions = new Map<string, MultiBurnSession>();
-
-let counter = 0;
-
-function generateSessionId(): string {
-  counter = (counter + 1) % 1_000_000;
-  return `${Date.now().toString(36)}${counter.toString(36)}`;
-}
-
-/** Purge expired sessions (called lazily). */
-function purgeExpired() {
-  const now = Date.now();
-  for (const [id, session] of sessions) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
-      sessions.delete(id);
-    }
-  }
-}
+const store = new SessionStore<MultiBurnSession>();
 
 export function createMultiBurnSession(userId: string, cards: MultiBurnCard[]): string {
-  purgeExpired();
-  const id = generateSessionId();
-  sessions.set(id, { userId, cards, createdAt: Date.now() });
-  return id;
+  return store.create({ userId, cards });
 }
 
 export function getMultiBurnSession(id: string): MultiBurnSession | undefined {
-  const session = sessions.get(id);
-  if (!session) return undefined;
-  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
-    sessions.delete(id);
-    return undefined;
-  }
-  return session;
+  return store.get(id);
 }
 
 export function deleteMultiBurnSession(id: string): void {
-  sessions.delete(id);
+  store.delete(id);
 }
 
 // ── View builder ──────────────────────────────────────────────────────
@@ -126,29 +97,9 @@ export function buildMultiBurnView(
 
   // Row 1: pagination (only if more than 1 page)
   if (totalPages > 1) {
-    const paginationRow = new ActionRowBuilderClass<ButtonBuilderClass>().addComponents(
-      new ButtonBuilderClass()
-        .setCustomId(`${MULTIBURN_PAGE_PREFIX}:${userId}:1:${sessionId}:first`)
-        .setLabel("⏮")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(safePage <= 1),
-      new ButtonBuilderClass()
-        .setCustomId(`${MULTIBURN_PAGE_PREFIX}:${userId}:${safePage - 1}:${sessionId}:prev`)
-        .setLabel("⬅")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(safePage <= 1),
-      new ButtonBuilderClass()
-        .setCustomId(`${MULTIBURN_PAGE_PREFIX}:${userId}:${safePage + 1}:${sessionId}:next`)
-        .setLabel("➡")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(safePage >= totalPages),
-      new ButtonBuilderClass()
-        .setCustomId(`${MULTIBURN_PAGE_PREFIX}:${userId}:${totalPages}:${sessionId}:last`)
-        .setLabel("⏭")
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(safePage >= totalPages)
+    rows.push(
+      buildPaginationRow(MULTIBURN_PAGE_PREFIX, `${userId}:${sessionId}`, safePage, totalPages) as unknown as ActionRowBuilder<ButtonBuilder>
     );
-    rows.push(paginationRow as unknown as ActionRowBuilder<ButtonBuilder>);
   }
 
   // Row 2 (or 1): confirm / cancel

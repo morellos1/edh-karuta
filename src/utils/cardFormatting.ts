@@ -1,4 +1,4 @@
-const COLOR_CIRCLE_BY_SYMBOL: Record<string, string> = {
+export const COLOR_CIRCLE_BY_SYMBOL: Record<string, string> = {
   W: "⚪",
   U: "🔵",
   B: "⚫",
@@ -77,7 +77,7 @@ export function getCardImageUrl(card: {
 }
 
 /** Fixed EUR → USD conversion rate. */
-const EUR_TO_USD = 1.15;
+export const EUR_TO_USD = 1.15;
 
 /** Resolve the base USD price for a card, falling back to cheapest print or default. */
 export async function resolveBasePrice(
