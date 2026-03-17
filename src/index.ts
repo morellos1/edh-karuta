@@ -10,7 +10,7 @@ import { COLLECTION_BUTTON_PREFIX, COLLECTION_EXPORT_PREFIX, COLLECTION_COPYIDS_
 import { cardCommand } from "./commands/card.js";
 import { lookupCommand } from "./commands/lookup.js";
 import { burnCommand } from "./commands/burn.js";
-import { bulkburnCommand, BULKBURN_CONFIRM_PREFIX, BULKBURN_CANCEL_PREFIX, BULKBURN_DUP_CONFIRM_PREFIX, BULKBURN_DUP_CANCEL_PREFIX, BULKBURN_DUP_PAGE_PREFIX } from "./commands/bulkburn.js";
+import { bulkburnCommand, BULKBURN_CONFIRM_PREFIX, BULKBURN_CANCEL_PREFIX, BULKBURN_DUP_CONFIRM_PREFIX, BULKBURN_DUP_CANCEL_PREFIX, BULKBURN_DUP_PAGE_PREFIX, BULKBURN_TAG_PAGE_PREFIX } from "./commands/bulkburn.js";
 import { marketCommand, MARKET_BUTTON_PREFIX } from "./commands/market.js";
 import { handleMarketPageButton } from "./interactions/marketButton.js";
 import { buyCommand } from "./commands/buy.js";
@@ -30,7 +30,7 @@ import { handleClaimButton, CLAIM_BUTTON_PREFIX } from "./interactions/claimButt
 import { handleCollectionPageButton } from "./interactions/collectionButton.js";
 import { handleCardPrintButton, handleCardWishaddButton, CARD_PRINT_PREFIX, CARD_WISHADD_PREFIX } from "./interactions/cardPrintButton.js";
 import { handleBurnConfirmButton, handleBurnCancelButton } from "./interactions/burnButton.js";
-import { handleBulkBurnConfirmButton, handleBulkBurnCancelButton, handleBulkBurnDupPageButton, handleBulkBurnDupConfirmButton, handleBulkBurnDupCancelButton } from "./interactions/bulkBurnButton.js";
+import { handleBulkBurnConfirmButton, handleBulkBurnCancelButton, handleBulkBurnTagPageButton, handleBulkBurnDupPageButton, handleBulkBurnDupConfirmButton, handleBulkBurnDupCancelButton } from "./interactions/bulkBurnButton.js";
 import {
   GIVE_ACCEPT_PREFIX,
   GIVE_DECLINE_PREFIX,
@@ -153,6 +153,10 @@ client.on("interactionCreate", async (interaction: Interaction) => {
     }
     if (interaction.isButton() && interaction.customId.startsWith("burn_cancel:")) {
       await handleBurnCancelButton(interaction);
+      return;
+    }
+    if (interaction.isButton() && interaction.customId.startsWith(`${BULKBURN_TAG_PAGE_PREFIX}:`)) {
+      await handleBulkBurnTagPageButton(interaction);
       return;
     }
     if (interaction.isButton() && interaction.customId.startsWith(`${BULKBURN_CONFIRM_PREFIX}:`)) {
