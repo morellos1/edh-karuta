@@ -122,6 +122,11 @@ export function calcHP(wordCount: number): number {
   return Math.min(5500, Math.max(1300, 1000 + wordCount * 30));
 }
 
+/** CMC → base HP bonus (0-500). Higher CMC = more HP. Caps at CMC 10. */
+export function calcCmcHpBonus(cmc: number): number {
+  return Math.min(500, Math.round((cmc / 10) * 500));
+}
+
 /** Crit rate based on card condition. */
 export function critRateFromCondition(condition: string): number {
   switch (condition.toLowerCase()) {
@@ -407,7 +412,7 @@ export function buildClashStats(
 
   const baseAttack = normalizeStat(power);
   const baseDefense = normalizeStat(toughness);
-  const baseHp = calcHP(wordCount) + COMMANDER_BASE_HP_BONUS;
+  const baseHp = calcHP(wordCount) + calcCmcHpBonus(cmc);
   const baseSpeed = calcSpeed(cmc);
   const baseCritRate = 0.20;
 
