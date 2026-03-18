@@ -397,7 +397,7 @@ export function calcDamage(
   critRate: number
 ): { damage: number; effectiveness: "super" | "weak" | "neutral"; isCrit: boolean } {
   const baseDamage = 100 + attackerAttack * 0.8;
-  const defenseFactor = 1 - defenderDefense / 2000;
+  const defenseFactor = 1 - defenderDefense / 4000;
   const typeMult = typeMultiplier(attackColor, defenderColors);
   const isCrit = Math.random() < critRate;
   const critMult = isCrit ? 1.5 : 1.0;
