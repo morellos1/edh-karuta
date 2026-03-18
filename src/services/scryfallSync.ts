@@ -41,6 +41,8 @@ type ScryfallCard = {
     mana_cost?: string;
     type_line?: string;
     oracle_text?: string;
+    power?: string;
+    toughness?: string;
   }>;
   all_parts?: Array<{
     id: string;
@@ -161,8 +163,8 @@ async function flushBatch(batch: ScryfallCard[]) {
       manaCost,
       typeLine: card.type_line ?? firstFace?.type_line ?? null,
       oracleText: card.oracle_text ?? firstFace?.oracle_text ?? null,
-      power: card.power ?? null,
-      toughness: card.toughness ?? null,
+      power: card.power ?? firstFace?.power ?? null,
+      toughness: card.toughness ?? firstFace?.toughness ?? null,
       colors: colorsFromMana,
       colorIdentity: (card.color_identity ?? []).join(","),
       imagePng: image.png ?? null,
