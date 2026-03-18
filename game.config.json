@@ -1,7 +1,7 @@
 {
-  "claimCooldownSeconds": 60,
+  "claimCooldownSeconds": 300,
   "dropExpireSeconds": 60,
-  "dropCooldownSeconds": 120,
+  "dropCooldownSeconds": 900,
   "colordropCooldownSeconds": 43200,
   "commanderdropCooldownSeconds": 86400,
   "landdropCooldownSeconds": 7200,
@@ -16,7 +16,7 @@
   "toolshop": {
     "extraClaimPrice": 25000,
     "extraCommanderDropPrice": 10000,
-    "extraLandDropPrice": 5000
+    "extraLandDropPrice": 10000
   },
   "dropCondition": {
     "poorChance": 0.5,

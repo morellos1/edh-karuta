@@ -5,6 +5,7 @@ import {
   normalizeStat,
   countWords,
   calcHP,
+  calcCmcHpBonus,
   parseCMC,
   calcSpeedMs,
   calcSpeed,
@@ -81,6 +82,18 @@ test("calcHP applies formula with min/max", () => {
   assert.equal(calcHP(50), 2500);  // 1000 + 1500
   assert.equal(calcHP(100), 4000); // 1000 + 3000
   assert.equal(calcHP(200), 5500); // capped at 5500
+});
+
+// ---------------------------------------------------------------------------
+// calcCmcHpBonus
+// ---------------------------------------------------------------------------
+
+test("calcCmcHpBonus scales 0-500 based on CMC", () => {
+  assert.equal(calcCmcHpBonus(0), 0);     // CMC 0 = no bonus
+  assert.equal(calcCmcHpBonus(3), 150);   // 3/10 * 500
+  assert.equal(calcCmcHpBonus(5), 250);   // 5/10 * 500
+  assert.equal(calcCmcHpBonus(10), 500);  // caps at 500
+  assert.equal(calcCmcHpBonus(15), 500);  // stays capped
 });
 
 // ---------------------------------------------------------------------------
@@ -298,7 +311,7 @@ test("buildClashStats creates correct base stats without bonuses", () => {
   assert.equal(stats.name, "Mayhem Devil");
   assert.equal(stats.attack, 200);  // 3/15 * 1000 = 200
   assert.equal(stats.defense, 200);
-  assert.equal(stats.hp, calcHP(countWords(card.oracleText)) + 500);
+  assert.equal(stats.hp, calcHP(countWords(card.oracleText)) + calcCmcHpBonus(3));
   assert.equal(stats.speed, 76);   // CMC 3: 100 - 3*8 = 76
   assert.equal(stats.speedMs, speedToMs(76));  // derived from final speed stat
   assert.equal(stats.critRate, 0.20); // base crit rate for all
