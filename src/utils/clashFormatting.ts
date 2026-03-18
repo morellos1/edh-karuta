@@ -80,6 +80,19 @@ function formatCritRate(critRate: number, baseCritRate: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Abilities Display
+// ---------------------------------------------------------------------------
+
+function formatAbilities(abilities: string[]): string {
+  return abilities.map((a) => a.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")).join(", ");
+}
+
+function formatAbilitiesCompact(abilities: string[]): string {
+  if (abilities.length === 0) return "";
+  return ` (${formatAbilities(abilities)})`;
+}
+
+// ---------------------------------------------------------------------------
 // Stats Embed (for /setcommander and /stats)
 // ---------------------------------------------------------------------------
 
@@ -98,6 +111,10 @@ export function buildStatsEmbed(
     { name: "Type", value: stats.colors.length > 0 ? stats.colors.map((c) => colorEmoji(c)).join(" ") : colorEmoji("C"), inline: true },
     { name: "Attack Pattern", value: formatAttackPattern(stats.attackPattern), inline: false }
   ];
+
+  if (stats.abilities.length > 0) {
+    fields.push({ name: "Abilities", value: formatAbilities(stats.abilities), inline: false });
+  }
 
   if (record) {
     fields.push({ name: "Record", value: record, inline: true });
@@ -125,6 +142,9 @@ export function formatBattleEvent(event: BattleEvent): string {
   const emoji = colorEmoji(event.attackColor);
   let line = `**${event.attacker}** uses a ${emoji} attack for **${event.damage}** dmg!`;
 
+  if (event.isDoubleStrike) {
+    line += " **DOUBLE STRIKE!**";
+  }
   if (event.isCrit) {
     line += " **CRITICAL HIT!**";
   }
@@ -132,6 +152,12 @@ export function formatBattleEvent(event: BattleEvent): string {
     line += " It's super effective!";
   } else if (event.effectiveness === "weak") {
     line += " It's not very effective...";
+  }
+  if (event.isDeathtouch) {
+    line += " **DEATHTOUCH!** Finished off!";
+  }
+  if (event.healAmount && event.healAmount > 0) {
+    line += ` Healed **${event.healAmount}** HP!`;
   }
 
   return line;
@@ -170,9 +196,9 @@ export function buildBattleEmbed(
     .setColor(hpA >= hpB ? 0x57f287 : 0xed4245)
     .setDescription((log || "\u200b") + "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     .addFields(
-      { name: `${statsA.name}\n\`${displayIdA}\``, value: hpBar(hpA, statsA.hp), inline: true },
+      { name: `${statsA.name}${formatAbilitiesCompact(statsA.abilities)}\n\`${displayIdA}\``, value: hpBar(hpA, statsA.hp), inline: true },
       { name: "\u200b", value: "\u200b", inline: true },
-      { name: `${statsB.name}\n\`${displayIdB}\``, value: hpBar(hpB, statsB.hp), inline: true }
+      { name: `${statsB.name}${formatAbilitiesCompact(statsB.abilities)}\n\`${displayIdB}\``, value: hpBar(hpB, statsB.hp), inline: true }
     )
     .setFooter({ text: `Turn ${attackNumber}/${maxAttacks}` });
 
@@ -217,9 +243,9 @@ export function buildVictoryEmbed(
     .setColor(0xffd700)
     .setDescription(`${log}\n\n${summaryLine}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
     .addFields(
-      { name: `${statsA.name}\n\`${displayIdA}\``, value: hpBar(finalHpA, statsA.hp), inline: true },
+      { name: `${statsA.name}${formatAbilitiesCompact(statsA.abilities)}\n\`${displayIdA}\``, value: hpBar(finalHpA, statsA.hp), inline: true },
       { name: "\u200b", value: "\u200b", inline: true },
-      { name: `${statsB.name}\n\`${displayIdB}\``, value: hpBar(finalHpB, statsB.hp), inline: true }
+      { name: `${statsB.name}${formatAbilitiesCompact(statsB.abilities)}\n\`${displayIdB}\``, value: hpBar(finalHpB, statsB.hp), inline: true }
     );
 
   return embed;
@@ -251,8 +277,13 @@ export function buildChallengeEmbed(
       { name: "Crit Rate", value: formatCritRate(challengerStats.critRate, challengerStats.baseCritRate), inline: true },
       { name: "Type", value: challengerStats.colors.length > 0 ? challengerStats.colors.map((c) => colorEmoji(c)).join(" ") : colorEmoji("C"), inline: true },
       { name: "Attack Pattern", value: formatAttackPattern(challengerStats.attackPattern), inline: false }
-    )
-    .setFooter({ text: `Condition: ${condition.charAt(0).toUpperCase() + condition.slice(1)}` });
+    );
+
+  if (challengerStats.abilities.length > 0) {
+    embed.addFields({ name: "Abilities", value: formatAbilities(challengerStats.abilities), inline: false });
+  }
+
+  embed.setFooter({ text: `Condition: ${condition.charAt(0).toUpperCase() + condition.slice(1)}` });
 
   if (cardImageUrl) {
     embed.setThumbnail(cardImageUrl);
