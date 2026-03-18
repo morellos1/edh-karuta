@@ -156,6 +156,9 @@ export function formatBattleEvent(event: BattleEvent): string {
   if (event.isDeathtouch) {
     line += " **DEATHTOUCH!** Finished off!";
   }
+  if (event.isIndestructible) {
+    line += " **INDESTRUCTIBLE!** Survived at 1 HP!";
+  }
   if (event.healAmount && event.healAmount > 0) {
     line += ` Healed **${event.healAmount}** HP!`;
   }
