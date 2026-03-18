@@ -157,14 +157,27 @@ export function parseCMC(manaCost: string | null | undefined): number {
   return cmc;
 }
 
-/** CMC → speed in milliseconds between attacks. */
+/** CMC → speed in milliseconds between attacks (legacy, used only for display timing). */
 export function calcSpeedMs(cmc: number): number {
   return 1500 + cmc * 250;
 }
 
 /** CMC → normalized speed stat (0-100, higher = faster). */
 export function calcSpeed(cmc: number): number {
-  return Math.max(5, Math.min(100, 100 - cmc * 6));
+  return Math.max(5, Math.min(100, 100 - cmc * 8));
+}
+
+/**
+ * Convert final speed stat (after bonuses) to ms between attacks.
+ * Uses a hyperbolic curve so high-speed commanders attack meaningfully
+ * faster than slow ones, and speed bonuses actually affect combat.
+ *
+ *   speed 100 → ~1154 ms   speed 50 → ~1875 ms
+ *   speed  75 → ~1429 ms   speed 25 → ~2727 ms
+ *   speed   5 → ~4286 ms
+ */
+export function speedToMs(speed: number): number {
+  return Math.round(150000 / (30 + speed));
 }
 
 /**
@@ -352,7 +365,7 @@ export function buildClashStats(
     defense,
     hp,
     speed,
-    speedMs: calcSpeedMs(cmc),
+    speedMs: speedToMs(speed),
     cmc,
     critRate,
     attackPattern: parseAttackPattern(card.manaCost),

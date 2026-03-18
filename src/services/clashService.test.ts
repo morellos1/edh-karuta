@@ -7,6 +7,8 @@ import {
   calcHP,
   parseCMC,
   calcSpeedMs,
+  calcSpeed,
+  speedToMs,
   parseAttackPattern,
   resolveAttackColor,
   typeMultiplier,
@@ -105,6 +107,40 @@ test("calcSpeedMs converts CMC to speed", () => {
   assert.equal(calcSpeedMs(0), 1500);
   assert.equal(calcSpeedMs(3), 2250);
   assert.equal(calcSpeedMs(7), 3250);
+});
+
+// ---------------------------------------------------------------------------
+// calcSpeed
+// ---------------------------------------------------------------------------
+
+test("calcSpeed converts CMC to normalized speed stat", () => {
+  assert.equal(calcSpeed(0), 100);  // CMC 0 = max speed
+  assert.equal(calcSpeed(3), 76);   // 100 - 24
+  assert.equal(calcSpeed(5), 60);   // 100 - 40
+  assert.equal(calcSpeed(8), 36);   // 100 - 64
+  assert.equal(calcSpeed(12), 5);   // floors at 5
+  assert.equal(calcSpeed(16), 5);   // floors at 5
+});
+
+// ---------------------------------------------------------------------------
+// speedToMs
+// ---------------------------------------------------------------------------
+
+test("speedToMs uses hyperbolic curve for meaningful separation", () => {
+  // High speed → fast attacks
+  assert.equal(speedToMs(100), Math.round(150000 / 130)); // ~1154ms
+  // Medium speed
+  assert.equal(speedToMs(50), Math.round(150000 / 80));   // ~1875ms
+  // Low speed → slow attacks
+  assert.equal(speedToMs(5), Math.round(150000 / 35));    // ~4286ms
+});
+
+test("speedToMs creates meaningful ratio between fast and slow", () => {
+  const fast = speedToMs(75);  // ~1429ms
+  const slow = speedToMs(26);  // ~2679ms
+  const ratio = slow / fast;
+  // Fast commander should attack nearly twice as often as a slow one
+  assert.ok(ratio > 1.7, `Expected ratio > 1.7, got ${ratio}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -263,7 +299,8 @@ test("buildClashStats creates correct base stats without bonuses", () => {
   assert.equal(stats.attack, 20);  // 3/15 * 100 = 20
   assert.equal(stats.defense, 20);
   assert.equal(stats.hp, calcHP(countWords(card.oracleText)));
-  assert.equal(stats.speedMs, 2250);  // CMC 3 = 1500 + 750
+  assert.equal(stats.speed, 76);   // CMC 3: 100 - 3*8 = 76
+  assert.equal(stats.speedMs, speedToMs(76));  // derived from final speed stat
   assert.equal(stats.critRate, 0.20); // base crit rate for all
   assert.deepEqual(stats.attackPattern, ["C", "B", "R"]);
   assert.deepEqual(stats.colors, ["B", "R"]);
