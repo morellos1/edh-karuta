@@ -100,9 +100,9 @@ export function parsePT(value: string | null | undefined): number {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
-/** Normalize a power/toughness value (0-15) to a 5-100 stat. */
+/** Normalize a power/toughness value (0-15) to a 50-1000 stat. */
 export function normalizeStat(raw: number): number {
-  return Math.max(5, Math.min(100, Math.round((raw / MAX_PT) * 100)));
+  return Math.max(50, Math.min(1000, Math.round((raw / MAX_PT) * 1000)));
 }
 
 /** Count words in oracle text. Uses first face only (split on " // "). */
@@ -113,9 +113,9 @@ export function countWords(oracleText: string | null | undefined): number {
   return words.length;
 }
 
-/** Oracle text word count → HP. Min 80, max 500. */
+/** Oracle text word count → HP. Min 1300, max 5500. */
 export function calcHP(wordCount: number): number {
-  return Math.min(500, Math.max(80, 50 + wordCount * 3));
+  return Math.min(5500, Math.max(1300, 1000 + wordCount * 30));
 }
 
 /** Crit rate based on card condition. */
@@ -157,14 +157,27 @@ export function parseCMC(manaCost: string | null | undefined): number {
   return cmc;
 }
 
-/** CMC → speed in milliseconds between attacks. */
+/** CMC → speed in milliseconds between attacks (legacy, used only for display timing). */
 export function calcSpeedMs(cmc: number): number {
   return 1500 + cmc * 250;
 }
 
 /** CMC → normalized speed stat (0-100, higher = faster). */
 export function calcSpeed(cmc: number): number {
-  return Math.max(5, Math.min(100, 100 - cmc * 6));
+  return Math.max(5, Math.min(100, 100 - cmc * 8));
+}
+
+/**
+ * Convert final speed stat (after bonuses) to ms between attacks.
+ * Uses a hyperbolic curve so high-speed commanders attack meaningfully
+ * faster than slow ones, and speed bonuses actually affect combat.
+ *
+ *   speed 100 → ~1154 ms   speed 50 → ~1875 ms
+ *   speed  75 → ~1429 ms   speed 25 → ~2727 ms
+ *   speed   5 → ~4286 ms
+ */
+export function speedToMs(speed: number): number {
+  return Math.round(150000 / (30 + speed));
 }
 
 /**
@@ -310,9 +323,16 @@ export type ClashBonusFields = {
   bonusCritRate?: number | null;
 };
 
-function applyBonus(base: number, bonusPercent: number | null | undefined): number {
+/** Apply a percentage-based bonus (for speed and crit rate). */
+function applyPctBonus(base: number, bonusPercent: number | null | undefined): number {
   if (!bonusPercent) return base;
   return Math.round(base * (1 + bonusPercent / 100));
+}
+
+/** Apply a flat additive bonus (for atk, def, hp). */
+function applyFlatBonus(base: number, bonus: number | null | undefined): number {
+  if (!bonus) return base;
+  return base + bonus;
 }
 
 export function buildClashStats(
@@ -333,10 +353,10 @@ export function buildClashStats(
   const baseSpeed = calcSpeed(cmc);
   const baseCritRate = 0.20;
 
-  const attack = applyBonus(baseAttack, bonuses?.bonusAttack);
-  const defense = applyBonus(baseDefense, bonuses?.bonusDefense);
-  const hp = applyBonus(baseHp, bonuses?.bonusHp);
-  const speed = applyBonus(baseSpeed, bonuses?.bonusSpeed);
+  const attack = applyFlatBonus(baseAttack, bonuses?.bonusAttack);
+  const defense = applyFlatBonus(baseDefense, bonuses?.bonusDefense);
+  const hp = applyFlatBonus(baseHp, bonuses?.bonusHp);
+  const speed = applyPctBonus(baseSpeed, bonuses?.bonusSpeed);
   // Crit bonus: bonusCritRate is 5-50, representing a percentage of the base 20%.
   // E.g., bonusCritRate=50 → 50% of 0.20 = 0.10 → final 0.30
   // Use integer math to avoid floating point issues.
@@ -352,7 +372,7 @@ export function buildClashStats(
     defense,
     hp,
     speed,
-    speedMs: calcSpeedMs(cmc),
+    speedMs: speedToMs(speed),
     cmc,
     critRate,
     attackPattern: parseAttackPattern(card.manaCost),
@@ -376,8 +396,8 @@ export function calcDamage(
   defenderColors: string[],
   critRate: number
 ): { damage: number; effectiveness: "super" | "weak" | "neutral"; isCrit: boolean } {
-  const baseDamage = 10 + attackerAttack * 0.8;
-  const defenseFactor = 1 - defenderDefense / 200;
+  const baseDamage = 100 + attackerAttack * 0.8;
+  const defenseFactor = 1 - defenderDefense / 2000;
   const typeMult = typeMultiplier(attackColor, defenderColors);
   const isCrit = Math.random() < critRate;
   const critMult = isCrit ? 1.5 : 1.0;

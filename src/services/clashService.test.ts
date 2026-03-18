@@ -7,6 +7,8 @@ import {
   calcHP,
   parseCMC,
   calcSpeedMs,
+  calcSpeed,
+  speedToMs,
   parseAttackPattern,
   resolveAttackColor,
   typeMultiplier,
@@ -45,10 +47,10 @@ test("parsePT parses leading digits from mixed values", () => {
 // ---------------------------------------------------------------------------
 
 test("normalizeStat normalizes within range", () => {
-  assert.equal(normalizeStat(0), 5);   // floor
-  assert.equal(normalizeStat(15), 100); // ceiling
-  assert.equal(normalizeStat(7), 47);
-  assert.equal(normalizeStat(3), 20);
+  assert.equal(normalizeStat(0), 50);    // floor
+  assert.equal(normalizeStat(15), 1000); // ceiling
+  assert.equal(normalizeStat(7), 467);
+  assert.equal(normalizeStat(3), 200);
 });
 
 // ---------------------------------------------------------------------------
@@ -74,11 +76,11 @@ test("countWords uses first face only for DFCs", () => {
 // ---------------------------------------------------------------------------
 
 test("calcHP applies formula with min/max", () => {
-  assert.equal(calcHP(0), 80);    // min floor
-  assert.equal(calcHP(10), 80);   // 50 + 30 = 80
-  assert.equal(calcHP(50), 200);  // 50 + 150
-  assert.equal(calcHP(100), 350); // 50 + 300
-  assert.equal(calcHP(200), 500); // capped at 500
+  assert.equal(calcHP(0), 1300);   // min floor
+  assert.equal(calcHP(10), 1300);  // 1000 + 300 = 1300, at floor
+  assert.equal(calcHP(50), 2500);  // 1000 + 1500
+  assert.equal(calcHP(100), 4000); // 1000 + 3000
+  assert.equal(calcHP(200), 5500); // capped at 5500
 });
 
 // ---------------------------------------------------------------------------
@@ -105,6 +107,40 @@ test("calcSpeedMs converts CMC to speed", () => {
   assert.equal(calcSpeedMs(0), 1500);
   assert.equal(calcSpeedMs(3), 2250);
   assert.equal(calcSpeedMs(7), 3250);
+});
+
+// ---------------------------------------------------------------------------
+// calcSpeed
+// ---------------------------------------------------------------------------
+
+test("calcSpeed converts CMC to normalized speed stat", () => {
+  assert.equal(calcSpeed(0), 100);  // CMC 0 = max speed
+  assert.equal(calcSpeed(3), 76);   // 100 - 24
+  assert.equal(calcSpeed(5), 60);   // 100 - 40
+  assert.equal(calcSpeed(8), 36);   // 100 - 64
+  assert.equal(calcSpeed(12), 5);   // floors at 5
+  assert.equal(calcSpeed(16), 5);   // floors at 5
+});
+
+// ---------------------------------------------------------------------------
+// speedToMs
+// ---------------------------------------------------------------------------
+
+test("speedToMs uses hyperbolic curve for meaningful separation", () => {
+  // High speed → fast attacks
+  assert.equal(speedToMs(100), Math.round(150000 / 130)); // ~1154ms
+  // Medium speed
+  assert.equal(speedToMs(50), Math.round(150000 / 80));   // ~1875ms
+  // Low speed → slow attacks
+  assert.equal(speedToMs(5), Math.round(150000 / 35));    // ~4286ms
+});
+
+test("speedToMs creates meaningful ratio between fast and slow", () => {
+  const fast = speedToMs(75);  // ~1429ms
+  const slow = speedToMs(26);  // ~2679ms
+  const ratio = slow / fast;
+  // Fast commander should attack nearly twice as often as a slow one
+  assert.ok(ratio > 1.7, `Expected ratio > 1.7, got ${ratio}`);
 });
 
 // ---------------------------------------------------------------------------
@@ -260,10 +296,11 @@ test("buildClashStats creates correct base stats without bonuses", () => {
   const stats = buildClashStats(card, "good");
 
   assert.equal(stats.name, "Mayhem Devil");
-  assert.equal(stats.attack, 20);  // 3/15 * 100 = 20
-  assert.equal(stats.defense, 20);
+  assert.equal(stats.attack, 200);  // 3/15 * 1000 = 200
+  assert.equal(stats.defense, 200);
   assert.equal(stats.hp, calcHP(countWords(card.oracleText)));
-  assert.equal(stats.speedMs, 2250);  // CMC 3 = 1500 + 750
+  assert.equal(stats.speed, 76);   // CMC 3: 100 - 3*8 = 76
+  assert.equal(stats.speedMs, speedToMs(76));  // derived from final speed stat
   assert.equal(stats.critRate, 0.20); // base crit rate for all
   assert.deepEqual(stats.attackPattern, ["C", "B", "R"]);
   assert.deepEqual(stats.colors, ["B", "R"]);
@@ -286,19 +323,19 @@ test("buildClashStats applies bonuses correctly", () => {
     typeLine: "Creature — Devil"
   };
   const bonuses = {
-    bonusAttack: 50,   // +50% of base 20 = +10 → 30
-    bonusDefense: 25,  // +25% of base 20 = +5 → 25
-    bonusHp: 10,       // +10% of base HP
-    bonusSpeed: 20,    // +20% of base speed
+    bonusAttack: 150,  // flat +150 → 200 + 150 = 350
+    bonusDefense: 100, // flat +100 → 200 + 100 = 300
+    bonusHp: 200,      // flat +200
+    bonusSpeed: 20,    // +20% of base speed (still percentage)
     bonusCritRate: 50  // +50% of base 0.20 = +0.10 → 0.30
   };
   const stats = buildClashStats(card, "good", bonuses);
 
-  assert.equal(stats.baseAttack, 20);
-  assert.equal(stats.attack, 30);   // 20 * 1.50 = 30
-  assert.equal(stats.baseDefense, 20);
-  assert.equal(stats.defense, 25);  // 20 * 1.25 = 25
-  assert.ok(stats.hp > stats.baseHp);
+  assert.equal(stats.baseAttack, 200);
+  assert.equal(stats.attack, 350);   // 200 + 150
+  assert.equal(stats.baseDefense, 200);
+  assert.equal(stats.defense, 300);  // 200 + 100
+  assert.equal(stats.hp, stats.baseHp + 200);
   assert.ok(stats.speed > stats.baseSpeed);
   assert.equal(stats.critRate, 0.30); // 0.20 + round(0.20 * 50) / 100 = 0.20 + 0.10
 });
