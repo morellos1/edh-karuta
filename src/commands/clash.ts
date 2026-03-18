@@ -18,7 +18,7 @@ export const CLASH_DECLINE_PREFIX = "clash_decline";
 export const clashCommand: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName("clash")
-    .setDescription("Challenge other players to a Clash battle with your set creature!"),
+    .setDescription("Challenge other players to a Clash battle with your set commander!"),
   async execute(interaction: ChatInputCommandInteraction) {
     if (!interaction.guildId) {
       await interaction.reply({ content: "This command can only be used in a server.", ephemeral: true });
@@ -40,7 +40,7 @@ export const clashCommand: SlashCommand = {
 
     if (!clashCreature) {
       await interaction.reply({
-        content: "You haven't set a creature yet! Use `/setcommander <id>` first.",
+        content: "You haven't set a commander yet! Use `/setcommander <id>` first.",
         ephemeral: true
       });
       return;
@@ -50,7 +50,7 @@ export const clashCommand: SlashCommand = {
     if (clashCreature.userCard.userId !== interaction.user.id) {
       await prisma.clashCreature.delete({ where: { id: clashCreature.id } });
       await interaction.reply({
-        content: "You no longer own your set creature. Use `/setcommander <id>` to set a new one.",
+        content: "You no longer own your set commander. Use `/setcommander <id>` to set a new one.",
         ephemeral: true
       });
       return;
@@ -60,7 +60,7 @@ export const clashCommand: SlashCommand = {
     if (!isLegendaryCreature(clashCreature.userCard.card.typeLine, { isMeldResult: clashCreature.userCard.card.isMeldResult })) {
       await prisma.clashCreature.delete({ where: { id: clashCreature.id } });
       await interaction.reply({
-        content: "Your set creature is no longer eligible. Use `/setcommander <id>` to set a new one.",
+        content: "Your set commander is no longer eligible. Use `/setcommander <id>` to set a new one.",
         ephemeral: true
       });
       return;

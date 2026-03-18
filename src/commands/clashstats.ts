@@ -9,7 +9,7 @@ import { buildStatsEmbed } from "../utils/clashFormatting.js";
 export const statsCommand: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName("stats")
-    .setDescription("View a creature's Clash battle stats.")
+    .setDescription("View a commander's Clash battle stats.")
     .addStringOption((opt) =>
       opt.setName("id").setDescription("6-character card instance ID from your collection").setRequired(true)
     ),
@@ -22,14 +22,9 @@ export const statsCommand: SlashCommand = {
       return;
     }
 
-    if (userCard.userId !== interaction.user.id) {
-      await interaction.reply({ content: "You don't own that card.", ephemeral: true });
-      return;
-    }
-
     if (!isLegendaryCreature(userCard.card.typeLine, { isMeldResult: userCard.card.isMeldResult })) {
       await interaction.reply({
-        content: "Only legendary creatures have Clash stats.",
+        content: "Only legendary commanders have Clash stats.",
         ephemeral: true
       });
       return;

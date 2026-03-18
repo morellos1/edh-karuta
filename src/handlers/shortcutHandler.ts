@@ -1376,7 +1376,7 @@ async function handleSetCommander(message: Message, args: string[], prefix: stri
   }
 
   if (!isLegendaryCreature(userCard.card.typeLine, { isMeldResult: userCard.card.isMeldResult })) {
-    await message.reply({ content: "Only legendary creatures are eligible for Clash battles." });
+    await message.reply({ content: "Only legendary commanders are eligible for Clash battles." });
     return;
   }
 
@@ -1404,7 +1404,7 @@ async function handleSetCommander(message: Message, args: string[], prefix: stri
   const embed = buildStatsEmbed(stats, imageUrl, userCard.condition);
 
   await message.reply({
-    content: `Your clash creature has been set to **${stats.name}**!`,
+    content: `Your clash commander has been set to **${stats.name}**!`,
     embeds: [embed]
   });
 }
@@ -1423,13 +1423,8 @@ async function handleStats(message: Message, args: string[], prefix: string): Pr
     return;
   }
 
-  if (userCard.userId !== message.author.id) {
-    await message.reply({ content: "You don't own that card." });
-    return;
-  }
-
   if (!isLegendaryCreature(userCard.card.typeLine, { isMeldResult: userCard.card.isMeldResult })) {
-    await message.reply({ content: "Only legendary creatures have Clash stats." });
+    await message.reply({ content: "Only legendary commanders have Clash stats." });
     return;
   }
 
@@ -1464,19 +1459,19 @@ async function handleClash(message: Message): Promise<void> {
   });
 
   if (!clashCreature) {
-    await message.reply({ content: "You haven't set a creature yet! Use `/setcommander <id>` first." });
+    await message.reply({ content: "You haven't set a commander yet! Use `/setcommander <id>` first." });
     return;
   }
 
   if (clashCreature.userCard.userId !== message.author.id) {
     await prisma.clashCreature.delete({ where: { id: clashCreature.id } });
-    await message.reply({ content: "You no longer own your set creature. Use `/setcommander <id>` to set a new one." });
+    await message.reply({ content: "You no longer own your set commander. Use `/setcommander <id>` to set a new one." });
     return;
   }
 
   if (!isLegendaryCreature(clashCreature.userCard.card.typeLine, { isMeldResult: clashCreature.userCard.card.isMeldResult })) {
     await prisma.clashCreature.delete({ where: { id: clashCreature.id } });
-    await message.reply({ content: "Your set creature is no longer eligible. Use `/setcommander <id>` to set a new one." });
+    await message.reply({ content: "Your set commander is no longer eligible. Use `/setcommander <id>` to set a new one." });
     return;
   }
 

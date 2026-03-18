@@ -34,7 +34,7 @@ export const setcommanderCommand: SlashCommand = {
 
     if (!isLegendaryCreature(userCard.card.typeLine, { isMeldResult: userCard.card.isMeldResult })) {
       await interaction.reply({
-        content: "Only legendary creatures are eligible for Clash battles.",
+        content: "Only legendary commanders are eligible for Clash battles.",
         ephemeral: true
       });
       return;
@@ -65,7 +65,7 @@ export const setcommanderCommand: SlashCommand = {
     const embed = buildStatsEmbed(stats, imageUrl, userCard.condition);
 
     await interaction.reply({
-      content: `Your clash creature has been set to **${stats.name}**!`,
+      content: `Your clash commander has been set to **${stats.name}**!`,
       embeds: [embed]
     });
   }
