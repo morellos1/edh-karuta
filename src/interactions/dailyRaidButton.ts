@@ -9,13 +9,14 @@ import { prisma } from "../db.js";
 import { gameConfig } from "../config.js";
 import {
   buildClashStats,
+  isCommanderEligible,
   isLegendaryCreature,
   simulateBattle,
   type ClashStats
 } from "../services/clashService.js";
 import {
   buildBattleEmbed,
-  buildVictoryEmbed
+  buildDailyRaidResultEmbed
 } from "../utils/clashFormatting.js";
 import { buildClashPairImage, buildDropCollage } from "../services/collageService.js";
 import {
@@ -151,10 +152,11 @@ export async function handleDailyRaidButtons(interaction: ButtonInteraction) {
       const eventsUpToNow = result.events.slice(0, i + 1);
 
       if (i === result.events.length - 1) {
-        const victoryEmbed = buildVictoryEmbed(result, playerStats, bossStats, displayIdPlayer, displayIdBoss);
-        if (clashAttachment) victoryEmbed.setImage("attachment://clash.webp");
+        const playerWon = result.winner === playerStats.name;
+        const resultEmbed = buildDailyRaidResultEmbed(result, playerStats, bossStats, displayIdPlayer, displayIdBoss, playerWon);
+        if (clashAttachment) resultEmbed.setImage("attachment://clash.webp");
         await interaction.editReply({
-          embeds: [victoryEmbed],
+          embeds: [resultEmbed],
           components: []
         });
       } else {
@@ -203,7 +205,7 @@ export async function handleDailyRaidButtons(interaction: ButtonInteraction) {
         const createdCards: { name: string; displayId: string }[] = [];
         for (const card of rewardCards) {
           const condition = pickRandomCondition();
-          const isClashEligible = isLegendaryCreature(card.typeLine, { isMeldResult: false });
+          const isClashEligible = isCommanderEligible({ typeLine: card.typeLine, oracleText: card.oracleText, power: card.power, toughness: card.toughness, isMeldResult: false });
           const bonuses = isClashEligible ? rollClashBonuses(condition) : {};
 
           let userCard;
