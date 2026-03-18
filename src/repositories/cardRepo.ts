@@ -23,6 +23,8 @@ export type CardLookup = {
   manaCost: string | null;
   typeLine: string | null;
   oracleText: string | null;
+  power: string | null;
+  toughness: string | null;
 };
 
 function toCardLookup(card: Card): CardLookup {
@@ -45,7 +47,9 @@ function toCardLookup(card: Card): CardLookup {
     imageLarge: card.imageLarge,
     manaCost: card.manaCost,
     typeLine: card.typeLine,
-    oracleText: card.oracleText
+    oracleText: card.oracleText,
+    power: card.power,
+    toughness: card.toughness
   };
 }
 
@@ -256,7 +260,7 @@ export async function getRandomDroppableCards(
  */
 const NON_COMMANDER_LAYOUTS = ["flip"];
 
-function commanderWhereFilter(): Prisma.CardWhereInput {
+export function commanderWhereFilter(): Prisma.CardWhereInput {
   return {
     layout: { notIn: NON_COMMANDER_LAYOUTS },
     isMeldResult: false,
@@ -423,7 +427,9 @@ const cardSelect = {
   imageLarge: true,
   manaCost: true,
   typeLine: true,
-  oracleText: true
+  oracleText: true,
+  power: true,
+  toughness: true
 } as const;
 
 /** Strip combining diacritics so "Éowyn" → "Eowyn", "Lim-Dûl" → "Lim-Dul", etc. */
@@ -513,6 +519,69 @@ export async function getCheapestPrintPricesByNames(
 
 export function getDefaultBasePriceUsd(): number {
   return DEFAULT_BASE_PRICE_USD;
+}
+
+/**
+ * Pick `count` random droppable cards whose colorIdentity overlaps with the
+ * given colors (comma-separated W,U,B,R,G). If colorIdentity is empty/null
+ * (colorless), picks from the full pool.
+ */
+export async function getRandomCardsByColorIdentity(
+  count: number,
+  colorIdentity: string | null
+): Promise<CardLookup[]> {
+  const colors = colorIdentity
+    ? colorIdentity.split(",").map((c) => c.trim()).filter(Boolean)
+    : [];
+
+  if (colors.length === 0) {
+    return getRandomDroppableCards(count);
+  }
+
+  // Build OR conditions: card's colorIdentity contains at least one of the boss's colors
+  const colorFilters = colors.map((color) => ({
+    colorIdentity: { contains: color }
+  }));
+
+  return pickMultipleCards(
+    count,
+    (ids) => ({
+      ...baseDroppableWhere(ids),
+      OR: colorFilters
+    }),
+    { useRarityRoll: true }
+  );
+}
+
+/**
+ * Get all distinct commander-eligible card names, sorted alphabetically.
+ * Used by daily raid for deterministic boss selection.
+ */
+export async function getCommanderCardNames(): Promise<string[]> {
+  const groups = await prisma.card.groupBy({
+    by: ["name"],
+    where: {
+      ...baseDroppableWhere([]),
+      ...commanderWhereFilter()
+    }
+  });
+  return groups.map((g) => g.name).sort();
+}
+
+/**
+ * Get a single card by exact name (first print, English, commander-legal).
+ */
+export async function getCardByName(name: string): Promise<CardLookup | null> {
+  return prisma.card.findFirst({
+    where: {
+      name,
+      isCommanderLegal: true,
+      lang: "en",
+      imagePng: { not: null }
+    },
+    orderBy: [{ releasedAt: "asc" }, { id: "asc" }],
+    select: cardSelect
+  });
 }
 
 /** Look up the type line for each card name (uses the earliest print). */
