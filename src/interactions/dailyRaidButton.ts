@@ -263,7 +263,7 @@ export async function handleDailyRaidButtons(interaction: ButtonInteraction) {
       }
     } else {
       await interaction.followUp({
-        content: `<@${interaction.user.id}> was defeated by **${bossStats.name}**! Try again — you can challenge the raid boss any number of times.`
+        content: `<@${interaction.user.id}> was defeated by **${bossStats.name}**!`
       });
     }
   } catch (error) {
