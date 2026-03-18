@@ -235,6 +235,56 @@ export async function buildMarketGrid(cards: CardLookup[], labels: string[]): Pr
     .toBuffer();
 }
 
+function buildVsBadge(): Buffer {
+  const svg = `<svg width="260" height="120" xmlns="http://www.w3.org/2000/svg">
+<text x="130" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="72" font-weight="900" fill="#FFFFFF" stroke="#000000" stroke-width="3">VS</text>
+</svg>`;
+  return Buffer.from(svg);
+}
+
+/** Build a 2-card clash preview image with "VS" between cards. */
+export async function buildClashPairImage(left: CardLookup, right: CardLookup): Promise<Buffer> {
+  const cardWidth = 760;
+  const cardHeight = Math.round(cardWidth * CARD_ASPECT_RATIO);
+  const vsWidth = 260;
+  const canvasWidth = PADDING * 4 + cardWidth * 2 + vsWidth;
+  const canvasHeight = cardHeight + PADDING * 2;
+  const leftX = PADDING;
+  const leftY = PADDING;
+  const vsX = leftX + cardWidth + PADDING;
+  const vsY = Math.round((canvasHeight - 120) / 2);
+  const rightX = vsX + vsWidth + PADDING;
+  const rightY = PADDING;
+
+  const leftUrl = getCardImageUrl(left);
+  const rightUrl = getCardImageUrl(right);
+  if (!leftUrl || !rightUrl) {
+    throw new Error("Clash cards must have images.");
+  }
+
+  const [leftBuffer, rightBuffer] = await Promise.all([loadCardImage(leftUrl), loadCardImage(rightUrl)]);
+  const [leftResized, rightResized] = await Promise.all([
+    sharp(leftBuffer).resize(cardWidth, cardHeight, { fit: "cover" }).toBuffer(),
+    sharp(rightBuffer).resize(cardWidth, cardHeight, { fit: "cover" }).toBuffer()
+  ]);
+
+  return sharp({
+    create: {
+      width: canvasWidth,
+      height: canvasHeight,
+      channels: 3,
+      background: { r: 20, g: 20, b: 20 }
+    }
+  })
+    .composite([
+      { input: leftResized, left: leftX, top: leftY },
+      { input: rightResized, left: rightX, top: rightY },
+      { input: buildVsBadge(), left: vsX, top: vsY }
+    ])
+    .webp({ quality: 92 })
+    .toBuffer();
+}
+
 function buildTradeArrow(): Buffer {
   const svg = `<svg width="260" height="120" xmlns="http://www.w3.org/2000/svg">
 <g fill="none" stroke="#b146ff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">

@@ -1,5 +1,6 @@
 import {
   ActionRowBuilder,
+  AttachmentBuilder,
   ButtonBuilder,
   ButtonInteraction,
   ButtonStyle
@@ -17,6 +18,7 @@ import {
   buildBattleEmbed,
   buildVictoryEmbed
 } from "../utils/clashFormatting.js";
+import { buildClashPairImage } from "../services/collageService.js";
 import { CLASH_ACCEPT_PREFIX, CLASH_DECLINE_PREFIX } from "../commands/clash.js";
 
 /** Set of message IDs with active battles to prevent double-accepts. */
@@ -103,7 +105,7 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
 
     if (!challengerData) {
       await interaction.reply({
-        content: "The challenger's creature is no longer available. Challenge cancelled.",
+        content: "The challenger's commander is no longer available. Challenge cancelled.",
         ephemeral: true
       });
       // Disable buttons
@@ -120,7 +122,7 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
 
     if (!accepterData) {
       await interaction.reply({
-        content: "You haven't set a creature or it's no longer available! Use `/setcommander <id>` first.",
+        content: "You haven't set a commander or it's no longer available! Use `/setcommander <id>` first.",
         ephemeral: true
       });
       activeBattles.delete(messageId);
@@ -143,15 +145,27 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
         .setDisabled(true)
     );
 
+    // Build VS collage image
+    let clashAttachment: AttachmentBuilder | null = null;
+    try {
+      const collage = await buildClashPairImage(challengerData.userCard.card, accepterData.userCard.card);
+      clashAttachment = new AttachmentBuilder(collage, { name: "clash.webp" });
+    } catch {
+      // If image generation fails, continue without it
+    }
+
     // Run the simulation
     const maxAttacks = gameConfig.clash.maxAttacks;
     const result = simulateBattle(statsA, statsB, maxAttacks);
     const delayMs = gameConfig.clash.editDelayMs;
 
     // Start the battle display
+    const initialEmbed = buildBattleEmbed(statsA, statsB, [], 0, maxAttacks, imageUrlA, imageUrlB, displayIdA, displayIdB);
+    if (clashAttachment) initialEmbed.setImage("attachment://clash.webp");
     await interaction.update({
-      embeds: [buildBattleEmbed(statsA, statsB, [], 0, maxAttacks, imageUrlA, imageUrlB, displayIdA, displayIdB)],
-      components: [battleRow]
+      embeds: [initialEmbed],
+      components: [battleRow],
+      files: clashAttachment ? [clashAttachment] : []
     });
 
     // Play back events with delays
@@ -163,39 +177,45 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
       if (i === result.events.length - 1) {
         // Final event — show victory embed
         const victoryEmbed = buildVictoryEmbed(result, statsA, statsB, displayIdA, displayIdB);
+        if (clashAttachment) victoryEmbed.setImage("attachment://clash.webp");
         await interaction.editReply({
           embeds: [victoryEmbed],
           components: []
-        });
-
-        // Update W/L records for both creatures
-        const winnerId = result.winner === statsA.name ? challengerId : accepterId;
-        const loserId = result.winner === statsA.name ? accepterId : challengerId;
-        await Promise.all([
-          prisma.clashCreature.updateMany({
-            where: { discordId: winnerId, guildId },
-            data: { clashWins: { increment: 1 } }
-          }),
-          prisma.clashCreature.updateMany({
-            where: { discordId: loserId, guildId },
-            data: { clashLosses: { increment: 1 } }
-          })
-        ]);
-
-        // Send a separate victory announcement mentioning both users
-        await interaction.followUp({
-          content: `<@${winnerId}> has defeated <@${loserId}> in a clash battle!`
         });
       } else {
         const battleEmbed = buildBattleEmbed(
           statsA, statsB, eventsUpToNow, i + 1, maxAttacks, imageUrlA, imageUrlB, displayIdA, displayIdB
         );
+        if (clashAttachment) battleEmbed.setImage("attachment://clash.webp");
         await interaction.editReply({
           embeds: [battleEmbed],
           components: [battleRow]
         });
       }
     }
+
+    // Update W/L records — outside display loop so it runs even if display errors occur
+    const winnerId = result.winner === statsA.name ? challengerId : accepterId;
+    const loserId = result.winner === statsA.name ? accepterId : challengerId;
+    try {
+      await Promise.all([
+        prisma.clashCreature.updateMany({
+          where: { discordId: winnerId, guildId },
+          data: { clashWins: { increment: 1 } }
+        }),
+        prisma.clashCreature.updateMany({
+          where: { discordId: loserId, guildId },
+          data: { clashLosses: { increment: 1 } }
+        })
+      ]);
+    } catch (err) {
+      console.error("Failed to update clash records:", err);
+    }
+
+    // Send a separate victory announcement mentioning both users
+    await interaction.followUp({
+      content: `<@${winnerId}> has defeated <@${loserId}> in a clash battle!`
+    });
   } catch (error) {
     console.error("Clash battle error:", error);
     try {

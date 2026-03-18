@@ -80,7 +80,7 @@ function formatCritRate(critRate: number, baseCritRate: number): string {
 }
 
 // ---------------------------------------------------------------------------
-// Stats Embed (for /setcreature and /creaturestats)
+// Stats Embed (for /setcommander and /stats)
 // ---------------------------------------------------------------------------
 
 export function buildStatsEmbed(
@@ -170,10 +170,11 @@ export function buildBattleEmbed(
   const embed = new EmbedBuilder()
     .setTitle("Clash Battle!")
     .setColor(hpA >= hpB ? 0x57f287 : 0xed4245)
-    .setDescription(log || "\u200b")
+    .setDescription((log || "\u200b") + "\n\n───────────────────")
     .addFields(
-      { name: `${statsA.name} (${displayIdA})`, value: hpBar(hpA, statsA.hp), inline: true },
-      { name: `${statsB.name} (${displayIdB})`, value: hpBar(hpB, statsB.hp), inline: true }
+      { name: `${statsA.name} \`${displayIdA}\``, value: hpBar(hpA, statsA.hp), inline: true },
+      { name: "\u200b", value: "\u200b", inline: true },
+      { name: `${statsB.name} \`${displayIdB}\``, value: hpBar(hpB, statsB.hp), inline: true }
     )
     .setFooter({ text: `Turn ${attackNumber}/${maxAttacks}` });
 
@@ -220,10 +221,11 @@ export function buildVictoryEmbed(
   const embed = new EmbedBuilder()
     .setTitle(`${result.winner} wins!`)
     .setColor(0xffd700)
-    .setDescription(`${log}\n\n${summaryLine}`)
+    .setDescription(`${log}\n\n${summaryLine}\n\n───────────────────`)
     .addFields(
-      { name: `${statsA.name} (${displayIdA})`, value: hpBar(finalHpA, statsA.hp), inline: true },
-      { name: `${statsB.name} (${displayIdB})`, value: hpBar(finalHpB, statsB.hp), inline: true }
+      { name: `${statsA.name} \`${displayIdA}\``, value: hpBar(finalHpA, statsA.hp), inline: true },
+      { name: "\u200b", value: "\u200b", inline: true },
+      { name: `${statsB.name} \`${displayIdB}\``, value: hpBar(finalHpB, statsB.hp), inline: true }
     );
 
   return embed;
@@ -244,8 +246,8 @@ export function buildChallengeEmbed(
     .setColor(0xff6600)
     .setDescription(
       `**${challengerName}** challenges anyone to a Clash Battle!\n\n` +
-      `Their creature: **${challengerStats.name}**\n\n` +
-      `Click **Accept** to fight with your set creature!`
+      `Their commander: **${challengerStats.name}**\n\n` +
+      `Click **Accept** to fight with your set commander!`
     )
     .addFields(
       { name: "Attack", value: formatStat(challengerStats.attack, challengerStats.baseAttack), inline: true },
