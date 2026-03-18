@@ -13,7 +13,6 @@ import {
   simulateBattle,
   type ClashStats
 } from "../services/clashService.js";
-import { getCardImageUrl } from "../utils/cardFormatting.js";
 import {
   buildBattleEmbed,
   buildVictoryEmbed
@@ -131,8 +130,6 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
 
     const statsA = buildClashStats(challengerData.userCard.card, challengerData.userCard.condition, challengerData.userCard);
     const statsB = buildClashStats(accepterData.userCard.card, accepterData.userCard.condition, accepterData.userCard);
-    const imageUrlA = getCardImageUrl(challengerData.userCard.card);
-    const imageUrlB = getCardImageUrl(accepterData.userCard.card);
     const displayIdA = challengerData.userCard.displayId;
     const displayIdB = accepterData.userCard.displayId;
 
@@ -160,7 +157,7 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
     const delayMs = gameConfig.clash.editDelayMs;
 
     // Start the battle display
-    const initialEmbed = buildBattleEmbed(statsA, statsB, [], 0, maxAttacks, imageUrlA, imageUrlB, displayIdA, displayIdB);
+    const initialEmbed = buildBattleEmbed(statsA, statsB, [], 0, maxAttacks, displayIdA, displayIdB);
     if (clashAttachment) initialEmbed.setImage("attachment://clash.webp");
     await interaction.update({
       embeds: [initialEmbed],
@@ -184,7 +181,7 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
         });
       } else {
         const battleEmbed = buildBattleEmbed(
-          statsA, statsB, eventsUpToNow, i + 1, maxAttacks, imageUrlA, imageUrlB, displayIdA, displayIdB
+          statsA, statsB, eventsUpToNow, i + 1, maxAttacks, displayIdA, displayIdB
         );
         if (clashAttachment) battleEmbed.setImage("attachment://clash.webp");
         await interaction.editReply({
