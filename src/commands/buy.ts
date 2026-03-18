@@ -11,7 +11,7 @@ import { gameConfig } from "../config.js";
 import { grantExtraClaims, getExtraClaimCount } from "../repositories/extraClaimRepo.js";
 import { grantExtraCommanderDrops, getExtraCommanderDropCount } from "../repositories/extraCommanderDropRepo.js";
 import { grantExtraLandDrops, getExtraLandDropCount } from "../repositories/extraLandDropRepo.js";
-import { isLegendaryCreature } from "../services/clashService.js";
+import { isCommanderEligible } from "../services/clashService.js";
 import { rollClashBonuses } from "../services/clashBonusService.js";
 
 function parseMarketId(input: string): MarketCardId | null {
@@ -257,7 +257,7 @@ export const buyCommand: SlashCommand = {
           claimedAt: new Date()
         }
       });
-      const bonuses = isLegendaryCreature(entry.card.typeLine)
+      const bonuses = isCommanderEligible(entry.card)
         ? rollClashBonuses("mint")
         : {};
 

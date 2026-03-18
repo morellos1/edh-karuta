@@ -748,3 +748,30 @@ export function isLegendaryCreature(
   const first = typeLine.split(" // ")[0];
   return first.includes("Legendary") && first.includes("Creature");
 }
+
+/** Check if a card is commander-eligible (legendary creature, planeswalker
+ *  with "can be your commander", or legendary vehicle/spacecraft with P/T).
+ *  Mirrors the commanderWhereFilter() logic in cardRepo. */
+export function isCommanderEligible(
+  card: {
+    typeLine: string | null;
+    oracleText?: string | null;
+    power?: string | null;
+    toughness?: string | null;
+    isMeldResult?: boolean;
+    layout?: string | null;
+  }
+): boolean {
+  if (!card.typeLine) return false;
+  if (card.isMeldResult) return false;
+  if (card.layout === "flip") return false;
+  const first = card.typeLine.split(" // ")[0];
+  if (first.includes("Battle")) return false;
+  // Legendary Creature
+  if (first.includes("Legendary") && first.includes("Creature")) return true;
+  // Planeswalker with "can be your commander"
+  if (first.includes("Planeswalker") && card.oracleText?.toLowerCase().includes("can be your commander")) return true;
+  // Legendary Vehicle or Spacecraft with power and toughness
+  if (first.includes("Legendary") && (first.includes("Vehicle") || first.includes("Spacecraft")) && card.power != null && card.toughness != null) return true;
+  return false;
+}

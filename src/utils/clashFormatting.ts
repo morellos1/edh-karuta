@@ -199,9 +199,9 @@ export function buildBattleEmbed(
     .setColor(hpA >= hpB ? 0x57f287 : 0xed4245)
     .setDescription((log || "\u200b") + "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     .addFields(
-      { name: `${statsA.name}${formatAbilitiesCompact(statsA.abilities)}\n\`${displayIdA}\``, value: hpBar(hpA, statsA.hp), inline: true },
+      { name: `${statsA.name}\n\`${displayIdA}\``, value: hpBar(hpA, statsA.hp), inline: true },
       { name: "\u200b", value: "\u200b", inline: true },
-      { name: `${statsB.name}${formatAbilitiesCompact(statsB.abilities)}\n\`${displayIdB}\``, value: hpBar(hpB, statsB.hp), inline: true }
+      { name: `${statsB.name}\n\`${displayIdB}\``, value: hpBar(hpB, statsB.hp), inline: true }
     )
     .setFooter({ text: `Turn ${attackNumber}/${maxAttacks}` });
 
@@ -246,9 +246,60 @@ export function buildVictoryEmbed(
     .setColor(0xffd700)
     .setDescription(`${log}\n\n${summaryLine}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
     .addFields(
-      { name: `${statsA.name}${formatAbilitiesCompact(statsA.abilities)}\n\`${displayIdA}\``, value: hpBar(finalHpA, statsA.hp), inline: true },
+      { name: `${statsA.name}\n\`${displayIdA}\``, value: hpBar(finalHpA, statsA.hp), inline: true },
       { name: "\u200b", value: "\u200b", inline: true },
-      { name: `${statsB.name}${formatAbilitiesCompact(statsB.abilities)}\n\`${displayIdB}\``, value: hpBar(finalHpB, statsB.hp), inline: true }
+      { name: `${statsB.name}\n\`${displayIdB}\``, value: hpBar(finalHpB, statsB.hp), inline: true }
+    );
+
+  return embed;
+}
+
+// ---------------------------------------------------------------------------
+// Daily Raid Result Embed
+// ---------------------------------------------------------------------------
+
+export function buildDailyRaidResultEmbed(
+  result: BattleResult,
+  playerStats: ClashStats,
+  bossStats: ClashStats,
+  displayIdPlayer: string,
+  displayIdBoss: string,
+  playerWon: boolean
+): EmbedBuilder {
+  const allLogLines = result.events.map(formatBattleEvent);
+
+  const summaryLine = result.isDraw
+    ? `Stalemate after ${result.events.length} turns! **${result.winner}** wins by tiebreak.`
+    : result.events.length >= 100
+      ? `Stalemate after ${result.events.length} turns! **${result.winner}** wins with more HP remaining.`
+      : `**${result.winner}** defeats **${result.loser}** in ${result.events.length} turns!`;
+
+  const overhead = summaryLine.length + 20;
+  const maxLogChars = 4096 - overhead;
+  let log = allLogLines.join("\n");
+  if (log.length > maxLogChars) {
+    while (log.length > maxLogChars && allLogLines.length > 1) {
+      allLogLines.shift();
+      log = "...\n" + allLogLines.join("\n");
+    }
+  }
+
+  const finalHpPlayer = result.winner === playerStats.name ? result.winnerHp : result.loserHp;
+  const finalHpBoss = result.winner === bossStats.name ? result.winnerHp : result.loserHp;
+
+  const title = playerWon
+    ? `VICTORY! ${playerStats.name} wins!`
+    : `DEFEAT! ${bossStats.name} wins!`;
+  const color = playerWon ? 0x57f287 : 0xed4245;
+
+  const embed = new EmbedBuilder()
+    .setTitle(title)
+    .setColor(color)
+    .setDescription(`${log}\n\n${summaryLine}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
+    .addFields(
+      { name: `${playerStats.name}\n\`${displayIdPlayer}\``, value: hpBar(finalHpPlayer, playerStats.hp), inline: true },
+      { name: "\u200b", value: "\u200b", inline: true },
+      { name: `${bossStats.name}\n\`${displayIdBoss}\``, value: hpBar(finalHpBoss, bossStats.hp), inline: true }
     );
 
   return embed;

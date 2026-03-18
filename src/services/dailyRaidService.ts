@@ -78,14 +78,21 @@ export async function getDailyBoss(): Promise<DailyBossInfo> {
 
   const stats = buildClashStats(card, "mint", maxBonuses);
 
-  // Pick 1 additional ability the boss doesn't already have.
-  // Check both parsed abilities AND raw oracle text (word-boundary match) to catch
-  // keywords that parseKeywordAbilities misses due to line-level skip conditions
-  // (e.g., lines containing periods from reminder text).
+  // Detect innate abilities that parseKeywordAbilities may have missed
+  // (e.g., keywords on lines with periods from reminder text).
   const existingAbilities = new Set(stats.abilities);
   const oracleLower = (card.oracleText || "").toLowerCase();
+  for (const keyword of KEYWORD_LIST) {
+    if (!existingAbilities.has(keyword) && new RegExp(`\\b${keyword}\\b`).test(oracleLower)) {
+      stats.abilities.push(keyword);
+      existingAbilities.add(keyword);
+      applyAbilityBonus(stats, keyword);
+    }
+  }
+
+  // Pick 1 additional ability the boss doesn't already have.
   const availableAbilities = KEYWORD_LIST.filter(
-    (a) => !existingAbilities.has(a) && !new RegExp(`\\b${a}\\b`).test(oracleLower)
+    (a) => !existingAbilities.has(a)
   );
 
   let bonusAbility = "";
