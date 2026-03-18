@@ -55,6 +55,11 @@ model UserCard {
   cardId    Int
   dropId    Int
   condition String  @default("good")
+  bonusAttack   Int?
+  bonusDefense  Int?
+  bonusHp       Int?
+  bonusSpeed    Int?
+  bonusCritRate Int?
   claimedAt DateTime @default(now())
 
   card Card @relation(fields: [cardId], references: [id], onDelete: Cascade)

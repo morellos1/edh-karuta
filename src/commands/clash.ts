@@ -66,7 +66,7 @@ export const clashCommand: SlashCommand = {
       return;
     }
 
-    const stats = buildClashStats(clashCreature.userCard.card, clashCreature.userCard.condition);
+    const stats = buildClashStats(clashCreature.userCard.card, clashCreature.userCard.condition, clashCreature.userCard);
     const imageUrl = getCardImageUrl(clashCreature.userCard.card);
     const embed = buildChallengeEmbed(interaction.user.displayName, stats, imageUrl);
 

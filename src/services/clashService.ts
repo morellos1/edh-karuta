@@ -13,6 +13,11 @@ export type ClashStats = {
   critRate: number;
   attackPattern: string[]; // "W"|"U"|"B"|"R"|"G"|"C"|"G/W" etc.
   colors: string[];        // defender colors for effectiveness calc
+  baseAttack: number;
+  baseDefense: number;
+  baseHp: number;
+  baseSpeed: number;
+  baseCritRate: number;    // decimal, always 0.20
 };
 
 export type BattleEvent = {
@@ -297,7 +302,24 @@ export type CardDataForClash = {
   typeLine: string | null;
 };
 
-export function buildClashStats(card: CardDataForClash, condition: string): ClashStats {
+export type ClashBonusFields = {
+  bonusAttack?: number | null;
+  bonusDefense?: number | null;
+  bonusHp?: number | null;
+  bonusSpeed?: number | null;
+  bonusCritRate?: number | null;
+};
+
+function applyBonus(base: number, bonusPercent: number | null | undefined): number {
+  if (!bonusPercent) return base;
+  return Math.round(base * (1 + bonusPercent / 100));
+}
+
+export function buildClashStats(
+  card: CardDataForClash,
+  condition: string,
+  bonuses?: ClashBonusFields | null
+): ClashStats {
   // Use first face name for DFCs
   const name = card.name.split(" // ")[0];
   const power = parsePT(card.power);
@@ -305,17 +327,41 @@ export function buildClashStats(card: CardDataForClash, condition: string): Clas
   const cmc = parseCMC(card.manaCost);
   const wordCount = countWords(card.oracleText);
 
+  const baseAttack = normalizeStat(power);
+  const baseDefense = normalizeStat(toughness);
+  const baseHp = calcHP(wordCount);
+  const baseSpeed = calcSpeed(cmc);
+  const baseCritRate = 0.20;
+
+  const attack = applyBonus(baseAttack, bonuses?.bonusAttack);
+  const defense = applyBonus(baseDefense, bonuses?.bonusDefense);
+  const hp = applyBonus(baseHp, bonuses?.bonusHp);
+  const speed = applyBonus(baseSpeed, bonuses?.bonusSpeed);
+  // Crit bonus: bonusCritRate is 5-50, representing a percentage of the base 20%.
+  // E.g., bonusCritRate=50 → 50% of 0.20 = 0.10 → final 0.30
+  // Use integer math to avoid floating point issues.
+  const baseCritPct = 20; // base crit as integer percentage
+  const critBonusPct = bonuses?.bonusCritRate
+    ? Math.round(baseCritPct * bonuses.bonusCritRate / 100)
+    : 0;
+  const critRate = (baseCritPct + critBonusPct) / 100;
+
   return {
     name,
-    attack: normalizeStat(power),
-    defense: normalizeStat(toughness),
-    hp: calcHP(wordCount),
-    speed: calcSpeed(cmc),
+    attack,
+    defense,
+    hp,
+    speed,
     speedMs: calcSpeedMs(cmc),
     cmc,
-    critRate: critRateFromCondition(condition),
+    critRate,
     attackPattern: parseAttackPattern(card.manaCost),
-    colors: parseDefenderColors(card.colors)
+    colors: parseDefenderColors(card.colors),
+    baseAttack,
+    baseDefense,
+    baseHp,
+    baseSpeed,
+    baseCritRate,
   };
 }
 
