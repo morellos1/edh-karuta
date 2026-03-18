@@ -148,7 +148,9 @@ export function buildBattleEmbed(
   attackNumber: number,
   maxAttacks: number,
   imageUrlA: string | null,
-  imageUrlB: string | null
+  imageUrlB: string | null,
+  displayIdA: string,
+  displayIdB: string
 ): EmbedBuilder {
   // Current HP from latest events
   let hpA = statsA.hp;
@@ -161,9 +163,6 @@ export function buildBattleEmbed(
     }
   }
 
-  const barA = hpBar(hpA, statsA.hp);
-  const barB = hpBar(hpB, statsB.hp);
-
   // Last 5 events for the log
   const recentEvents = events.slice(-5);
   const log = recentEvents.map(formatBattleEvent).join("\n");
@@ -171,12 +170,12 @@ export function buildBattleEmbed(
   const embed = new EmbedBuilder()
     .setTitle("Clash Battle!")
     .setColor(hpA >= hpB ? 0x57f287 : 0xed4245)
-    .setDescription(
-      `**${statsA.name}**\n${barA}\n\n` +
-      `**${statsB.name}**\n${barB}\n\n` +
-      `---\n${log}`
+    .setDescription(log || "\u200b")
+    .addFields(
+      { name: `${statsA.name} (${displayIdA})`, value: hpBar(hpA, statsA.hp), inline: true },
+      { name: `${statsB.name} (${displayIdB})`, value: hpBar(hpB, statsB.hp), inline: true }
     )
-    .setFooter({ text: `Attack ${attackNumber}/${maxAttacks}` });
+    .setFooter({ text: `Turn ${attackNumber}/${maxAttacks}` });
 
   if (imageUrlA) {
     embed.setThumbnail(imageUrlA);
@@ -192,27 +191,23 @@ export function buildBattleEmbed(
 export function buildVictoryEmbed(
   result: BattleResult,
   statsA: ClashStats,
-  statsB: ClashStats
+  statsB: ClashStats,
+  displayIdA: string,
+  displayIdB: string
 ): EmbedBuilder {
   const allLogLines = result.events.map(formatBattleEvent);
-  const hpSection =
-    `**${result.winner === statsA.name ? statsA.name : statsB.name}**\n` +
-    `${hpBar(result.winner === statsA.name ? result.winnerHp : result.loserHp, result.winner === statsA.name ? statsA.hp : statsB.hp)}\n\n` +
-    `**${result.winner === statsA.name ? statsB.name : statsA.name}**\n` +
-    `${hpBar(result.winner === statsA.name ? result.loserHp : result.winnerHp, result.winner === statsA.name ? statsB.hp : statsA.hp)}`;
 
   const summaryLine = result.isDraw
-    ? `Stalemate after ${result.events.length} attacks! **${result.winner}** wins by tiebreak.`
+    ? `Stalemate after ${result.events.length} turns! **${result.winner}** wins by tiebreak.`
     : result.events.length >= 100
-      ? `Stalemate after ${result.events.length} attacks! **${result.winner}** wins with more HP remaining.`
-      : `**${result.winner}** defeats **${result.loser}** in ${result.events.length} attacks!`;
+      ? `Stalemate after ${result.events.length} turns! **${result.winner}** wins with more HP remaining.`
+      : `**${result.winner}** defeats **${result.loser}** in ${result.events.length} turns!`;
 
   // Build full description, truncating log from the front if it exceeds Discord's 4096 char limit
-  const overhead = hpSection.length + summaryLine.length + 20; // separators + newlines
+  const overhead = summaryLine.length + 20; // separators + newlines
   const maxLogChars = 4096 - overhead;
   let log = allLogLines.join("\n");
   if (log.length > maxLogChars) {
-    // Trim from the beginning to keep the most recent events visible
     while (log.length > maxLogChars && allLogLines.length > 1) {
       allLogLines.shift();
       log = "...\n" + allLogLines.join("\n");
@@ -225,13 +220,11 @@ export function buildVictoryEmbed(
   const embed = new EmbedBuilder()
     .setTitle(`${result.winner} wins!`)
     .setColor(0xffd700)
-    .setDescription(
-      `**${statsA.name}**\n${hpBar(finalHpA, statsA.hp)}\n\n` +
-      `**${statsB.name}**\n${hpBar(finalHpB, statsB.hp)}\n\n` +
-      `---\n${log}\n\n` +
-      summaryLine
-    )
-    .setFooter({ text: `Total attacks: ${result.events.length}` });
+    .setDescription(`${log}\n\n${summaryLine}`)
+    .addFields(
+      { name: `${statsA.name} (${displayIdA})`, value: hpBar(finalHpA, statsA.hp), inline: true },
+      { name: `${statsB.name} (${displayIdB})`, value: hpBar(finalHpB, statsB.hp), inline: true }
+    );
 
   return embed;
 }
@@ -243,17 +236,27 @@ export function buildVictoryEmbed(
 export function buildChallengeEmbed(
   challengerName: string,
   challengerStats: ClashStats,
-  cardImageUrl: string | null
+  cardImageUrl: string | null,
+  condition: string
 ): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setTitle("Clash Challenge!")
     .setColor(0xff6600)
     .setDescription(
       `**${challengerName}** challenges anyone to a Clash Battle!\n\n` +
-      `Their creature: **${challengerStats.name}**\n` +
-      `ATK: ${formatStat(challengerStats.attack, challengerStats.baseAttack)} | DEF: ${formatStat(challengerStats.defense, challengerStats.baseDefense)} | HP: ${formatStat(challengerStats.hp, challengerStats.baseHp)} | SPD: ${formatStat(challengerStats.speed, challengerStats.baseSpeed)}\n\n` +
+      `Their creature: **${challengerStats.name}**\n\n` +
       `Click **Accept** to fight with your set creature!`
-    );
+    )
+    .addFields(
+      { name: "Attack", value: formatStat(challengerStats.attack, challengerStats.baseAttack), inline: true },
+      { name: "Defense", value: formatStat(challengerStats.defense, challengerStats.baseDefense), inline: true },
+      { name: "HP", value: formatStat(challengerStats.hp, challengerStats.baseHp), inline: true },
+      { name: "Speed", value: formatStat(challengerStats.speed, challengerStats.baseSpeed), inline: true },
+      { name: "Crit Rate", value: formatCritRate(challengerStats.critRate, challengerStats.baseCritRate), inline: true },
+      { name: "Type", value: challengerStats.colors.length > 0 ? challengerStats.colors.map((c) => colorEmoji(c)).join(" ") : colorEmoji("C"), inline: true },
+      { name: "Attack Pattern", value: formatAttackPattern(challengerStats.attackPattern), inline: false }
+    )
+    .setFooter({ text: `Condition: ${condition.charAt(0).toUpperCase() + condition.slice(1)}` });
 
   if (cardImageUrl) {
     embed.setThumbnail(cardImageUrl);

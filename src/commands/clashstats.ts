@@ -6,9 +6,9 @@ import { buildClashStats, isLegendaryCreature } from "../services/clashService.j
 import { getCardImageUrl } from "../utils/cardFormatting.js";
 import { buildStatsEmbed } from "../utils/clashFormatting.js";
 
-export const creaturestatsCommand: SlashCommand = {
+export const statsCommand: SlashCommand = {
   data: new SlashCommandBuilder()
-    .setName("creaturestats")
+    .setName("stats")
     .setDescription("View a creature's Clash battle stats.")
     .addStringOption((opt) =>
       opt.setName("id").setDescription("6-character card instance ID from your collection").setRequired(true)

@@ -40,7 +40,7 @@ export const clashCommand: SlashCommand = {
 
     if (!clashCreature) {
       await interaction.reply({
-        content: "You haven't set a creature yet! Use `/setcreature <id>` first.",
+        content: "You haven't set a creature yet! Use `/setcommander <id>` first.",
         ephemeral: true
       });
       return;
@@ -50,7 +50,7 @@ export const clashCommand: SlashCommand = {
     if (clashCreature.userCard.userId !== interaction.user.id) {
       await prisma.clashCreature.delete({ where: { id: clashCreature.id } });
       await interaction.reply({
-        content: "You no longer own your set creature. Use `/setcreature <id>` to set a new one.",
+        content: "You no longer own your set creature. Use `/setcommander <id>` to set a new one.",
         ephemeral: true
       });
       return;
@@ -60,7 +60,7 @@ export const clashCommand: SlashCommand = {
     if (!isLegendaryCreature(clashCreature.userCard.card.typeLine, { isMeldResult: clashCreature.userCard.card.isMeldResult })) {
       await prisma.clashCreature.delete({ where: { id: clashCreature.id } });
       await interaction.reply({
-        content: "Your set creature is no longer eligible. Use `/setcreature <id>` to set a new one.",
+        content: "Your set creature is no longer eligible. Use `/setcommander <id>` to set a new one.",
         ephemeral: true
       });
       return;
@@ -68,7 +68,7 @@ export const clashCommand: SlashCommand = {
 
     const stats = buildClashStats(clashCreature.userCard.card, clashCreature.userCard.condition, clashCreature.userCard);
     const imageUrl = getCardImageUrl(clashCreature.userCard.card);
-    const embed = buildChallengeEmbed(interaction.user.displayName, stats, imageUrl);
+    const embed = buildChallengeEmbed(interaction.user.displayName, stats, imageUrl, clashCreature.userCard.condition);
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()

@@ -50,8 +50,8 @@ import { shortcutCommand } from "./commands/shortcut.js";
 import { handleShortcut } from "./handlers/shortcutHandler.js";
 import { startBotDropScheduler } from "./services/botDropScheduler.js";
 import { startDropCleanupScheduler } from "./services/dropCleanupService.js";
-import { setcreatureCommand } from "./commands/setcreature.js";
-import { creaturestatsCommand } from "./commands/clashstats.js";
+import { setcommanderCommand } from "./commands/setcreature.js";
+import { statsCommand } from "./commands/clashstats.js";
 import { clashCommand, CLASH_ACCEPT_PREFIX, CLASH_DECLINE_PREFIX } from "./commands/clash.js";
 import { handleClashButtons } from "./interactions/clashButton.js";
 
@@ -86,8 +86,8 @@ const commands = [
   toolshopCommand,
   setprefixCommand,
   shortcutCommand,
-  setcreatureCommand,
-  creaturestatsCommand,
+  setcommanderCommand,
+  statsCommand,
   clashCommand
 ];
 const commandMap = new Collection<string, SlashCommand>();

@@ -120,7 +120,7 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
 
     if (!accepterData) {
       await interaction.reply({
-        content: "You haven't set a creature or it's no longer available! Use `/setcreature <id>` first.",
+        content: "You haven't set a creature or it's no longer available! Use `/setcommander <id>` first.",
         ephemeral: true
       });
       activeBattles.delete(messageId);
@@ -131,6 +131,8 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
     const statsB = buildClashStats(accepterData.userCard.card, accepterData.userCard.condition, accepterData.userCard);
     const imageUrlA = getCardImageUrl(challengerData.userCard.card);
     const imageUrlB = getCardImageUrl(accepterData.userCard.card);
+    const displayIdA = challengerData.userCard.displayId;
+    const displayIdB = accepterData.userCard.displayId;
 
     // Disable buttons
     const battleRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -148,7 +150,7 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
 
     // Start the battle display
     await interaction.update({
-      embeds: [buildBattleEmbed(statsA, statsB, [], 0, maxAttacks, imageUrlA, imageUrlB)],
+      embeds: [buildBattleEmbed(statsA, statsB, [], 0, maxAttacks, imageUrlA, imageUrlB, displayIdA, displayIdB)],
       components: [battleRow]
     });
 
@@ -160,7 +162,7 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
 
       if (i === result.events.length - 1) {
         // Final event — show victory embed
-        const victoryEmbed = buildVictoryEmbed(result, statsA, statsB);
+        const victoryEmbed = buildVictoryEmbed(result, statsA, statsB, displayIdA, displayIdB);
         await interaction.editReply({
           embeds: [victoryEmbed],
           components: []
@@ -186,7 +188,7 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
         });
       } else {
         const battleEmbed = buildBattleEmbed(
-          statsA, statsB, eventsUpToNow, i + 1, maxAttacks, imageUrlA, imageUrlB
+          statsA, statsB, eventsUpToNow, i + 1, maxAttacks, imageUrlA, imageUrlB, displayIdA, displayIdB
         );
         await interaction.editReply({
           embeds: [battleEmbed],

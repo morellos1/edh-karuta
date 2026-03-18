@@ -66,6 +66,9 @@ import {
   EmbedBuilder,
   ButtonStyle
 } from "discord.js";
+import { buildClashStats, isLegendaryCreature } from "../services/clashService.js";
+import { buildStatsEmbed, buildChallengeEmbed } from "../utils/clashFormatting.js";
+import { CLASH_ACCEPT_PREFIX, CLASH_DECLINE_PREFIX } from "../commands/clash.js";
 
 const DROP_SIZE = 3;
 const withDropLock = createAsyncLock();
@@ -212,6 +215,15 @@ export async function handleShortcut(message: Message): Promise<void> {
       break;
     case "unfav":
       await handleUnfav(message, parsed.args, prefix);
+      break;
+    case "setcmd":
+      await handleSetCommander(message, parsed.args, prefix);
+      break;
+    case "stats":
+      await handleStats(message, parsed.args, prefix);
+      break;
+    case "clash":
+      await handleClash(message);
       break;
     default:
       // Not a recognized shortcut, ignore
@@ -1340,4 +1352,170 @@ async function handleUnfav(message: Message, args: string[], prefix: string): Pr
   await message.reply({
     content: `Tag **${tagName}** is no longer favorited.`
   });
+}
+
+async function handleSetCommander(message: Message, args: string[], prefix: string): Promise<void> {
+  if (!message.guildId) return;
+
+  if (!args[0]) {
+    await message.reply({ content: `Usage: \`${prefix}setcmd <card-id>\`` });
+    return;
+  }
+
+  const displayId = args[0].trim();
+  const userCard = await getUserCardByDisplayId(displayId);
+
+  if (!userCard) {
+    await message.reply({ content: "No card found with that ID." });
+    return;
+  }
+
+  if (userCard.userId !== message.author.id) {
+    await message.reply({ content: "You don't own that card." });
+    return;
+  }
+
+  if (!isLegendaryCreature(userCard.card.typeLine, { isMeldResult: userCard.card.isMeldResult })) {
+    await message.reply({ content: "Only legendary creatures are eligible for Clash battles." });
+    return;
+  }
+
+  await prisma.clashCreature.upsert({
+    where: {
+      discordId_guildId: {
+        discordId: message.author.id,
+        guildId: message.guildId
+      }
+    },
+    create: {
+      discordId: message.author.id,
+      guildId: message.guildId,
+      userCardId: userCard.id
+    },
+    update: {
+      userCardId: userCard.id,
+      clashWins: 0,
+      clashLosses: 0
+    }
+  });
+
+  const stats = buildClashStats(userCard.card, userCard.condition, userCard);
+  const imageUrl = getCardImageUrl(userCard.card);
+  const embed = buildStatsEmbed(stats, imageUrl, userCard.condition);
+
+  await message.reply({
+    content: `Your clash creature has been set to **${stats.name}**!`,
+    embeds: [embed]
+  });
+}
+
+async function handleStats(message: Message, args: string[], prefix: string): Promise<void> {
+  if (!args[0]) {
+    await message.reply({ content: `Usage: \`${prefix}stats <card-id>\`` });
+    return;
+  }
+
+  const displayId = args[0].trim();
+  const userCard = await getUserCardByDisplayId(displayId);
+
+  if (!userCard) {
+    await message.reply({ content: "No card found with that ID." });
+    return;
+  }
+
+  if (userCard.userId !== message.author.id) {
+    await message.reply({ content: "You don't own that card." });
+    return;
+  }
+
+  if (!isLegendaryCreature(userCard.card.typeLine, { isMeldResult: userCard.card.isMeldResult })) {
+    await message.reply({ content: "Only legendary creatures have Clash stats." });
+    return;
+  }
+
+  const stats = buildClashStats(userCard.card, userCard.condition, userCard);
+  const imageUrl = getCardImageUrl(userCard.card);
+
+  let record: string | null = null;
+  const clashCreature = await prisma.clashCreature.findFirst({
+    where: { userCardId: userCard.id }
+  });
+  if (clashCreature) {
+    record = `${clashCreature.clashWins}W ${clashCreature.clashLosses}L`;
+  }
+
+  const embed = buildStatsEmbed(stats, imageUrl, userCard.condition, record);
+  await message.reply({ embeds: [embed] });
+}
+
+async function handleClash(message: Message): Promise<void> {
+  if (!message.guildId) return;
+
+  const clashCreature = await prisma.clashCreature.findUnique({
+    where: {
+      discordId_guildId: {
+        discordId: message.author.id,
+        guildId: message.guildId
+      }
+    },
+    include: {
+      userCard: { include: { card: true } }
+    }
+  });
+
+  if (!clashCreature) {
+    await message.reply({ content: "You haven't set a creature yet! Use `/setcommander <id>` first." });
+    return;
+  }
+
+  if (clashCreature.userCard.userId !== message.author.id) {
+    await prisma.clashCreature.delete({ where: { id: clashCreature.id } });
+    await message.reply({ content: "You no longer own your set creature. Use `/setcommander <id>` to set a new one." });
+    return;
+  }
+
+  if (!isLegendaryCreature(clashCreature.userCard.card.typeLine, { isMeldResult: clashCreature.userCard.card.isMeldResult })) {
+    await prisma.clashCreature.delete({ where: { id: clashCreature.id } });
+    await message.reply({ content: "Your set creature is no longer eligible. Use `/setcommander <id>` to set a new one." });
+    return;
+  }
+
+  const stats = buildClashStats(clashCreature.userCard.card, clashCreature.userCard.condition, clashCreature.userCard);
+  const imageUrl = getCardImageUrl(clashCreature.userCard.card);
+  const embed = buildChallengeEmbed(message.author.displayName, stats, imageUrl, clashCreature.userCard.condition);
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${CLASH_ACCEPT_PREFIX}:${message.author.id}`)
+      .setLabel("Accept")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`${CLASH_DECLINE_PREFIX}:${message.author.id}`)
+      .setLabel("Decline")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  const reply = await message.reply({
+    embeds: [embed],
+    components: [row]
+  });
+
+  const expireMs = gameConfig.clash.challengeExpireSeconds * 1000;
+  setTimeout(async () => {
+    try {
+      const msg = await message.channel?.messages.fetch(reply.id).catch(() => null);
+      if (msg && msg.components.length > 0) {
+        const disabledRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`${CLASH_ACCEPT_PREFIX}:expired`)
+            .setLabel("Expired")
+            .setStyle(ButtonStyle.Secondary)
+            .setDisabled(true)
+        );
+        await msg.edit({ components: [disabledRow] });
+      }
+    } catch {
+      // Ignore — message may have been deleted
+    }
+  }, expireMs);
 }

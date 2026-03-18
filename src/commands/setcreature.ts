@@ -6,10 +6,10 @@ import { buildClashStats, isLegendaryCreature } from "../services/clashService.j
 import { getCardImageUrl } from "../utils/cardFormatting.js";
 import { buildStatsEmbed } from "../utils/clashFormatting.js";
 
-export const setcreatureCommand: SlashCommand = {
+export const setcommanderCommand: SlashCommand = {
   data: new SlashCommandBuilder()
-    .setName("setcreature")
-    .setDescription("Set your active creature for Clash battles.")
+    .setName("setcommander")
+    .setDescription("Set your active commander for Clash battles.")
     .addStringOption((opt) =>
       opt.setName("id").setDescription("6-character card instance ID from your collection").setRequired(true)
     ),
