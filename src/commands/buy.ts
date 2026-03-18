@@ -11,6 +11,8 @@ import { gameConfig } from "../config.js";
 import { grantExtraClaims, getExtraClaimCount } from "../repositories/extraClaimRepo.js";
 import { grantExtraCommanderDrops, getExtraCommanderDropCount } from "../repositories/extraCommanderDropRepo.js";
 import { grantExtraLandDrops, getExtraLandDropCount } from "../repositories/extraLandDropRepo.js";
+import { isLegendaryCreature } from "../services/clashService.js";
+import { rollClashBonuses } from "../services/clashBonusService.js";
 
 function parseMarketId(input: string): MarketCardId | null {
   const upper = input.trim().toUpperCase();
@@ -255,13 +257,18 @@ export const buyCommand: SlashCommand = {
           claimedAt: new Date()
         }
       });
+      const bonuses = isLegendaryCreature(entry.card.typeLine)
+        ? rollClashBonuses("mint")
+        : {};
+
       await tx.userCard.create({
         data: {
           displayId: id,
           userId,
           cardId: entry.card.id,
           dropId: drop.id,
-          condition: "mint"
+          condition: "mint",
+          ...bonuses
         }
       });
 
