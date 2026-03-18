@@ -216,3 +216,13 @@ model ClashCreature {
 
   @@unique([discordId, guildId])
 }
+
+model DailyRaidReward {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  dateStr   String   // "YYYY-MM-DD" in EST
+  claimedAt DateTime @default(now())
+
+  @@unique([userId, dateStr])
+  @@index([userId])
+}

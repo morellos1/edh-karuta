@@ -54,6 +54,8 @@ import { setcommanderCommand } from "./commands/setcreature.js";
 import { statsCommand } from "./commands/clashstats.js";
 import { clashCommand, CLASH_ACCEPT_PREFIX, CLASH_DECLINE_PREFIX } from "./commands/clash.js";
 import { handleClashButtons } from "./interactions/clashButton.js";
+import { dailyraidCommand, DAILYRAID_CHALLENGE_PREFIX, DAILYRAID_RUN_PREFIX } from "./commands/dailyraid.js";
+import { handleDailyRaidButtons } from "./interactions/dailyRaidButton.js";
 
 const commands = [
   dropCommand,
@@ -88,7 +90,8 @@ const commands = [
   shortcutCommand,
   setcommanderCommand,
   statsCommand,
-  clashCommand
+  clashCommand,
+  dailyraidCommand
 ];
 const commandMap = new Collection<string, SlashCommand>();
 for (const command of commands) {
@@ -229,6 +232,14 @@ client.on("interactionCreate", async (interaction: Interaction) => {
         interaction.customId.startsWith(`${CLASH_DECLINE_PREFIX}:`))
     ) {
       await handleClashButtons(interaction);
+      return;
+    }
+    if (
+      interaction.isButton() &&
+      (interaction.customId.startsWith(`${DAILYRAID_CHALLENGE_PREFIX}:`) ||
+        interaction.customId.startsWith(`${DAILYRAID_RUN_PREFIX}:`))
+    ) {
+      await handleDailyRaidButtons(interaction);
       return;
     }
 

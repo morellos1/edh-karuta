@@ -69,6 +69,9 @@ import {
 import { buildClashStats, isLegendaryCreature } from "../services/clashService.js";
 import { buildStatsEmbed, buildChallengeEmbed } from "../utils/clashFormatting.js";
 import { CLASH_ACCEPT_PREFIX, CLASH_DECLINE_PREFIX } from "../commands/clash.js";
+import { DAILYRAID_CHALLENGE_PREFIX, DAILYRAID_RUN_PREFIX } from "../commands/dailyraid.js";
+import { getDailyBoss } from "../services/dailyRaidService.js";
+import { buildDailyRaidEmbed } from "../utils/clashFormatting.js";
 
 const DROP_SIZE = 3;
 const withDropLock = createAsyncLock();
@@ -224,6 +227,9 @@ export async function handleShortcut(message: Message): Promise<void> {
       break;
     case "clash":
       await handleClash(message);
+      break;
+    case "draid":
+      await handleDailyRaid(message);
       break;
     default:
       // Not a recognized shortcut, ignore
@@ -1513,4 +1519,28 @@ async function handleClash(message: Message): Promise<void> {
       // Ignore — message may have been deleted
     }
   }, expireMs);
+}
+
+async function handleDailyRaid(message: Message): Promise<void> {
+  if (!message.guildId) return;
+
+  const boss = await getDailyBoss();
+  const imageUrl = getCardImageUrl(boss.card);
+  const embed = buildDailyRaidEmbed(boss.stats, imageUrl, boss.bonusAbility);
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${DAILYRAID_CHALLENGE_PREFIX}:${message.author.id}`)
+      .setLabel("Challenge")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`${DAILYRAID_RUN_PREFIX}:${message.author.id}`)
+      .setLabel("Run Away")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  await message.reply({
+    embeds: [embed],
+    components: [row]
+  });
 }

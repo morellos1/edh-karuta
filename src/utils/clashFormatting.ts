@@ -294,3 +294,56 @@ export function buildChallengeEmbed(
 
   return embed;
 }
+
+// ---------------------------------------------------------------------------
+// Daily Raid Boss Embed
+// ---------------------------------------------------------------------------
+
+function formatAbilitiesWithBonus(abilities: string[], bonusAbility: string): string {
+  return abilities
+    .map((a) => {
+      const label = a.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+      return a === bonusAbility ? `+${label}` : label;
+    })
+    .join(", ");
+}
+
+export function buildDailyRaidEmbed(
+  bossStats: ClashStats,
+  cardImageUrl: string | null,
+  bonusAbility: string
+): EmbedBuilder {
+  const embed = new EmbedBuilder()
+    .setTitle("Daily Raid Boss!")
+    .setColor(0xcc0000)
+    .setDescription(
+      `Today's raid boss: **${bossStats.name}**\n\n` +
+      `Defeat this boss to earn 3 cards!\n` +
+      `Click **Challenge** to fight with your set commander!`
+    )
+    .addFields(
+      { name: "Attack", value: formatStat(bossStats.attack, bossStats.baseAttack), inline: true },
+      { name: "Defense", value: formatStat(bossStats.defense, bossStats.baseDefense), inline: true },
+      { name: "HP", value: formatStat(bossStats.hp, bossStats.baseHp), inline: true },
+      { name: "Speed", value: formatStat(bossStats.speed, bossStats.baseSpeed), inline: true },
+      { name: "Crit Rate", value: formatCritRate(bossStats.critRate, bossStats.baseCritRate), inline: true },
+      { name: "Type", value: bossStats.colors.length > 0 ? bossStats.colors.map((c) => colorEmoji(c)).join(" ") : colorEmoji("C"), inline: true },
+      { name: "Attack Pattern", value: formatAttackPattern(bossStats.attackPattern), inline: false }
+    );
+
+  if (bossStats.abilities.length > 0) {
+    embed.addFields({
+      name: "Abilities",
+      value: formatAbilitiesWithBonus(bossStats.abilities, bonusAbility),
+      inline: false
+    });
+  }
+
+  embed.setFooter({ text: "Condition: Mint | Max Bonuses" });
+
+  if (cardImageUrl) {
+    embed.setThumbnail(cardImageUrl);
+  }
+
+  return embed;
+}

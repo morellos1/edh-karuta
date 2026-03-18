@@ -315,7 +315,7 @@ export function parseDefenderColors(colors: string | null | undefined): string[]
 // Keyword Ability Parsing
 // ---------------------------------------------------------------------------
 
-const KEYWORD_WHITELIST = new Set([
+export const KEYWORD_WHITELIST = new Set([
   "defender",
   "deathtouch",
   "double strike",
