@@ -324,8 +324,6 @@ export const KEYWORD_WHITELIST = new Set([
   "flying",
   "haste",
   "hexproof",
-  "flying",
-  "haste",
   "indestructible",
   "lifelink",
   "reach",
