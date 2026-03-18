@@ -17,7 +17,8 @@ import {
   buildClashStats,
   isLegendaryCreature,
   critRateFromCondition,
-  simulateBattle
+  simulateBattle,
+  parseKeywordAbilities
 } from "./clashService.js";
 
 // ---------------------------------------------------------------------------
@@ -440,4 +441,207 @@ test("simulateBattle always terminates", () => {
   const result = simulateBattle(a, b);
   assert.ok(result.events.length > 0);
   assert.ok(result.events.length <= 100);
+});
+
+// ---------------------------------------------------------------------------
+// parseKeywordAbilities
+// ---------------------------------------------------------------------------
+
+test("parseKeywordAbilities detects standalone keywords", () => {
+  assert.deepEqual(parseKeywordAbilities("Flying"), ["flying"]);
+  assert.deepEqual(parseKeywordAbilities("Flying, trample"), ["flying", "trample"]);
+  assert.deepEqual(parseKeywordAbilities("Flash"), ["flash"]);
+  assert.deepEqual(parseKeywordAbilities("Hexproof"), ["hexproof"]);
+});
+
+test("parseKeywordAbilities ignores keywords in sentences", () => {
+  const text = "When this creature enters the battlefield, it gains flying until end of turn.";
+  assert.deepEqual(parseKeywordAbilities(text), []);
+});
+
+test("parseKeywordAbilities detects multi-line keywords", () => {
+  const text = "Flying, indestructible\nWhen this creature enters the battlefield, draw a card.";
+  const abilities = parseKeywordAbilities(text);
+  assert.ok(abilities.includes("flying"));
+  assert.ok(abilities.includes("indestructible"));
+});
+
+// ---------------------------------------------------------------------------
+// Keyword stat bonuses
+// ---------------------------------------------------------------------------
+
+test("buildClashStats applies flash speed bonus (+25%)", () => {
+  const card = {
+    name: "Flash Creature",
+    power: "3",
+    toughness: "3",
+    manaCost: "{1}{U}{U}",
+    oracleText: "Flash",
+    colors: "U",
+    typeLine: "Legendary Creature — Wizard"
+  };
+  const stats = buildClashStats(card, "good");
+  const expectedSpeed = Math.round(stats.baseSpeed * 1.25);
+  assert.equal(stats.speed, expectedSpeed);
+});
+
+test("buildClashStats applies hexproof defense bonus (+20%)", () => {
+  const card = {
+    name: "Hexproof Creature",
+    power: "3",
+    toughness: "5",
+    manaCost: "{2}{G}",
+    oracleText: "Hexproof",
+    colors: "G",
+    typeLine: "Legendary Creature — Troll"
+  };
+  const stats = buildClashStats(card, "good");
+  const expectedDef = Math.round(stats.baseDefense * 1.20);
+  assert.equal(stats.defense, expectedDef);
+});
+
+test("buildClashStats applies trample/flying attack bonus (+20%)", () => {
+  const card = {
+    name: "Flying Trampler",
+    power: "5",
+    toughness: "5",
+    manaCost: "{3}{R}{G}",
+    oracleText: "Flying, trample",
+    colors: "R,G",
+    typeLine: "Legendary Creature — Dragon"
+  };
+  const stats = buildClashStats(card, "good");
+  // Both flying and trample: 1.0 + 0.20 + 0.20 = 1.40
+  const expectedAtk = Math.round(stats.baseAttack * 1.40);
+  assert.equal(stats.attack, expectedAtk);
+});
+
+test("buildClashStats gives indestructible no stat bonus", () => {
+  const card = {
+    name: "Indestructible Creature",
+    power: "4",
+    toughness: "4",
+    manaCost: "{2}{W}{W}",
+    oracleText: "Indestructible",
+    colors: "W",
+    typeLine: "Legendary Creature — God"
+  };
+  const stats = buildClashStats(card, "good");
+  // No defense multiplier from indestructible
+  assert.equal(stats.attack, stats.baseAttack);
+  assert.equal(stats.defense, stats.baseDefense);
+  assert.equal(stats.speed, stats.baseSpeed);
+});
+
+// ---------------------------------------------------------------------------
+// Indestructible combat mechanic
+// ---------------------------------------------------------------------------
+
+test("indestructible survives first lethal hit at 1 HP", () => {
+  // High-power attacker vs indestructible defender with low HP
+  const attacker = buildClashStats({
+    name: "Attacker",
+    power: "15",
+    toughness: "15",
+    manaCost: "{5}{R}{R}",
+    oracleText: "When this creature enters the battlefield, it deals 5 damage to any target.",
+    colors: "R",
+    typeLine: "Legendary Creature — Dragon"
+  }, "good");
+
+  const defender = buildClashStats({
+    name: "Defender",
+    power: "1",
+    toughness: "1",
+    manaCost: "{W}",
+    oracleText: "Indestructible",
+    colors: "W",
+    typeLine: "Legendary Creature — God"
+  }, "good");
+
+  // Run many trials — indestructible should trigger at least once
+  let indestructibleTriggered = false;
+  for (let i = 0; i < 20; i++) {
+    const result = simulateBattle(attacker, defender);
+    const indestructEvent = result.events.find((e) => e.isIndestructible);
+    if (indestructEvent) {
+      indestructibleTriggered = true;
+      assert.equal(indestructEvent.defenderHpRemaining, 1);
+      break;
+    }
+  }
+  assert.ok(indestructibleTriggered, "Indestructible should trigger when defender takes lethal damage");
+});
+
+test("indestructible only triggers once per clash", () => {
+  const attacker = buildClashStats({
+    name: "Attacker",
+    power: "15",
+    toughness: "15",
+    manaCost: "{5}{R}{R}",
+    oracleText: "When this creature enters the battlefield, it deals 5 damage to any target.",
+    colors: "R",
+    typeLine: "Legendary Creature — Dragon"
+  }, "good");
+
+  const defender = buildClashStats({
+    name: "Defender",
+    power: "1",
+    toughness: "1",
+    manaCost: "{W}",
+    oracleText: "Indestructible",
+    colors: "W",
+    typeLine: "Legendary Creature — God"
+  }, "good");
+
+  // The defender should eventually die (indestructible only saves once)
+  let defenderDied = false;
+  for (let i = 0; i < 20; i++) {
+    const result = simulateBattle(attacker, defender);
+    if (result.loser === "Defender") {
+      defenderDied = true;
+      // Count indestructible triggers
+      const indestructCount = result.events.filter((e) => e.isIndestructible).length;
+      // Should trigger at most once (main hit), or twice if double strike shows it on both events
+      assert.ok(indestructCount <= 2, `Indestructible triggered too many times: ${indestructCount}`);
+      break;
+    }
+  }
+  assert.ok(defenderDied, "Defender should eventually die since indestructible only works once");
+});
+
+test("indestructible blocks deathtouch execution", () => {
+  const attacker = buildClashStats({
+    name: "Deathtouch Attacker",
+    power: "10",
+    toughness: "5",
+    manaCost: "{3}{B}{B}",
+    oracleText: "Deathtouch\nWhen this creature enters the battlefield, each opponent loses 3 life.",
+    colors: "B",
+    typeLine: "Legendary Creature — Demon"
+  }, "good");
+
+  const defender = buildClashStats({
+    name: "Indestructible Defender",
+    power: "1",
+    toughness: "1",
+    manaCost: "{W}",
+    oracleText: "Indestructible",
+    colors: "W",
+    typeLine: "Legendary Creature — God"
+  }, "good");
+
+  // Run trials — when indestructible fires, deathtouch should not kill
+  let tested = false;
+  for (let i = 0; i < 50; i++) {
+    const result = simulateBattle(attacker, defender);
+    const indestructEvent = result.events.find((e) => e.isIndestructible);
+    if (indestructEvent) {
+      tested = true;
+      assert.equal(indestructEvent.defenderHpRemaining, 1);
+      assert.equal(indestructEvent.isDeathtouch, undefined);
+      break;
+    }
+  }
+  assert.ok(tested, "Should have found an indestructible trigger event");
 });

@@ -33,6 +33,7 @@ export type BattleEvent = {
   isDoubleStrike?: boolean;
   healAmount?: number;
   isDeathtouch?: boolean;
+  isIndestructible?: boolean;
 };
 
 export type BattleResult = {
@@ -314,8 +315,10 @@ const KEYWORD_WHITELIST = new Set([
   "deathtouch",
   "double strike",
   "first strike",
+  "flash",
   "flying",
   "haste",
+  "hexproof",
   "indestructible",
   "lifelink",
   "reach",
@@ -417,13 +420,15 @@ export function buildClashStats(
   let spdMult = 1.0;
   for (const ability of abilities) {
     switch (ability) {
-      case "trample": atkMult += 0.10; break;
-      case "flying": atkMult += 0.10; break;
+      case "trample": atkMult += 0.20; break;
+      case "flying": atkMult += 0.20; break;
       case "defender": defMult += 0.25; break;
-      case "indestructible": defMult += 0.40; break;
+      case "hexproof": defMult += 0.20; break;
       case "reach": defMult += 0.20; break;
       case "haste": spdMult += 0.25; break;
+      case "flash": spdMult += 0.25; break;
       case "vigilance": spdMult += 0.25; break;
+      // indestructible: no stat bonus, combat effect only
     }
   }
   const keywordAttack = Math.round(baseAttack * atkMult);
@@ -499,6 +504,10 @@ export function simulateBattle(a: ClashStats, b: ClashStats, maxAttacks = 100): 
   let patternIdxA = 0;
   let patternIdxB = 0;
 
+  // Track whether each side's indestructible has been used (once per clash)
+  let indestructibleUsedA = false;
+  let indestructibleUsedB = false;
+
   // First strike: if only one has it, they go first (nextAttackTime = 0)
   const aHasFirstStrike = a.abilities.includes("first strike");
   const bHasFirstStrike = b.abilities.includes("first strike");
@@ -511,6 +520,27 @@ export function simulateBattle(a: ClashStats, b: ClashStats, maxAttacks = 100): 
 
   const events: BattleEvent[] = [];
 
+  /**
+   * Check and apply indestructible: if defender would die (hp <= 0) and has
+   * indestructible that hasn't been used yet, survive at 1 HP instead.
+   * Returns whether indestructible triggered.
+   */
+  function checkIndestructible(
+    defenderHp: number,
+    defender: ClashStats,
+    defenderIsA: boolean
+  ): { hp: number; triggered: boolean } {
+    if (defenderHp > 0) return { hp: defenderHp, triggered: false };
+    const hasAbility = defender.abilities.includes("indestructible");
+    const alreadyUsed = defenderIsA ? indestructibleUsedA : indestructibleUsedB;
+    if (hasAbility && !alreadyUsed) {
+      if (defenderIsA) indestructibleUsedA = true;
+      else indestructibleUsedB = true;
+      return { hp: 1, triggered: true };
+    }
+    return { hp: defenderHp, triggered: false };
+  }
+
   /** Process a single attack and push event(s). Returns updated HP values. */
   function processAttack(
     attacker: ClashStats,
@@ -519,7 +549,8 @@ export function simulateBattle(a: ClashStats, b: ClashStats, maxAttacks = 100): 
     attackerHp: number,
     defenderHp: number,
     defenderMaxHp: number,
-    attackerMaxHp: number
+    attackerMaxHp: number,
+    defenderIsA: boolean
   ): { attackerHp: number; defenderHp: number } {
     const { damage, effectiveness, isCrit } = calcDamage(
       attacker.attack, defender.defense, attackColor, defender.colors, attacker.critRate
@@ -532,6 +563,12 @@ export function simulateBattle(a: ClashStats, b: ClashStats, maxAttacks = 100): 
       defenderHp = 0;
       isDeathtouch = true;
     }
+
+    // Indestructible: survive at 1 HP (blocks both normal death and deathtouch)
+    const indestructCheck = checkIndestructible(defenderHp, defender, defenderIsA);
+    defenderHp = indestructCheck.hp;
+    const isIndestructible = indestructCheck.triggered;
+    if (isIndestructible) isDeathtouch = false; // indestructible overrides deathtouch
 
     // Lifelink: heal 15% of damage dealt
     let healAmount = 0;
@@ -550,10 +587,12 @@ export function simulateBattle(a: ClashStats, b: ClashStats, maxAttacks = 100): 
       defenderHpRemaining: defenderHp,
       attackerHpRemaining: attackerHp,
       healAmount: healAmount > 0 ? healAmount : undefined,
-      isDeathtouch: isDeathtouch || undefined
+      isDeathtouch: isDeathtouch || undefined,
+      isIndestructible: isIndestructible || undefined
     });
 
     // Double strike: second hit at 20% damage, no crit, same color
+    // If indestructible triggered on main hit, double strike cannot kill either
     if (attacker.abilities.includes("double strike") && defenderHp > 0) {
       const dsDamage = Math.max(1, Math.round(damage * 0.20));
       defenderHp = Math.max(0, defenderHp - dsDamage);
@@ -562,6 +601,20 @@ export function simulateBattle(a: ClashStats, b: ClashStats, maxAttacks = 100): 
       if (attacker.abilities.includes("deathtouch") && defenderHp > 0 && defenderHp <= defenderMaxHp * 0.10) {
         defenderHp = 0;
         dsDeathtouch = true;
+      }
+
+      // Indestructible also protects against double strike's second hit
+      // (same trigger — if it already fired on the main hit, it's used up,
+      // but the double strike is part of the same attack so it also survives)
+      if (defenderHp <= 0 && isIndestructible) {
+        // The indestructible already triggered this attack — double strike
+        // is part of the same attack and cannot kill through it
+        defenderHp = 1;
+      } else {
+        // If indestructible hasn't triggered yet, check normally
+        const dsIndestructCheck = checkIndestructible(defenderHp, defender, defenderIsA);
+        defenderHp = dsIndestructCheck.hp;
+        if (dsIndestructCheck.triggered) dsDeathtouch = false;
       }
 
       let dsHeal = 0;
@@ -581,7 +634,8 @@ export function simulateBattle(a: ClashStats, b: ClashStats, maxAttacks = 100): 
         attackerHpRemaining: attackerHp,
         isDoubleStrike: true,
         healAmount: dsHeal > 0 ? dsHeal : undefined,
-        isDeathtouch: dsDeathtouch || undefined
+        isDeathtouch: dsDeathtouch || undefined,
+        isIndestructible: (isIndestructible && defenderHp === 1) || undefined
       });
     }
 
@@ -608,7 +662,7 @@ export function simulateBattle(a: ClashStats, b: ClashStats, maxAttacks = 100): 
       const rawColor = a.attackPattern[patternIdxA % a.attackPattern.length];
       const attackColor = resolveAttackColor(rawColor);
       patternIdxA++;
-      const result = processAttack(a, b, attackColor, hpA, hpB, maxHpB, maxHpA);
+      const result = processAttack(a, b, attackColor, hpA, hpB, maxHpB, maxHpA, false);
       hpA = result.attackerHp;
       hpB = result.defenderHp;
       nextA += a.speedMs;
@@ -616,7 +670,7 @@ export function simulateBattle(a: ClashStats, b: ClashStats, maxAttacks = 100): 
       const rawColor = b.attackPattern[patternIdxB % b.attackPattern.length];
       const attackColor = resolveAttackColor(rawColor);
       patternIdxB++;
-      const result = processAttack(b, a, attackColor, hpB, hpA, maxHpA, maxHpB);
+      const result = processAttack(b, a, attackColor, hpB, hpA, maxHpA, maxHpB, true);
       hpB = result.attackerHp;
       hpA = result.defenderHp;
       nextB += b.speedMs;
