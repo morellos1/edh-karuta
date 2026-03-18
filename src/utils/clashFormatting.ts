@@ -147,8 +147,6 @@ export function buildBattleEmbed(
   events: BattleEvent[],
   attackNumber: number,
   maxAttacks: number,
-  imageUrlA: string | null,
-  imageUrlB: string | null,
   displayIdA: string,
   displayIdB: string
 ): EmbedBuilder {
@@ -170,17 +168,13 @@ export function buildBattleEmbed(
   const embed = new EmbedBuilder()
     .setTitle("Clash Battle!")
     .setColor(hpA >= hpB ? 0x57f287 : 0xed4245)
-    .setDescription((log || "\u200b") + "\n\n───────────────────")
+    .setDescription((log || "\u200b") + "\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     .addFields(
-      { name: `${statsA.name} \`${displayIdA}\``, value: hpBar(hpA, statsA.hp), inline: true },
+      { name: `${statsA.name}\n\`${displayIdA}\``, value: hpBar(hpA, statsA.hp), inline: true },
       { name: "\u200b", value: "\u200b", inline: true },
-      { name: `${statsB.name} \`${displayIdB}\``, value: hpBar(hpB, statsB.hp), inline: true }
+      { name: `${statsB.name}\n\`${displayIdB}\``, value: hpBar(hpB, statsB.hp), inline: true }
     )
     .setFooter({ text: `Turn ${attackNumber}/${maxAttacks}` });
-
-  if (imageUrlA) {
-    embed.setThumbnail(imageUrlA);
-  }
 
   return embed;
 }
@@ -221,11 +215,11 @@ export function buildVictoryEmbed(
   const embed = new EmbedBuilder()
     .setTitle(`${result.winner} wins!`)
     .setColor(0xffd700)
-    .setDescription(`${log}\n\n${summaryLine}\n\n───────────────────`)
+    .setDescription(`${log}\n\n${summaryLine}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
     .addFields(
-      { name: `${statsA.name} \`${displayIdA}\``, value: hpBar(finalHpA, statsA.hp), inline: true },
+      { name: `${statsA.name}\n\`${displayIdA}\``, value: hpBar(finalHpA, statsA.hp), inline: true },
       { name: "\u200b", value: "\u200b", inline: true },
-      { name: `${statsB.name} \`${displayIdB}\``, value: hpBar(finalHpB, statsB.hp), inline: true }
+      { name: `${statsB.name}\n\`${displayIdB}\``, value: hpBar(finalHpB, statsB.hp), inline: true }
     );
 
   return embed;
