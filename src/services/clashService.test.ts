@@ -118,8 +118,8 @@ test("calcSpeed converts CMC to normalized speed stat", () => {
   assert.equal(calcSpeed(3), 76);   // 100 - 24
   assert.equal(calcSpeed(5), 60);   // 100 - 40
   assert.equal(calcSpeed(8), 36);   // 100 - 64
-  assert.equal(calcSpeed(12), 5);   // floors at 5
-  assert.equal(calcSpeed(16), 5);   // floors at 5
+  assert.equal(calcSpeed(12), 10);  // floors at 10
+  assert.equal(calcSpeed(16), 10);  // floors at 10
 });
 
 // ---------------------------------------------------------------------------
@@ -298,7 +298,7 @@ test("buildClashStats creates correct base stats without bonuses", () => {
   assert.equal(stats.name, "Mayhem Devil");
   assert.equal(stats.attack, 200);  // 3/15 * 1000 = 200
   assert.equal(stats.defense, 200);
-  assert.equal(stats.hp, calcHP(countWords(card.oracleText)));
+  assert.equal(stats.hp, calcHP(countWords(card.oracleText)) + 500);
   assert.equal(stats.speed, 76);   // CMC 3: 100 - 3*8 = 76
   assert.equal(stats.speedMs, speedToMs(76));  // derived from final speed stat
   assert.equal(stats.critRate, 0.20); // base crit rate for all

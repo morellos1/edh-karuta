@@ -45,3 +45,43 @@ export function rollClashBonuses(condition: string): ClashBonuses {
     bonusCritRate: rollBonus(condition),
   };
 }
+
+/**
+ * One-time migration: re-roll flat stat bonuses that are below the 50 minimum.
+ * Old cards may have percentage-based values (5-50) stored before the switch
+ * to flat bonuses (50-200). This fixes them by re-rolling with the card's condition.
+ */
+export async function migrateUndersizedBonuses(): Promise<number> {
+  const { prisma } = await import("../db.js");
+
+  const cards = await prisma.userCard.findMany({
+    where: {
+      OR: [
+        { bonusAttack: { not: null, lt: 50 } },
+        { bonusDefense: { not: null, lt: 50 } },
+        { bonusHp: { not: null, lt: 50 } },
+      ],
+    },
+    select: { id: true, condition: true, bonusAttack: true, bonusDefense: true, bonusHp: true },
+  });
+
+  if (cards.length === 0) return 0;
+
+  for (const card of cards) {
+    const cond = card.condition ?? "good";
+    const updates: Record<string, number> = {};
+    if (card.bonusAttack !== null && card.bonusAttack < 50) {
+      updates.bonusAttack = rollStatBonus(cond);
+    }
+    if (card.bonusDefense !== null && card.bonusDefense < 50) {
+      updates.bonusDefense = rollStatBonus(cond);
+    }
+    if (card.bonusHp !== null && card.bonusHp < 50) {
+      updates.bonusHp = rollStatBonus(cond);
+    }
+    await prisma.userCard.update({ where: { id: card.id }, data: updates });
+  }
+
+  console.log(`[clash] Re-rolled undersized bonuses on ${cards.length} card(s)`);
+  return cards.length;
+}

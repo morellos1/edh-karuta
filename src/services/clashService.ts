@@ -162,9 +162,9 @@ export function calcSpeedMs(cmc: number): number {
   return 1500 + cmc * 250;
 }
 
-/** CMC → normalized speed stat (0-100, higher = faster). */
+/** CMC → normalized speed stat (10-100, higher = faster). */
 export function calcSpeed(cmc: number): number {
-  return Math.max(5, Math.min(100, 100 - cmc * 8));
+  return Math.max(10, Math.min(100, 100 - cmc * 8));
 }
 
 /**
@@ -347,9 +347,11 @@ export function buildClashStats(
   const cmc = parseCMC(card.manaCost);
   const wordCount = countWords(card.oracleText);
 
+  const COMMANDER_BASE_HP_BONUS = 500;
+
   const baseAttack = normalizeStat(power);
   const baseDefense = normalizeStat(toughness);
-  const baseHp = calcHP(wordCount);
+  const baseHp = calcHP(wordCount) + COMMANDER_BASE_HP_BONUS;
   const baseSpeed = calcSpeed(cmc);
   const baseCritRate = 0.20;
 
