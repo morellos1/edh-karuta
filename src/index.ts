@@ -103,10 +103,14 @@ const client = new Client({
   ]
 });
 
-client.once("ready", () => {
+client.once("ready", async () => {
   console.log(`Logged in as ${client.user?.tag}`);
   startBotDropScheduler(client);
   startDropCleanupScheduler();
+
+  // One-time migration: fix old undersized clash bonuses
+  const { migrateUndersizedBonuses } = await import("./services/clashBonusService.js");
+  await migrateUndersizedBonuses().catch((e) => console.error("[clash] bonus migration failed:", e));
 });
 
 client.on("error", (error) => {
