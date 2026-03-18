@@ -13,6 +13,7 @@ export type ClashStats = {
   critRate: number;
   attackPattern: string[]; // "W"|"U"|"B"|"R"|"G"|"C"|"G/W" etc.
   colors: string[];        // defender colors for effectiveness calc
+  abilities: string[];     // detected keyword abilities from oracle text
   baseAttack: number;
   baseDefense: number;
   baseHp: number;
@@ -29,6 +30,9 @@ export type BattleEvent = {
   isCrit: boolean;
   defenderHpRemaining: number;
   attackerHpRemaining: number;
+  isDoubleStrike?: boolean;
+  healAmount?: number;
+  isDeathtouch?: boolean;
 };
 
 export type BattleResult = {
@@ -302,6 +306,57 @@ export function parseDefenderColors(colors: string | null | undefined): string[]
 }
 
 // ---------------------------------------------------------------------------
+// Keyword Ability Parsing
+// ---------------------------------------------------------------------------
+
+const KEYWORD_WHITELIST = new Set([
+  "defender",
+  "deathtouch",
+  "double strike",
+  "first strike",
+  "flying",
+  "haste",
+  "indestructible",
+  "lifelink",
+  "reach",
+  "trample",
+  "vigilance"
+]);
+
+/** Words that indicate a line is a triggered/conditional ability, not a keyword line. */
+const TRIGGER_WORDS = /^(when|whenever|if|at|as long as|for each|enchant|equip|you |it |they |this |target |create |destroy |exile |return |search |sacrifice |discard|draw |put |remove |pay |add |tap |untap |counter |choose |reveal |look )/i;
+
+/**
+ * Parse keyword abilities from oracle text. Only detects keywords that appear
+ * on their own line (standalone or comma-separated with other keywords).
+ * Lines containing sentences (periods, colons, trigger words) are skipped.
+ */
+export function parseKeywordAbilities(oracleText: string | null | undefined): string[] {
+  if (!oracleText) return [];
+  const firstFace = oracleText.split(" // ")[0];
+  const lines = firstFace.split("\n");
+  const found = new Set<string>();
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    // Skip lines that look like ability text (sentences)
+    if (trimmed.includes(".") || trimmed.includes(":") || trimmed.includes("—")) continue;
+    if (TRIGGER_WORDS.test(trimmed)) continue;
+
+    // Split by comma and check each segment
+    const segments = trimmed.split(",").map((s) => s.trim().toLowerCase());
+    for (const seg of segments) {
+      if (KEYWORD_WHITELIST.has(seg)) {
+        found.add(seg);
+      }
+    }
+  }
+
+  return Array.from(found);
+}
+
+// ---------------------------------------------------------------------------
 // Build ClashStats from card data
 // ---------------------------------------------------------------------------
 
@@ -348,6 +403,7 @@ export function buildClashStats(
   const wordCount = countWords(card.oracleText);
 
   const COMMANDER_BASE_HP_BONUS = 500;
+  const abilities = parseKeywordAbilities(card.oracleText);
 
   const baseAttack = normalizeStat(power);
   const baseDefense = normalizeStat(toughness);
@@ -355,10 +411,30 @@ export function buildClashStats(
   const baseSpeed = calcSpeed(cmc);
   const baseCritRate = 0.20;
 
-  const attack = applyFlatBonus(baseAttack, bonuses?.bonusAttack);
-  const defense = applyFlatBonus(baseDefense, bonuses?.bonusDefense);
+  // Apply keyword ability percentage bonuses to base stats (before random bonuses)
+  let atkMult = 1.0;
+  let defMult = 1.0;
+  let spdMult = 1.0;
+  for (const ability of abilities) {
+    switch (ability) {
+      case "trample": atkMult += 0.10; break;
+      case "flying": atkMult += 0.10; break;
+      case "defender": defMult += 0.25; break;
+      case "indestructible": defMult += 0.40; break;
+      case "reach": defMult += 0.20; break;
+      case "haste": spdMult += 0.25; break;
+      case "vigilance": spdMult += 0.25; break;
+    }
+  }
+  const keywordAttack = Math.round(baseAttack * atkMult);
+  const keywordDefense = Math.round(baseDefense * defMult);
+  const keywordSpeed = Math.round(baseSpeed * spdMult);
+
+  // Apply random bonuses on top of keyword-modified stats
+  const attack = applyFlatBonus(keywordAttack, bonuses?.bonusAttack);
+  const defense = applyFlatBonus(keywordDefense, bonuses?.bonusDefense);
   const hp = applyFlatBonus(baseHp, bonuses?.bonusHp);
-  const speed = applyPctBonus(baseSpeed, bonuses?.bonusSpeed);
+  const speed = applyPctBonus(keywordSpeed, bonuses?.bonusSpeed);
   // Crit bonus: bonusCritRate is 5-50, representing a percentage of the base 20%.
   // E.g., bonusCritRate=50 → 50% of 0.20 = 0.10 → final 0.30
   // Use integer math to avoid floating point issues.
@@ -379,6 +455,7 @@ export function buildClashStats(
     critRate,
     attackPattern: parseAttackPattern(card.manaCost),
     colors: parseDefenderColors(card.colors),
+    abilities,
     baseAttack,
     baseDefense,
     baseHp,
@@ -415,12 +492,101 @@ export function simulateBattle(a: ClashStats, b: ClashStats, maxAttacks = 100): 
 
   let hpA = a.hp;
   let hpB = b.hp;
+  const maxHpA = a.hp;
+  const maxHpB = b.hp;
   let nextA = a.speedMs;
   let nextB = b.speedMs;
   let patternIdxA = 0;
   let patternIdxB = 0;
 
+  // First strike: if only one has it, they go first (nextAttackTime = 0)
+  const aHasFirstStrike = a.abilities.includes("first strike");
+  const bHasFirstStrike = b.abilities.includes("first strike");
+  if (aHasFirstStrike && !bHasFirstStrike) {
+    nextA = 0;
+  } else if (bHasFirstStrike && !aHasFirstStrike) {
+    nextB = 0;
+  }
+  // If both have first strike, they cancel out — no change
+
   const events: BattleEvent[] = [];
+
+  /** Process a single attack and push event(s). Returns updated HP values. */
+  function processAttack(
+    attacker: ClashStats,
+    defender: ClashStats,
+    attackColor: string,
+    attackerHp: number,
+    defenderHp: number,
+    defenderMaxHp: number,
+    attackerMaxHp: number
+  ): { attackerHp: number; defenderHp: number } {
+    const { damage, effectiveness, isCrit } = calcDamage(
+      attacker.attack, defender.defense, attackColor, defender.colors, attacker.critRate
+    );
+    defenderHp = Math.max(0, defenderHp - damage);
+
+    // Deathtouch: instant kill if defender at or below 10% HP and still alive
+    let isDeathtouch = false;
+    if (attacker.abilities.includes("deathtouch") && defenderHp > 0 && defenderHp <= defenderMaxHp * 0.10) {
+      defenderHp = 0;
+      isDeathtouch = true;
+    }
+
+    // Lifelink: heal 15% of damage dealt
+    let healAmount = 0;
+    if (attacker.abilities.includes("lifelink")) {
+      healAmount = Math.round(damage * 0.15);
+      attackerHp = Math.min(attackerMaxHp, attackerHp + healAmount);
+    }
+
+    events.push({
+      attacker: attacker.name,
+      defender: defender.name,
+      attackColor,
+      damage,
+      effectiveness,
+      isCrit,
+      defenderHpRemaining: defenderHp,
+      attackerHpRemaining: attackerHp,
+      healAmount: healAmount > 0 ? healAmount : undefined,
+      isDeathtouch: isDeathtouch || undefined
+    });
+
+    // Double strike: second hit at 20% damage, no crit, same color
+    if (attacker.abilities.includes("double strike") && defenderHp > 0) {
+      const dsDamage = Math.max(1, Math.round(damage * 0.20));
+      defenderHp = Math.max(0, defenderHp - dsDamage);
+
+      let dsDeathtouch = false;
+      if (attacker.abilities.includes("deathtouch") && defenderHp > 0 && defenderHp <= defenderMaxHp * 0.10) {
+        defenderHp = 0;
+        dsDeathtouch = true;
+      }
+
+      let dsHeal = 0;
+      if (attacker.abilities.includes("lifelink")) {
+        dsHeal = Math.round(dsDamage * 0.15);
+        attackerHp = Math.min(attackerMaxHp, attackerHp + dsHeal);
+      }
+
+      events.push({
+        attacker: attacker.name,
+        defender: defender.name,
+        attackColor,
+        damage: dsDamage,
+        effectiveness,
+        isCrit: false,
+        defenderHpRemaining: defenderHp,
+        attackerHpRemaining: attackerHp,
+        isDoubleStrike: true,
+        healAmount: dsHeal > 0 ? dsHeal : undefined,
+        isDeathtouch: dsDeathtouch || undefined
+      });
+    }
+
+    return { attackerHp, defenderHp };
+  }
 
   while (hpA > 0 && hpB > 0 && events.length < maxAttacks) {
     // Determine who attacks next
@@ -442,40 +608,18 @@ export function simulateBattle(a: ClashStats, b: ClashStats, maxAttacks = 100): 
       const rawColor = a.attackPattern[patternIdxA % a.attackPattern.length];
       const attackColor = resolveAttackColor(rawColor);
       patternIdxA++;
-      const { damage, effectiveness, isCrit } = calcDamage(
-        a.attack, b.defense, attackColor, b.colors, a.critRate
-      );
-      hpB = Math.max(0, hpB - damage);
+      const result = processAttack(a, b, attackColor, hpA, hpB, maxHpB, maxHpA);
+      hpA = result.attackerHp;
+      hpB = result.defenderHp;
       nextA += a.speedMs;
-      events.push({
-        attacker: a.name,
-        defender: b.name,
-        attackColor,
-        damage,
-        effectiveness,
-        isCrit,
-        defenderHpRemaining: hpB,
-        attackerHpRemaining: hpA
-      });
     } else {
       const rawColor = b.attackPattern[patternIdxB % b.attackPattern.length];
       const attackColor = resolveAttackColor(rawColor);
       patternIdxB++;
-      const { damage, effectiveness, isCrit } = calcDamage(
-        b.attack, a.defense, attackColor, a.colors, b.critRate
-      );
-      hpA = Math.max(0, hpA - damage);
+      const result = processAttack(b, a, attackColor, hpB, hpA, maxHpA, maxHpB);
+      hpB = result.attackerHp;
+      hpA = result.defenderHp;
       nextB += b.speedMs;
-      events.push({
-        attacker: b.name,
-        defender: a.name,
-        attackColor,
-        damage,
-        effectiveness,
-        isCrit,
-        defenderHpRemaining: hpA,
-        attackerHpRemaining: hpB
-      });
     }
   }
 
