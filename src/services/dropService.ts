@@ -5,6 +5,8 @@ import { pickRandomCondition } from "./conditionService.js";
 import { generateDisplayId } from "../utils/displayId.js";
 import { createAsyncLock } from "../utils/asyncLock.js";
 import { consumeExtraClaimTx } from "../repositories/extraClaimRepo.js";
+import { isLegendaryCreature } from "./clashService.js";
+import { rollClashBonuses } from "./clashBonusService.js";
 import type { Prisma } from "@prisma/client";
 
 type ClaimSuccess = {
@@ -201,6 +203,10 @@ async function claimSlotTransactional(
     });
 
     const condition = pickRandomCondition();
+    const isClashEligible = isLegendaryCreature(slot.card.typeLine, {
+      isMeldResult: slot.card.isMeldResult
+    });
+    const bonuses = isClashEligible ? rollClashBonuses(condition) : {};
 
     // ~30 billion possible IDs — collisions are near-impossible, but we
     // handle them via the unique constraint rather than pre-checking.
@@ -213,7 +219,8 @@ async function claimSlotTransactional(
             userId,
             cardId: slot.cardId,
             dropId,
-            condition
+            condition,
+            ...bonuses
           }
         });
         break;

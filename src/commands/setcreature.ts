@@ -60,7 +60,7 @@ export const setcreatureCommand: SlashCommand = {
       }
     });
 
-    const stats = buildClashStats(userCard.card, userCard.condition);
+    const stats = buildClashStats(userCard.card, userCard.condition, userCard);
     const imageUrl = getCardImageUrl(userCard.card);
     const embed = buildStatsEmbed(stats, imageUrl, userCard.condition);
 

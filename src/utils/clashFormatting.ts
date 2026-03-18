@@ -60,6 +60,26 @@ export function formatAttackPattern(pattern: string[]): string {
 }
 
 // ---------------------------------------------------------------------------
+// Stat Display Helpers
+// ---------------------------------------------------------------------------
+
+function formatStat(total: number, base: number): string {
+  if (total !== base) {
+    return `${total} (${base}+${total - base})`;
+  }
+  return `${total}`;
+}
+
+function formatCritRate(critRate: number, baseCritRate: number): string {
+  const totalPct = Math.round(critRate * 100);
+  const basePct = Math.round(baseCritRate * 100);
+  if (totalPct !== basePct) {
+    return `${totalPct}% (${basePct}%+${totalPct - basePct}%)`;
+  }
+  return `${totalPct}%`;
+}
+
+// ---------------------------------------------------------------------------
 // Stats Embed (for /setcreature and /creaturestats)
 // ---------------------------------------------------------------------------
 
@@ -70,11 +90,11 @@ export function buildStatsEmbed(
   record?: string | null
 ): EmbedBuilder {
   const fields = [
-    { name: "Attack", value: `${stats.attack}`, inline: true },
-    { name: "Defense", value: `${stats.defense}`, inline: true },
-    { name: "HP", value: `${stats.hp}`, inline: true },
-    { name: "Speed", value: `${stats.speed}`, inline: true },
-    { name: "Crit Rate", value: `${Math.round(stats.critRate * 100)}%`, inline: true },
+    { name: "Attack", value: formatStat(stats.attack, stats.baseAttack), inline: true },
+    { name: "Defense", value: formatStat(stats.defense, stats.baseDefense), inline: true },
+    { name: "HP", value: formatStat(stats.hp, stats.baseHp), inline: true },
+    { name: "Speed", value: formatStat(stats.speed, stats.baseSpeed), inline: true },
+    { name: "Crit Rate", value: formatCritRate(stats.critRate, stats.baseCritRate), inline: true },
     { name: "Type", value: stats.colors.length > 0 ? stats.colors.map((c) => colorEmoji(c)).join(" ") : colorEmoji("C"), inline: true },
     { name: "Attack Pattern", value: formatAttackPattern(stats.attackPattern), inline: false }
   ];
@@ -231,7 +251,7 @@ export function buildChallengeEmbed(
     .setDescription(
       `**${challengerName}** challenges anyone to a Clash Battle!\n\n` +
       `Their creature: **${challengerStats.name}**\n` +
-      `ATK: ${challengerStats.attack} | DEF: ${challengerStats.defense} | HP: ${challengerStats.hp} | SPD: ${challengerStats.speed}\n\n` +
+      `ATK: ${formatStat(challengerStats.attack, challengerStats.baseAttack)} | DEF: ${formatStat(challengerStats.defense, challengerStats.baseDefense)} | HP: ${formatStat(challengerStats.hp, challengerStats.baseHp)} | SPD: ${formatStat(challengerStats.speed, challengerStats.baseSpeed)}\n\n` +
       `Click **Accept** to fight with your set creature!`
     );
 

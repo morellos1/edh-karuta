@@ -127,8 +127,8 @@ export async function handleClashButtons(interaction: ButtonInteraction) {
       return;
     }
 
-    const statsA = buildClashStats(challengerData.userCard.card, challengerData.userCard.condition);
-    const statsB = buildClashStats(accepterData.userCard.card, accepterData.userCard.condition);
+    const statsA = buildClashStats(challengerData.userCard.card, challengerData.userCard.condition, challengerData.userCard);
+    const statsB = buildClashStats(accepterData.userCard.card, accepterData.userCard.condition, accepterData.userCard);
     const imageUrlA = getCardImageUrl(challengerData.userCard.card);
     const imageUrlB = getCardImageUrl(accepterData.userCard.card);
 

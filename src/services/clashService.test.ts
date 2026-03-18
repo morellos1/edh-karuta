@@ -247,7 +247,7 @@ test("isLegendaryCreature rejects meld result cards", () => {
 // buildClashStats
 // ---------------------------------------------------------------------------
 
-test("buildClashStats creates correct stats", () => {
+test("buildClashStats creates correct base stats without bonuses", () => {
   const card = {
     name: "Mayhem Devil",
     power: "3",
@@ -264,9 +264,69 @@ test("buildClashStats creates correct stats", () => {
   assert.equal(stats.defense, 20);
   assert.equal(stats.hp, calcHP(countWords(card.oracleText)));
   assert.equal(stats.speedMs, 2250);  // CMC 3 = 1500 + 750
-  assert.equal(stats.critRate, 0.20);
+  assert.equal(stats.critRate, 0.20); // base crit rate for all
   assert.deepEqual(stats.attackPattern, ["C", "B", "R"]);
   assert.deepEqual(stats.colors, ["B", "R"]);
+  // Base stats equal final stats when no bonuses
+  assert.equal(stats.baseAttack, stats.attack);
+  assert.equal(stats.baseDefense, stats.defense);
+  assert.equal(stats.baseHp, stats.hp);
+  assert.equal(stats.baseSpeed, stats.speed);
+  assert.equal(stats.baseCritRate, 0.20);
+});
+
+test("buildClashStats applies bonuses correctly", () => {
+  const card = {
+    name: "Mayhem Devil",
+    power: "3",
+    toughness: "3",
+    manaCost: "{1}{B}{R}",
+    oracleText: "Whenever a player sacrifices a permanent, Mayhem Devil deals 1 damage to any target.",
+    colors: "B,R",
+    typeLine: "Creature — Devil"
+  };
+  const bonuses = {
+    bonusAttack: 50,   // +50% of base 20 = +10 → 30
+    bonusDefense: 25,  // +25% of base 20 = +5 → 25
+    bonusHp: 10,       // +10% of base HP
+    bonusSpeed: 20,    // +20% of base speed
+    bonusCritRate: 50  // +50% of base 0.20 = +0.10 → 0.30
+  };
+  const stats = buildClashStats(card, "good", bonuses);
+
+  assert.equal(stats.baseAttack, 20);
+  assert.equal(stats.attack, 30);   // 20 * 1.50 = 30
+  assert.equal(stats.baseDefense, 20);
+  assert.equal(stats.defense, 25);  // 20 * 1.25 = 25
+  assert.ok(stats.hp > stats.baseHp);
+  assert.ok(stats.speed > stats.baseSpeed);
+  assert.equal(stats.critRate, 0.30); // 0.20 + round(0.20 * 50) / 100 = 0.20 + 0.10
+});
+
+test("buildClashStats handles null bonuses same as no bonuses", () => {
+  const card = {
+    name: "Test",
+    power: "5",
+    toughness: "5",
+    manaCost: "{2}{R}",
+    oracleText: "Some text",
+    colors: "R",
+    typeLine: "Creature — Warrior"
+  };
+  const statsNone = buildClashStats(card, "good");
+  const statsNull = buildClashStats(card, "good", null);
+  const statsEmpty = buildClashStats(card, "good", {
+    bonusAttack: null,
+    bonusDefense: null,
+    bonusHp: null,
+    bonusSpeed: null,
+    bonusCritRate: null
+  });
+
+  assert.equal(statsNone.attack, statsNull.attack);
+  assert.equal(statsNone.attack, statsEmpty.attack);
+  assert.equal(statsNone.critRate, statsNull.critRate);
+  assert.equal(statsNone.critRate, statsEmpty.critRate);
 });
 
 test("buildClashStats handles DFC names", () => {
@@ -281,7 +341,7 @@ test("buildClashStats handles DFC names", () => {
   };
   const stats = buildClashStats(card, "mint");
   assert.equal(stats.name, "Arlinn Kord");
-  assert.equal(stats.critRate, 0.30);
+  assert.equal(stats.critRate, 0.20); // base crit is 20% without bonuses
 });
 
 // ---------------------------------------------------------------------------

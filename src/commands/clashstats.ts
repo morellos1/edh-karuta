@@ -35,7 +35,7 @@ export const creaturestatsCommand: SlashCommand = {
       return;
     }
 
-    const stats = buildClashStats(userCard.card, userCard.condition);
+    const stats = buildClashStats(userCard.card, userCard.condition, userCard);
     const imageUrl = getCardImageUrl(userCard.card);
 
     // Look up W/L record if this card is set as a clash creature
