@@ -19,7 +19,7 @@ import {
   formatBattleEvent,
   hpBar
 } from "../utils/clashFormatting.js";
-import { buildClashPairImage } from "../services/collageService.js";
+import { buildClashPairImage, buildDropCollage } from "../services/collageService.js";
 import {
   generateFloorBoss,
   updateRecord,
@@ -266,12 +266,13 @@ async function runFloorBattle(
     const bossStats = boss.stats;
     const displayIdBoss = `F${floor}`;
 
-    // Format boss name with bonus abilities (e.g. "Dire Fleet Daredevil (+Double Strike, +Haste)")
+    // Build display name with bonus abilities (shown above HP bar only, not in combat text)
+    let bossDisplayName = bossStats.name;
     if (boss.bonusAbilities.length > 0) {
       const bonusLabel = boss.bonusAbilities
         .map((a) => a.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "))
         .join(", ");
-      bossStats.name = `${bossStats.name} (+${bonusLabel})`;
+      bossDisplayName = `${bossStats.name} (+${bonusLabel})`;
     }
 
     // Disable buttons during battle
@@ -300,6 +301,8 @@ async function runFloorBattle(
     // Start battle display
     const initialEmbed = buildBattleEmbed(playerStats, bossStats, [], 0, maxAttacks, displayIdPlayer, displayIdBoss);
     initialEmbed.setTitle(`Endless Tower - Floor ${floor}`);
+    // Replace boss field name with display name (includes bonus abilities)
+    initialEmbed.data.fields![2].name = `${bossDisplayName}\n\`${displayIdBoss}\``;
     if (clashAttachment) initialEmbed.setImage("attachment://clash.webp");
 
     await interaction.update({
@@ -332,9 +335,20 @@ async function runFloorBattle(
           );
 
           const resultEmbed = buildFloorVictoryEmbed(
-            result, playerStats, bossStats, displayIdPlayer, displayIdBoss, floor, rewards
+            result, playerStats, bossStats, bossDisplayName, displayIdPlayer, displayIdBoss, floor, rewards
           );
-          if (clashAttachment) resultEmbed.setImage("attachment://clash.webp");
+
+          // Show reward card collage at milestone floors, otherwise VS image
+          let resultImageAttachment = clashAttachment;
+          if (rewards.rewardCardData.length > 0) {
+            try {
+              const rewardCollage = await buildDropCollage(rewards.rewardCardData);
+              resultImageAttachment = new AttachmentBuilder(rewardCollage, { name: "clash.webp" });
+            } catch {
+              // Fall back to VS image
+            }
+          }
+          if (resultImageAttachment) resultEmbed.setImage("attachment://clash.webp");
 
           const nextFloor = floor + 1;
           const proceedRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -350,7 +364,8 @@ async function runFloorBattle(
 
           await interaction.editReply({
             embeds: [resultEmbed],
-            components: [proceedRow]
+            components: [proceedRow],
+            files: resultImageAttachment ? [resultImageAttachment] : []
           });
         } else {
           // Defeat - record is floors cleared before this one
@@ -363,7 +378,7 @@ async function runFloorBattle(
           activeSessions.delete(key);
 
           const resultEmbed = buildFloorDefeatEmbed(
-            result, playerStats, bossStats, displayIdPlayer, displayIdBoss, floor, finalRecord
+            result, playerStats, bossStats, bossDisplayName, displayIdPlayer, displayIdBoss, floor, finalRecord
           );
           if (clashAttachment) resultEmbed.setImage("attachment://clash.webp");
 
@@ -381,6 +396,7 @@ async function runFloorBattle(
           playerStats, bossStats, eventsUpToNow, i + 1, maxAttacks, displayIdPlayer, displayIdBoss
         );
         battleEmbed.setTitle(`Endless Tower - Floor ${floor}`);
+        battleEmbed.data.fields![2].name = `${bossDisplayName}\n\`${displayIdBoss}\``;
         if (clashAttachment) battleEmbed.setImage("attachment://clash.webp");
         await interaction.editReply({
           embeds: [battleEmbed],
@@ -412,6 +428,7 @@ function buildFloorVictoryEmbed(
   result: ReturnType<typeof simulateBattle>,
   playerStats: ClashStats,
   bossStats: ClashStats,
+  bossDisplayName: string,
   displayIdPlayer: string,
   displayIdBoss: string,
   floor: number,
@@ -460,7 +477,7 @@ function buildFloorVictoryEmbed(
     .addFields(
       { name: `${playerStats.name}\n\`${displayIdPlayer}\``, value: hpBar(finalHpPlayer, playerStats.hp), inline: true },
       { name: "\u200b", value: "\u200b", inline: true },
-      { name: `${bossStats.name}\n\`${displayIdBoss}\``, value: hpBar(finalHpBoss, bossStats.hp), inline: true }
+      { name: `${bossDisplayName}\n\`${displayIdBoss}\``, value: hpBar(finalHpBoss, bossStats.hp), inline: true }
     );
 
   return embed;
@@ -470,6 +487,7 @@ function buildFloorDefeatEmbed(
   result: ReturnType<typeof simulateBattle>,
   playerStats: ClashStats,
   bossStats: ClashStats,
+  bossDisplayName: string,
   displayIdPlayer: string,
   displayIdBoss: string,
   floor: number,
@@ -510,7 +528,7 @@ function buildFloorDefeatEmbed(
     .addFields(
       { name: `${playerStats.name}\n\`${displayIdPlayer}\``, value: hpBar(finalHpPlayer, playerStats.hp), inline: true },
       { name: "\u200b", value: "\u200b", inline: true },
-      { name: `${bossStats.name}\n\`${displayIdBoss}\``, value: hpBar(finalHpBoss, bossStats.hp), inline: true }
+      { name: `${bossDisplayName}\n\`${displayIdBoss}\``, value: hpBar(finalHpBoss, bossStats.hp), inline: true }
     );
 
   return embed;
