@@ -40,7 +40,7 @@ const EMPTY = "\u2591";  // ░
 export function hpBar(current: number, max: number): string {
   const ratio = Math.max(0, Math.min(1, current / max));
   const filled = Math.round(ratio * BAR_LENGTH);
-  return FILLED.repeat(filled) + EMPTY.repeat(BAR_LENGTH - filled) + ` ${current}/${max} HP`;
+  return FILLED.repeat(filled) + EMPTY.repeat(BAR_LENGTH - filled) + ` ${current}/${max}\u00A0HP`;
 }
 
 // ---------------------------------------------------------------------------

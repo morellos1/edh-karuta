@@ -116,6 +116,15 @@ export async function generateFloorBoss(floor: number): Promise<FloorBossInfo> {
   stats.baseDefense = Math.round(stats.baseDefense * scaleFactor);
   stats.baseHp = Math.round(stats.baseHp * scaleFactor);
 
+  // Cap HP for early floors to prevent balance outliers
+  if (floor < 5) {
+    stats.hp = Math.min(stats.hp, 2000);
+    stats.baseHp = Math.min(stats.baseHp, 2000);
+  } else if (floor < 10) {
+    stats.hp = Math.min(stats.hp, 3000);
+    stats.baseHp = Math.min(stats.baseHp, 3000);
+  }
+
   return { card, stats, floor, bonusAbilities };
 }
 
@@ -192,6 +201,7 @@ export async function hasClaimedFloorReward(
 export type FloorRewardResult = {
   gold: number;
   cards: { name: string; displayId: string }[];
+  rewardCardData: CardLookup[];
   alreadyClaimed: boolean;
 };
 
@@ -209,7 +219,7 @@ export async function claimFloorRewards(
 ): Promise<FloorRewardResult> {
   const alreadyClaimed = await hasClaimedFloorReward(userId, floor);
   if (alreadyClaimed) {
-    return { gold: 0, cards: [], alreadyClaimed: true };
+    return { gold: 0, cards: [], rewardCardData: [], alreadyClaimed: true };
   }
 
   // Award gold
@@ -218,8 +228,10 @@ export async function claimFloorRewards(
 
   // Award cards at milestone floors (every 5)
   const cards: { name: string; displayId: string }[] = [];
+  let rewardCardData: CardLookup[] = [];
   if (floor % 5 === 0) {
     const rewardCards = await getRandomCardsByColorIdentity(3, bossCard.colorIdentity);
+    rewardCardData = rewardCards;
 
     // Create Drop record
     const drop = await prisma.drop.create({
@@ -286,5 +298,5 @@ export async function claimFloorRewards(
     data: { userId, floor }
   });
 
-  return { gold, cards, alreadyClaimed: false };
+  return { gold, cards, rewardCardData, alreadyClaimed: false };
 }
