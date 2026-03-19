@@ -1,6 +1,6 @@
 # EDH Karuta
 
-Discord bot inspired by Karuta, focused on MTG cards for Commander-style collection: drops, claims, conditions, gold values, collection, market, trading, wishlists, and tagging.
+Discord bot inspired by Karuta, focused on MTG cards for Commander-style collection: drops, claims, conditions, gold values, collection, market, trading, wishlists, tagging, PvP Clash battles, and Daily Raids.
 
 ## Features
 
@@ -15,6 +15,10 @@ Discord bot inspired by Karuta, focused on MTG cards for Commander-style collect
 - **Tool Shop** — `/toolshop` lists purchasable extras. Buy **Extra Claims** to claim cards even while your claim cooldown is active.
 - **Tags** — Organize your collection with custom tags: `/tagcreate`, `/tagdelete`, `/tagrename`, `/tag`, `/multitag`, `/tags`, `/untag`. Filter your collection view by tag.
 - **Wishlist** — `/wishadd` to watch for specific cards (max 10 per server). When a wished-for card drops, you get pinged. `/wishremove` to stop watching. `/wl` to view your list.
+- **Clash** — `/clash` challenges another player to a PvP battle using their set commanders. Turn-based combat with stats derived from card properties, elemental type matchups, keyword abilities, and critical hits. Win/loss records tracked per server.
+- **Daily Raid** — `/dailyraid` pits your commander against a powerful daily boss (same boss for everyone each day). Beat the boss to earn 3 cards matching its color identity. One reward per day.
+- **Battle Stats** — `/stats <id>` displays a commander's full battle profile: ATK, DEF, HP, Speed, Crit Rate, attack pattern, abilities, and win/loss record.
+- **Set Commander** — `/setcommander <id>` sets your active commander for Clash and Daily Raid.
 - **Persistence** — SQLite via Prisma. Scryfall bulk sync script to populate/update the card pool (~31,000 unique commander-legal card names, ~90,000+ prints across sets; basic lands excluded from drops).
 
 ## Prerequisites
@@ -49,6 +53,83 @@ Game behavior (cooldowns, drop expiry, rarity and condition chances, condition p
 - `dropCondition` — poorChance, goodChance, mintChance; poorMultiplier, goodMultiplier, mintMultiplier
 
 All cooldowns in the config file are in **seconds**.
+
+## Battle System
+
+### Clash (PvP)
+
+Use `/setcommander <id>` to set a legendary creature from your collection as your active commander, then `/clash` to challenge another player. Both players need a set commander. Challenges expire after 60 seconds. Win/loss records are tracked per server.
+
+### Daily Raid (PvE)
+
+Use `/dailyraid` to view and challenge the daily raid boss. The boss is the same for all servers on the same day (EST), selected deterministically from the commander-eligible card pool. The boss always has **max stats** (Mint condition, maximum bonuses) plus one bonus keyword ability. Defeat the boss to earn **3 cards** with a matching color identity. Rewards are limited to **once per day** per player.
+
+### Stats
+
+Every legendary creature has five battle stats derived from its card properties:
+
+| Stat | Derived From | Range | Notes |
+|------|-------------|-------|-------|
+| **ATK** | Power (0–15 → 50–1000) | 50–1000+ | Flat bonus 50–200 added based on condition |
+| **DEF** | Toughness (0–15 → 50–1000) | 50–1000+ | Flat bonus 50–200 added based on condition |
+| **HP** | Oracle text length + CMC | 1300–6000 | Base from word count (×30), CMC adds up to 500 |
+| **Speed** | CMC (lower CMC = faster) | 10–100 | `100 − CMC × 8`, clamped 10–100 |
+| **Crit Rate** | Condition | 10–30% | Poor: 10%, Good: 20%, Mint: 30%; percentage bonus 5–50% added |
+
+Card **condition** affects bonus quality:
+- **Poor** — 1 random roll for bonuses
+- **Good** — Best of 2 rolls
+- **Mint** — Best of 3 rolls (flat bonuses guaranteed ≥150)
+
+### Elemental Type System (Color Wheel)
+
+Attacks cycle through a color pattern derived from the commander's mana cost. Each attack's color is checked against the defender's color identity for type effectiveness:
+
+```
+W (White) → strong vs → B (Black) → strong vs → G (Green) → strong vs → U (Blue) → strong vs → R (Red) → strong vs → W (White)
+```
+
+| Matchup | Multiplier |
+|---------|-----------|
+| Super effective (e.g. White vs Black) | **1.5×** |
+| Weak (e.g. White vs Red) | **0.5×** |
+| Neutral | **1.0×** |
+| Colorless (either side) | **1.0×** |
+
+Multi-color defenders: effectiveness is the **average** of individual matchups (e.g. White attack vs Blue+Red = (1.0 + 0.5) / 2 = 0.75×).
+
+Hybrid mana in the cost randomly resolves to one of its two colors per attack. Generic and snow mana contribute colorless (C) to the pattern.
+
+### Damage Formula
+
+```
+baseDamage    = 100 + (ATK × 0.8)
+defenseFactor = 1 − (DEF / 4000)
+typeMultiplier = color matchup (0.5×, 1.0×, or 1.5×)
+critMultiplier = 1.5× on crit, else 1.0×
+
+finalDamage = max(1, round(baseDamage × defenseFactor × typeMultiplier × critMultiplier))
+```
+
+### Turn Order
+
+Each commander attacks on a timer based on Speed: `150000 / (30 + Speed)` milliseconds per attack. Faster commanders get more attacks over the course of a battle. Battles last up to **100 total attacks** before a stalemate.
+
+### Keyword Abilities in Combat
+
+Keyword abilities on the card grant combat effects and stat multipliers:
+
+| Ability | Effect |
+|---------|--------|
+| **First Strike** | Next attack fires instantly (cancels out if both have it) |
+| **Double Strike** | Second hit at 20% damage after the main attack |
+| **Deathtouch** | Instant kill when defender drops to ≤10% HP |
+| **Indestructible** | Survives one lethal hit at 1 HP (once per battle, blocks Deathtouch) |
+| **Lifelink** | Heals attacker by 15% of damage dealt |
+| **Flying / Trample** | +20% ATK |
+| **Defender** | +25% DEF |
+| **Hexproof / Reach** | +20% DEF |
+| **Haste / Flash / Vigilance** | +25% Speed |
 
 ## Install and database
 
@@ -105,6 +186,15 @@ npm run dev
 | `/landdrop` | Drop 3 random nonbasic land cards (2h cooldown) |
 | `/cd` | View your current Claim, Drop, Color Drop, Commander Drop, and Land Drop cooldowns |
 | `/setdropchannel` | Set the current channel for automatic drops every 30 minutes (admin only) |
+
+### Clash & Battle
+
+| Command | Description |
+|---------|-------------|
+| `/setcommander <id>` | Set your active commander for Clash and Daily Raid |
+| `/clash` | Challenge another player to a PvP Clash battle |
+| `/dailyraid` | View and challenge today's daily raid boss |
+| `/stats <id>` | View a commander's full battle stats, abilities, and W/L record |
 
 ### Viewing Cards & Collection
 
@@ -352,6 +442,10 @@ You can filter your `/collection` by tag to quickly find grouped cards.
 | `/wishadd <card>` | Watch for a card |
 | `/wishremove <card>` | Stop watching |
 | `/wl` | View your wishlist |
+| `/setcommander <id>` | Set your clash/raid commander |
+| `/clash` | PvP commander battle |
+| `/dailyraid` | Fight the daily raid boss |
+| `/stats <id>` | View commander battle stats |
 
 ---
 
@@ -379,6 +473,51 @@ Your server may have **text shortcuts** enabled — quick commands you can type 
 | `kwr <name>` | Remove from wishlist |
 
 Examples: `kd`, `kld`, `kcld blue`, `kc @User rarity album`, `kc s:rhystic`, `kb ABC123`, `kbuy A`, `kt favorites`, `kmt deck ABC123 DEF456`, `kg @User ABC123`, `kwa Rhystic Study`
+
+---
+
+## Clash — PvP Commander Battles
+
+Battle your legendary creatures against other players!
+
+1. **Set your commander:** `/setcommander <id>` — pick a legendary creature from your collection.
+2. **Challenge:** `/clash` — challenge another player in the server. They have 60 seconds to accept.
+3. **View stats:** `/stats <id>` — see ATK, DEF, HP, Speed, Crit Rate, abilities, type, and W/L record.
+
+### How Battles Work
+- Commanders attack in turns based on **Speed** (lower CMC = faster).
+- Each attack cycles through a **color pattern** from the card's mana cost.
+- **Type matchups** follow a color wheel: **W > B > G > U > R > W** (1.5× super effective, 0.5× weak).
+- **Crit hits** deal 1.5× damage. Crit rate depends on card condition (Poor: 10%, Good: 20%, Mint: 30%).
+- Battles last up to 100 total attacks before a stalemate.
+
+### Keyword Abilities
+Cards with combat keywords get special effects:
+- **First Strike** — attack first | **Double Strike** — bonus hit at 20% damage
+- **Deathtouch** — instant kill at ≤10% HP | **Indestructible** — survive one lethal hit
+- **Lifelink** — heal 15% of damage dealt
+- **Flying/Trample** — +20% ATK | **Defender** — +25% DEF | **Haste/Flash** — +25% Speed
+
+### Stats at a Glance
+| Stat | Based On |
+|------|----------|
+| ATK | Power |
+| DEF | Toughness |
+| HP | Text length + CMC |
+| Speed | CMC (lower = faster) |
+| Crit Rate | Card condition |
+
+---
+
+## Daily Raid — PvE Boss Battle
+
+Every day a new **raid boss** appears — the same for all servers!
+
+- `/dailyraid` — View and fight the daily boss.
+- The boss has **max stats** (Mint condition, max bonuses) plus a bonus ability.
+- **Reward:** 3 cards matching the boss's color identity (once per day).
+
+---
 
 Happy collecting! May your pulls be mythic and your conditions be mint.
 ```
