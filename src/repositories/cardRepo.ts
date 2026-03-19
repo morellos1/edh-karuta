@@ -2,6 +2,7 @@ import type { Card } from "@prisma/client";
 import { prisma } from "../db.js";
 import type { Prisma } from "@prisma/client";
 import { gameConfig } from "../config.js";
+import { parsePT } from "../services/clashService.js";
 
 export type CardLookup = {
   id: number;
@@ -587,8 +588,9 @@ export async function getCardByName(name: string): Promise<CardLookup | null> {
 /**
  * Pick a single random creature card from the full pool (not just commander-legal).
  * Used by Endless Tower for random floor bosses.
+ * When minPower is provided, re-rolls until a card with sufficient power is found.
  */
-export async function getRandomCreatureCard(): Promise<CardLookup> {
+export async function getRandomCreatureCard(minPower?: number): Promise<CardLookup> {
   const where: Prisma.CardWhereInput = {
     typeLine: { contains: "Creature" },
     isBasicLand: false,
@@ -602,6 +604,28 @@ export async function getRandomCreatureCard(): Promise<CardLookup> {
   if (total === 0) {
     throw new Error("No creature cards available for Endless Tower boss.");
   }
+
+  const maxAttempts = minPower ? 50 : 1;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const skip = Math.floor(Math.random() * total);
+    const card = await prisma.card.findFirst({
+      where,
+      skip,
+      take: 1,
+      select: cardSelect
+    });
+    if (!card) continue;
+
+    // Check minimum power requirement
+    if (minPower) {
+      const power = parsePT(card.power);
+      if (power < minPower) continue;
+    }
+
+    return card;
+  }
+
+  // Fallback: return any creature if min power retries exhausted
   const skip = Math.floor(Math.random() * total);
   const card = await prisma.card.findFirst({
     where,
