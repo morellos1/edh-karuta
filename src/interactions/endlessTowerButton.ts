@@ -26,6 +26,7 @@ import {
   claimFloorRewards,
   type FloorRewardResult
 } from "../services/endlessTowerService.js";
+import type { CardLookup } from "../repositories/cardRepo.js";
 import {
   ENDLESS_CHALLENGE_PREFIX,
   ENDLESS_CANCEL_PREFIX
@@ -39,6 +40,7 @@ type EndlessTowerSession = {
   guildId: string;
   userCardId: number;
   commanderStats: ClashStats;
+  playerCard: CardLookup;
   displayIdPlayer: string;
   floorsCleared: number; // how many floors have been defeated
   inBattle: boolean;
@@ -146,6 +148,7 @@ async function handleChallenge(interaction: ButtonInteraction) {
     guildId,
     userCardId: playerData.userCard.id,
     commanderStats: playerStats,
+    playerCard: playerData.userCard.card,
     displayIdPlayer: playerData.userCard.displayId,
     floorsCleared: 0,
     inBattle: true
@@ -263,6 +266,14 @@ async function runFloorBattle(
     const bossStats = boss.stats;
     const displayIdBoss = `F${floor}`;
 
+    // Format boss name with bonus abilities (e.g. "Dire Fleet Daredevil (+Double Strike, +Haste)")
+    if (boss.bonusAbilities.length > 0) {
+      const bonusLabel = boss.bonusAbilities
+        .map((a) => a.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" "))
+        .join(", ");
+      bossStats.name = `${bossStats.name} (+${bonusLabel})`;
+    }
+
     // Disable buttons during battle
     const battleRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
@@ -275,10 +286,7 @@ async function runFloorBattle(
     // Build VS collage image
     let clashAttachment: AttachmentBuilder | null = null;
     try {
-      const collage = await buildClashPairImage(
-        { imagePng: null, imageNormal: null, imageLarge: null, imageSmall: null, name: playerStats.name } as any,
-        boss.card
-      );
+      const collage = await buildClashPairImage(session.playerCard, boss.card);
       clashAttachment = new AttachmentBuilder(collage, { name: "clash.webp" });
     } catch {
       // Continue without image
