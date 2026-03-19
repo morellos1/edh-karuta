@@ -5,6 +5,7 @@ import { getUserCardByDisplayId } from "../repositories/userCardRepo.js";
 import { buildClashStats, isLegendaryCreature } from "../services/clashService.js";
 import { getCardImageUrl } from "../utils/cardFormatting.js";
 import { buildStatsEmbed } from "../utils/clashFormatting.js";
+import { getCommanderRecord } from "../services/endlessTowerService.js";
 
 export const statsCommand: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -40,6 +41,18 @@ export const statsCommand: SlashCommand = {
     });
     if (clashCreature) {
       record = `${clashCreature.clashWins}W ${clashCreature.clashLosses}L`;
+
+      // Add endless tower record if exists
+      if (interaction.guildId) {
+        const towerBest = await getCommanderRecord(
+          interaction.user.id,
+          interaction.guildId,
+          userCard.id
+        );
+        if (towerBest > 0) {
+          record += ` | Endless Tower: Floor ${towerBest}`;
+        }
+      }
     }
 
     const embed = buildStatsEmbed(stats, imageUrl, userCard.condition, record);

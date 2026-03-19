@@ -72,6 +72,8 @@ import { CLASH_ACCEPT_PREFIX, CLASH_DECLINE_PREFIX } from "../commands/clash.js"
 import { DAILYRAID_CHALLENGE_PREFIX, DAILYRAID_RUN_PREFIX } from "../commands/dailyraid.js";
 import { getDailyBoss } from "../services/dailyRaidService.js";
 import { buildDailyRaidEmbed } from "../utils/clashFormatting.js";
+import { ENDLESS_CHALLENGE_PREFIX, ENDLESS_CANCEL_PREFIX } from "../commands/endless.js";
+import { getCommanderRecord, getBestRecord } from "../services/endlessTowerService.js";
 
 const DROP_SIZE = 3;
 const withDropLock = createAsyncLock();
@@ -230,6 +232,9 @@ export async function handleShortcut(message: Message): Promise<void> {
       break;
     case "draid":
       await handleDailyRaid(message);
+      break;
+    case "endless":
+      await handleEndless(message);
       break;
     default:
       // Not a recognized shortcut, ignore
@@ -1536,6 +1541,71 @@ async function handleDailyRaid(message: Message): Promise<void> {
     new ButtonBuilder()
       .setCustomId(`${DAILYRAID_RUN_PREFIX}:${message.author.id}`)
       .setLabel("Run Away")
+      .setStyle(ButtonStyle.Danger)
+  );
+
+  await message.reply({
+    embeds: [embed],
+    components: [row]
+  });
+}
+
+async function handleEndless(message: Message): Promise<void> {
+  if (!message.guildId) return;
+
+  const clashCreature = await prisma.clashCreature.findUnique({
+    where: {
+      discordId_guildId: { discordId: message.author.id, guildId: message.guildId }
+    },
+    include: {
+      userCard: { include: { card: true } }
+    }
+  });
+
+  if (!clashCreature) {
+    await message.reply("You haven't set a commander! Use `/setcommander <id>` first.");
+    return;
+  }
+
+  if (!isLegendaryCreature(clashCreature.userCard.card.typeLine, { isMeldResult: clashCreature.userCard.card.isMeldResult })) {
+    await message.reply("Your set commander is no longer valid. Use `/setcommander <id>` to set a new one.");
+    return;
+  }
+
+  const stats = buildClashStats(clashCreature.userCard.card, clashCreature.userCard.condition, clashCreature.userCard);
+  const imageUrl = getCardImageUrl(clashCreature.userCard.card);
+
+  const commanderBest = await getCommanderRecord(
+    message.author.id,
+    message.guildId,
+    clashCreature.userCard.id
+  );
+  const userBest = await getBestRecord(message.author.id, message.guildId);
+
+  let record = `${clashCreature.clashWins}W ${clashCreature.clashLosses}L`;
+  if (commanderBest > 0) {
+    record += ` | Endless Tower: Floor ${commanderBest}`;
+  }
+  if (userBest > 0 && userBest !== commanderBest) {
+    record += ` | Best: Floor ${userBest}`;
+  }
+
+  const embed = buildStatsEmbed(stats, imageUrl, clashCreature.userCard.condition, record);
+  embed.setTitle(`${stats.name} - Endless Tower`);
+  embed.setDescription(
+    "Challenge the **Endless Tower** and fight through increasingly difficult bosses!\n\n" +
+    "Each floor has a random boss that gets stronger. " +
+    "How far can you go?"
+  );
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`${ENDLESS_CHALLENGE_PREFIX}:${message.author.id}`)
+      .setLabel("Challenge Endless Tower")
+      .setStyle(ButtonStyle.Success),
+    new ButtonBuilder()
+      .setCustomId(`${ENDLESS_CANCEL_PREFIX}:${message.author.id}`)
+      .setLabel("Cancel")
       .setStyle(ButtonStyle.Danger)
   );
 
