@@ -1526,7 +1526,7 @@ async function handleDailyRaid(message: Message): Promise<void> {
 
   const boss = await getDailyBoss();
   const imageUrl = getCardImageUrl(boss.card);
-  const embed = buildDailyRaidEmbed(boss.stats, imageUrl, boss.bonusAbility);
+  const embed = buildDailyRaidEmbed(boss.stats, imageUrl, boss.bonusAbilities);
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()

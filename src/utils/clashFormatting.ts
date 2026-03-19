@@ -350,11 +350,12 @@ export function buildChallengeEmbed(
 // Daily Raid Boss Embed
 // ---------------------------------------------------------------------------
 
-function formatAbilitiesWithBonus(abilities: string[], bonusAbility: string): string {
+function formatAbilitiesWithBonus(abilities: string[], bonusAbilities: string[]): string {
+  const bonusSet = new Set(bonusAbilities);
   return abilities
     .map((a) => {
       const label = a.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
-      return a === bonusAbility ? `+${label}` : label;
+      return bonusSet.has(a) ? `+${label}` : label;
     })
     .join(", ");
 }
@@ -362,7 +363,7 @@ function formatAbilitiesWithBonus(abilities: string[], bonusAbility: string): st
 export function buildDailyRaidEmbed(
   bossStats: ClashStats,
   cardImageUrl: string | null,
-  bonusAbility: string
+  bonusAbilities: string[]
 ): EmbedBuilder {
   const embed = new EmbedBuilder()
     .setTitle("Daily Raid Boss!")
@@ -385,7 +386,7 @@ export function buildDailyRaidEmbed(
   if (bossStats.abilities.length > 0) {
     embed.addFields({
       name: "Abilities",
-      value: formatAbilitiesWithBonus(bossStats.abilities, bonusAbility),
+      value: formatAbilitiesWithBonus(bossStats.abilities, bonusAbilities),
       inline: false
     });
   }
