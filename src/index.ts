@@ -56,6 +56,8 @@ import { clashCommand, CLASH_ACCEPT_PREFIX, CLASH_DECLINE_PREFIX } from "./comma
 import { handleClashButtons } from "./interactions/clashButton.js";
 import { dailyraidCommand, DAILYRAID_CHALLENGE_PREFIX, DAILYRAID_RUN_PREFIX } from "./commands/dailyraid.js";
 import { handleDailyRaidButtons } from "./interactions/dailyRaidButton.js";
+import { endlessCommand, ENDLESS_CHALLENGE_PREFIX, ENDLESS_CANCEL_PREFIX } from "./commands/endless.js";
+import { handleEndlessTowerButtons, ENDLESS_PROCEED_PREFIX, ENDLESS_STOP_PREFIX } from "./interactions/endlessTowerButton.js";
 
 const commands = [
   dropCommand,
@@ -91,7 +93,8 @@ const commands = [
   setcommanderCommand,
   statsCommand,
   clashCommand,
-  dailyraidCommand
+  dailyraidCommand,
+  endlessCommand
 ];
 const commandMap = new Collection<string, SlashCommand>();
 for (const command of commands) {
@@ -240,6 +243,16 @@ client.on("interactionCreate", async (interaction: Interaction) => {
         interaction.customId.startsWith(`${DAILYRAID_RUN_PREFIX}:`))
     ) {
       await handleDailyRaidButtons(interaction);
+      return;
+    }
+    if (
+      interaction.isButton() &&
+      (interaction.customId.startsWith(`${ENDLESS_CHALLENGE_PREFIX}:`) ||
+        interaction.customId.startsWith(`${ENDLESS_CANCEL_PREFIX}:`) ||
+        interaction.customId.startsWith(`${ENDLESS_PROCEED_PREFIX}:`) ||
+        interaction.customId.startsWith(`${ENDLESS_STOP_PREFIX}:`))
+    ) {
+      await handleEndlessTowerButtons(interaction);
       return;
     }
 

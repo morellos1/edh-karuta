@@ -584,6 +584,37 @@ export async function getCardByName(name: string): Promise<CardLookup | null> {
   });
 }
 
+/**
+ * Pick a single random creature card from the full pool (not just commander-legal).
+ * Used by Endless Tower for random floor bosses.
+ */
+export async function getRandomCreatureCard(): Promise<CardLookup> {
+  const where: Prisma.CardWhereInput = {
+    typeLine: { contains: "Creature" },
+    isBasicLand: false,
+    isMeldResult: false,
+    lang: "en",
+    imagePng: { not: null },
+    power: { not: null },
+    toughness: { not: null }
+  };
+  const total = await prisma.card.count({ where });
+  if (total === 0) {
+    throw new Error("No creature cards available for Endless Tower boss.");
+  }
+  const skip = Math.floor(Math.random() * total);
+  const card = await prisma.card.findFirst({
+    where,
+    skip,
+    take: 1,
+    select: cardSelect
+  });
+  if (!card) {
+    throw new Error("Failed to pick random creature card.");
+  }
+  return card;
+}
+
 /** Look up the type line for each card name (uses the earliest print). */
 export async function getTypeLinesByNames(
   names: string[]
