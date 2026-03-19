@@ -42,11 +42,11 @@ function hashDateToIndex(dateStr: string, poolSize: number): number {
 
 const KEYWORD_LIST = Array.from(KEYWORD_WHITELIST);
 
-/** Extra ability for the boss — the bonus ability field name for display. */
+/** Extra abilities for the boss — the bonus abilities field for display. */
 export type DailyBossInfo = {
   card: CardLookup;
   stats: ClashStats;
-  bonusAbility: string; // the extra ability added to the boss
+  bonusAbilities: string[]; // the extra abilities added to the boss
 };
 
 /**
@@ -90,22 +90,36 @@ export async function getDailyBoss(): Promise<DailyBossInfo> {
     }
   }
 
-  // Pick 1 additional ability the boss doesn't already have.
+  // Pick 2 additional abilities the boss doesn't already have.
   const availableAbilities = KEYWORD_LIST.filter(
     (a) => !existingAbilities.has(a)
   );
 
-  let bonusAbility = "";
+  const bonusAbilities: string[] = [];
   if (availableAbilities.length > 0) {
-    const abilityIndex = hashDateToIndex(dateStr + ":ability", availableAbilities.length);
-    bonusAbility = availableAbilities[abilityIndex];
-    stats.abilities.push(bonusAbility);
+    const abilityIndex1 = hashDateToIndex(dateStr + ":ability", availableAbilities.length);
+    const bonus1 = availableAbilities[abilityIndex1];
+    bonusAbilities.push(bonus1);
+    stats.abilities.push(bonus1);
+    applyAbilityBonus(stats, bonus1);
 
-    // Apply the bonus ability's stat multiplier
-    applyAbilityBonus(stats, bonusAbility);
+    // Pick a second bonus ability from the remaining pool
+    const remaining = availableAbilities.filter((a) => a !== bonus1);
+    if (remaining.length > 0) {
+      const abilityIndex2 = hashDateToIndex(dateStr + ":ability2", remaining.length);
+      const bonus2 = remaining[abilityIndex2];
+      bonusAbilities.push(bonus2);
+      stats.abilities.push(bonus2);
+      applyAbilityBonus(stats, bonus2);
+    }
   }
 
-  return { card, stats, bonusAbility };
+  // Raid bosses get +50% base HP to make them tougher
+  const hpBoost = Math.round(stats.baseHp * 0.5);
+  stats.hp += hpBoost;
+  stats.baseHp += hpBoost;
+
+  return { card, stats, bonusAbilities };
 }
 
 /** Apply a single ability's stat multiplier to existing stats. */
