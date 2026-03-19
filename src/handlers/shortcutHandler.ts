@@ -1422,7 +1422,36 @@ async function handleSetCommander(message: Message, args: string[], prefix: stri
 
 async function handleStats(message: Message, args: string[], prefix: string): Promise<void> {
   if (!args[0]) {
-    await message.reply({ content: `Usage: \`${prefix}stats <card-id>\`` });
+    // No argument: show currently set commander's stats
+    if (!message.guildId) return;
+
+    const creature = await prisma.clashCreature.findUnique({
+      where: {
+        discordId_guildId: { discordId: message.author.id, guildId: message.guildId }
+      },
+      include: { userCard: { include: { card: true } } }
+    });
+
+    if (!creature) {
+      await message.reply({ content: "You haven't set a commander! Use `/setcommander <id>` first." });
+      return;
+    }
+
+    const stats = buildClashStats(creature.userCard.card, creature.userCard.condition, creature.userCard);
+    const imageUrl = getCardImageUrl(creature.userCard.card);
+
+    let record: string | null = `${creature.clashWins}W ${creature.clashLosses}L`;
+    const towerBest = await getCommanderRecord(message.author.id, message.guildId, creature.userCard.id);
+    if (towerBest > 0) {
+      record += ` | Endless Tower: Floor ${towerBest}`;
+    }
+    const userBest = await getBestRecord(message.author.id, message.guildId);
+    if (userBest > 0 && userBest !== towerBest) {
+      record += ` | Best: Floor ${userBest}`;
+    }
+
+    const embed = buildStatsEmbed(stats, imageUrl, creature.userCard.condition, record);
+    await message.reply({ embeds: [embed] });
     return;
   }
 
@@ -1448,6 +1477,12 @@ async function handleStats(message: Message, args: string[], prefix: string): Pr
   });
   if (clashCreature) {
     record = `${clashCreature.clashWins}W ${clashCreature.clashLosses}L`;
+    if (message.guildId) {
+      const towerBest = await getCommanderRecord(message.author.id, message.guildId, userCard.id);
+      if (towerBest > 0) {
+        record += ` | Endless Tower: Floor ${towerBest}`;
+      }
+    }
   }
 
   const embed = buildStatsEmbed(stats, imageUrl, userCard.condition, record);
