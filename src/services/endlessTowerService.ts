@@ -62,7 +62,13 @@ export type FloorBossInfo = {
  * - Every 5 floors: +1 bonus keyword ability
  */
 export async function generateFloorBoss(floor: number): Promise<FloorBossInfo> {
-  const card = await getRandomCreatureCard();
+  // Minimum power requirement scales with floor
+  let minPower: number | undefined;
+  if (floor >= 15) minPower = 4;
+  else if (floor >= 10) minPower = 3;
+  else if (floor >= 5) minPower = 2;
+
+  const card = await getRandomCreatureCard(minPower);
 
   // Build stats with max bonuses (same as daily boss)
   const maxBonuses = {
