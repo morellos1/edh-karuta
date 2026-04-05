@@ -40,12 +40,13 @@ model Card {
   userCards       UserCard[]
   dropSlots       DropSlot[]
 
-  @@index([name])
+  @@index([name, releasedAt])
   @@index([setCode, collectorNumber])
   // Composite index for the drop card selection hot path: filters on
   // isCommanderLegal + lang + isBasicLand + rarity hit this index instead of
   // doing a full table scan on every drop.
   @@index([isCommanderLegal, lang, isBasicLand, rarity])
+  @@index([isCommanderLegal, lang, isBasicLand, imagePng])
 }
 
 model UserCard {

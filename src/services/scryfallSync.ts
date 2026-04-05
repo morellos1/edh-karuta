@@ -6,7 +6,7 @@ import { pipeline } from "node:stream/promises";
 import { pathToFileURL } from "node:url";
 import streamJson from "stream-json";
 import StreamArray from "stream-json/streamers/StreamArray.js";
-import { prisma } from "../db.js";
+import { prisma, runPragmaOptimize } from "../db.js";
 import { invalidateCardPoolCache } from "../repositories/cardRepo.js";
 
 type ScryfallBulkEntry = {
@@ -219,6 +219,9 @@ export async function syncScryfallBulk() {
   // Card catalogue changed — purge cached groupBy data so the next drop
   // picks from the fresh card pool.
   invalidateCardPoolCache();
+
+  // Re-analyze table statistics so SQLite's query planner uses the new data.
+  await runPragmaOptimize();
 }
 
 const isEntrypoint = process.argv[1]

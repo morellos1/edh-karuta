@@ -198,13 +198,14 @@ export const buyCommand: SlashCommand = {
       return;
     }
 
+    await interaction.deferReply();
+
     const { slotIndex } = getMarketSlot();
     const cards = await getMarketCardsForSlot(slotIndex);
     const entry = cards.find((e) => e.id === marketId);
     if (!entry) {
-      await interaction.reply({
-        content: "That card is not available in the current market. Check `/market` for current listings.",
-        ephemeral: true
+      await interaction.editReply({
+        content: "That card is not available in the current market. Check `/market` for current listings."
       });
       return;
     }
@@ -212,79 +213,87 @@ export const buyCommand: SlashCommand = {
     const userId = interaction.user.id;
     const balance = await getGold(userId);
     if (balance < entry.priceGold) {
-      await interaction.reply({
-        content: `You need **${entry.priceGold.toLocaleString()}** gold to buy **${entry.card.name}**, but you only have **${balance.toLocaleString()}** gold.`,
-        ephemeral: true
+      await interaction.editReply({
+        content: `You need **${entry.priceGold.toLocaleString()}** gold to buy **${entry.card.name}**, but you only have **${balance.toLocaleString()}** gold.`
       });
       return;
     }
 
     const botUserId = interaction.client.user?.id ?? "0";
 
-    const displayId = await prisma.$transaction(async (tx) => {
-      // Verify balance inside the transaction to prevent race conditions.
-      const inv = await tx.userInventory.findUnique({
-        where: { userId },
-        select: { gold: true }
+    try {
+      const displayId = await prisma.$transaction(async (tx) => {
+        // Verify balance inside the transaction to prevent race conditions.
+        const inv = await tx.userInventory.findUnique({
+          where: { userId },
+          select: { gold: true }
+        });
+        if ((inv?.gold ?? 0) < entry.priceGold) {
+          throw new Error("insufficient_gold");
+        }
+
+        // Generate unique displayId inside the transaction.
+        let id = generateDisplayId();
+        for (let attempt = 0; attempt < 10; attempt++) {
+          const existing = await tx.userCard.findUnique({ where: { displayId: id }, select: { id: true } });
+          if (!existing) break;
+          id = generateDisplayId();
+        }
+
+        const drop = await tx.drop.create({
+          data: {
+            guildId,
+            channelId,
+            dropperUserId: botUserId,
+            expiresAt: new Date(0),
+            resolvedAt: new Date()
+          }
+        });
+        await tx.dropSlot.create({
+          data: {
+            dropId: drop.id,
+            slotIndex: 0,
+            cardId: entry.card.id,
+            claimedByUserId: userId,
+            claimedAt: new Date()
+          }
+        });
+        const bonuses = isCommanderEligible(entry.card)
+          ? rollClashBonuses("mint")
+          : {};
+
+        await tx.userCard.create({
+          data: {
+            displayId: id,
+            userId,
+            cardId: entry.card.id,
+            dropId: drop.id,
+            condition: "mint",
+            ...bonuses
+          }
+        });
+
+        // Deduct gold inside the same transaction.
+        await tx.userInventory.upsert({
+          where: { userId },
+          create: { userId, gold: 0 },
+          update: { gold: { increment: -entry.priceGold } }
+        });
+
+        return id;
       });
-      if ((inv?.gold ?? 0) < entry.priceGold) {
-        throw new Error("insufficient_gold");
+
+      await interaction.editReply({
+        content: `You bought **${entry.card.name}** for **${entry.priceGold.toLocaleString()}** gold. Card ID: \`${displayId}\``
+      });
+    } catch (err) {
+      if ((err as Error).message === "insufficient_gold") {
+        await interaction.editReply({
+          content: "You no longer have enough gold for this purchase."
+        });
+      } else {
+        throw err;
       }
-
-      // Generate unique displayId inside the transaction.
-      let id = generateDisplayId();
-      for (let attempt = 0; attempt < 10; attempt++) {
-        const existing = await tx.userCard.findUnique({ where: { displayId: id }, select: { id: true } });
-        if (!existing) break;
-        id = generateDisplayId();
-      }
-
-      const drop = await tx.drop.create({
-        data: {
-          guildId,
-          channelId,
-          dropperUserId: botUserId,
-          expiresAt: new Date(0),
-          resolvedAt: new Date()
-        }
-      });
-      await tx.dropSlot.create({
-        data: {
-          dropId: drop.id,
-          slotIndex: 0,
-          cardId: entry.card.id,
-          claimedByUserId: userId,
-          claimedAt: new Date()
-        }
-      });
-      const bonuses = isCommanderEligible(entry.card)
-        ? rollClashBonuses("mint")
-        : {};
-
-      await tx.userCard.create({
-        data: {
-          displayId: id,
-          userId,
-          cardId: entry.card.id,
-          dropId: drop.id,
-          condition: "mint",
-          ...bonuses
-        }
-      });
-
-      // Deduct gold inside the same transaction.
-      await tx.userInventory.upsert({
-        where: { userId },
-        create: { userId, gold: 0 },
-        update: { gold: { increment: -entry.priceGold } }
-      });
-
-      return id;
-    });
-
-    await interaction.reply({
-      content: `You bought **${entry.card.name}** for **${entry.priceGold.toLocaleString()}** gold. Card ID: \`${displayId}\``,
-      ephemeral: false
-    });
+    }
   }
 };
