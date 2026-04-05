@@ -140,11 +140,18 @@ export async function getMarketCardsForSlot(slotIndex: number): Promise<MarketCa
   const indices = names.map((_, i) => i);
   seededShuffle(indices, slotIndex);
 
-  const entries: MarketCardEntry[] = [];
-  for (let i = 0; i < indices.length && entries.length < MARKET_CARD_COUNT; i++) {
+  // Collect candidate names (excluding previous slot), then query DB in parallel.
+  const candidateNames: string[] = [];
+  for (let i = 0; i < indices.length && candidateNames.length < MARKET_CARD_COUNT * 3; i++) {
     const name = names[indices[i]];
-    if (prevNames.has(name)) continue; // skip cards from previous rotation
-    const prints = await findCardPrintsByName(name);
+    if (!prevNames.has(name)) candidateNames.push(name);
+  }
+
+  const allPrints = await Promise.all(candidateNames.map((name) => findCardPrintsByName(name)));
+
+  const entries: MarketCardEntry[] = [];
+  for (let i = 0; i < allPrints.length && entries.length < MARKET_CARD_COUNT; i++) {
+    const prints = allPrints[i];
     const withPrice = prints.filter((c) => resolveCardUsd(c) > 0);
     const card = withPrice.length
       ? withPrice.sort((a, b) => resolveCardUsd(a) - resolveCardUsd(b))[0]
