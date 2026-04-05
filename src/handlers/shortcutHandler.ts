@@ -36,6 +36,8 @@ import { prisma } from "../db.js";
 import { buildMarketGrid } from "../services/collageService.js";
 import { buildMarketEmbed, buildMarketButtons } from "../commands/market.js";
 import { buildToolshopEmbed } from "../commands/toolshop.js";
+import { isCommanderEligible } from "../services/clashService.js";
+import { rollClashBonuses } from "../services/clashBonusService.js";
 import { grantExtraClaims, getExtraClaimCount } from "../repositories/extraClaimRepo.js";
 import { grantExtraCommanderDrops, getExtraCommanderDropCount } from "../repositories/extraCommanderDropRepo.js";
 import { consumeExtraCommanderDropTx } from "../repositories/extraCommanderDropRepo.js";
@@ -787,13 +789,17 @@ async function handleBuy(message: Message, args: string[], prefix: string): Prom
           claimedAt: new Date()
         }
       });
+      const bonuses = isCommanderEligible(entry.card)
+        ? rollClashBonuses("mint")
+        : {};
       await tx.userCard.create({
         data: {
           displayId: id,
           userId,
           cardId: entry.card.id,
           dropId: drop.id,
-          condition: "mint"
+          condition: "mint",
+          ...bonuses
         }
       });
       await tx.userInventory.upsert({

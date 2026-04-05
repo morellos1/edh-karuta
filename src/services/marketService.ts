@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CardLookup } from "../repositories/cardRepo.js";
-import { findCardPrintsByName } from "../repositories/cardRepo.js";
+import { findCardPrintsByNames } from "../repositories/cardRepo.js";
 
 const EUR_TO_USD = 1.15;
 const MARKET_REFRESH_MS = 3 * 60 * 60 * 1000; // 3 hours
@@ -147,11 +147,11 @@ export async function getMarketCardsForSlot(slotIndex: number): Promise<MarketCa
     if (!prevNames.has(name)) candidateNames.push(name);
   }
 
-  const allPrints = await Promise.all(candidateNames.map((name) => findCardPrintsByName(name)));
+  const printsByName = await findCardPrintsByNames(candidateNames);
 
   const entries: MarketCardEntry[] = [];
-  for (let i = 0; i < allPrints.length && entries.length < MARKET_CARD_COUNT; i++) {
-    const prints = allPrints[i];
+  for (let i = 0; i < candidateNames.length && entries.length < MARKET_CARD_COUNT; i++) {
+    const prints = printsByName.get(candidateNames[i].normalize("NFC")) ?? [];
     const withPrice = prints.filter((c) => resolveCardUsd(c) > 0);
     const card = withPrice.length
       ? withPrice.sort((a, b) => resolveCardUsd(a) - resolveCardUsd(b))[0]

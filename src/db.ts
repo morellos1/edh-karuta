@@ -36,8 +36,18 @@ async function configureSqlitePragmas(): Promise<void> {
     await prisma.$executeRawUnsafe("PRAGMA busy_timeout = 5000");
     await prisma.$executeRawUnsafe("PRAGMA cache_size = -20000");
     await prisma.$executeRawUnsafe("PRAGMA foreign_keys = ON");
+    await prisma.$executeRawUnsafe("PRAGMA optimize");
   } catch {
     // Non-fatal: PRAGMAs are best-effort (e.g. if the DB is not SQLite).
+  }
+}
+
+/** Re-analyze tables whose stats are stale. Call after large bulk operations. */
+export async function runPragmaOptimize(): Promise<void> {
+  try {
+    await prisma.$executeRawUnsafe("PRAGMA optimize");
+  } catch {
+    // Non-fatal
   }
 }
 

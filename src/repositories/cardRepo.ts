@@ -485,6 +485,46 @@ export async function findCardPrintsByName(name: string): Promise<CardLookup[]> 
   return candidates.filter((c) => stripAccents(c.name) === ascii);
 }
 
+/** Batch-fetch all prints for multiple card names in a single query.
+ *  Falls back to individual lookups for names that need NFD/accent handling. */
+export async function findCardPrintsByNames(
+  names: string[]
+): Promise<Map<string, CardLookup[]>> {
+  const unique = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
+  if (!unique.length) return new Map();
+
+  const nfcNames = unique.map((n) => n.normalize("NFC"));
+  const orderBy: Prisma.CardOrderByWithRelationInput[] = [{ releasedAt: "asc" }, { id: "asc" }];
+  const baseWhere = { isCommanderLegal: true, lang: "en" } as const;
+
+  const cards = await prisma.card.findMany({
+    where: { name: { in: nfcNames }, ...baseWhere },
+    orderBy,
+    select: cardSelect
+  });
+
+  const result = new Map<string, CardLookup[]>();
+  for (const card of cards) {
+    const existing = result.get(card.name) ?? [];
+    existing.push(card);
+    result.set(card.name, existing);
+  }
+
+  // For names with no NFC match, fall back to individual lookup
+  // (handles NFD normalization and accent-stripped names like "Lim-Dûl")
+  for (const name of unique) {
+    const nfc = name.normalize("NFC");
+    if (!result.has(nfc)) {
+      const fallback = await findCardPrintsByName(name);
+      if (fallback.length > 0) {
+        result.set(fallback[0].name, fallback);
+      }
+    }
+  }
+
+  return result;
+}
+
 const DEFAULT_BASE_PRICE_USD = 0.1; // 10g before condition multiplier
 
 import { EUR_TO_USD } from "../utils/cardFormatting.js";
