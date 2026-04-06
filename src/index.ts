@@ -106,7 +106,11 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent
-  ]
+  ],
+  rest: {
+    retries: 3,
+    timeout: 30_000
+  }
 });
 
 client.once("ready", async () => {
