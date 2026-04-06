@@ -104,6 +104,7 @@ export const landdropCommand: SlashCommand = {
         });
       }
     } catch (error) {
+      console.error("[LANDDROP]", error);
       await interaction.editReply({
         content: `Land Drop failed: ${(error as Error).message}`
       });
