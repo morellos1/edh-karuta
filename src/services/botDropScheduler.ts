@@ -57,12 +57,12 @@ export function startBotDropScheduler(client: Client) {
       guildId,
       cards.map((c) => c.name)
     );
-    const content = wishNotification
-      ? `${wishNotification}\n\n${dropLine}`
-      : dropLine;
+    if (wishNotification) {
+      await channel.send(wishNotification);
+    }
 
     const message = await channel.send({
-      content,
+      content: dropLine,
       files: [attachment],
       components
     });
@@ -76,14 +76,33 @@ export function startBotDropScheduler(client: Client) {
     });
   };
 
+  const dropWithRetry = async (channelId: string, guildId: string, retries = 2) => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        await dropToGuild(channelId, guildId);
+        return;
+      } catch (err) {
+        const isTransient =
+          err instanceof Error &&
+          ("code" in err && (err as { code?: string }).code === "UND_ERR_CONNECT_TIMEOUT" ||
+           err.name === "AbortError" ||
+           err.message.includes("getaddrinfo") ||
+           err.message.includes("ECONNRESET"));
+        if (!isTransient || attempt === retries) {
+          console.error(`Bot drop failed for guild ${guildId}:`, err);
+          return;
+        }
+        const delay = 2000 * 2 ** attempt;
+        console.warn(`Bot drop for guild ${guildId} failed (attempt ${attempt + 1}), retrying in ${delay}ms...`);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  };
+
   const run = async () => {
     const dropChannels = await getAllDropChannels();
     for (const { guildId, dropChannelId } of dropChannels) {
-      try {
-        await dropToGuild(dropChannelId, guildId);
-      } catch (err) {
-        console.error(`Bot drop failed for guild ${guildId}:`, err);
-      }
+      await dropWithRetry(dropChannelId, guildId);
     }
   };
 

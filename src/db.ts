@@ -51,4 +51,13 @@ export async function runPragmaOptimize(): Promise<void> {
   }
 }
 
+/** Reclaim free pages and defragment the database file. Call after large bulk operations (e.g. Scryfall sync). */
+export async function runVacuum(): Promise<void> {
+  try {
+    await prisma.$executeRawUnsafe("VACUUM");
+  } catch {
+    // Non-fatal: VACUUM requires exclusive access and may fail under load.
+  }
+}
+
 void configureSqlitePragmas();

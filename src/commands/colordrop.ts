@@ -90,12 +90,12 @@ export const colordropCommand: SlashCommand = {
         interaction.guildId,
         cards.map((c) => c.name)
       );
-      const content = wishNotification
-        ? `${wishNotification}\n\n${dropLine}`
-        : dropLine;
+      if (wishNotification && interaction.channel && "send" in interaction.channel) {
+        await interaction.channel.send(wishNotification);
+      }
 
       const message = await interaction.editReply({
-        content,
+        content: dropLine,
         files: [attachment],
         components
       });

@@ -19,6 +19,11 @@ function stripPunctuation(s: string): string {
   return s.replace(/['\-,.:;"!?]/g, "");
 }
 
+/** Normalize a card name for indexed lookups: strip punctuation and lowercase. */
+export function normalizeCardName(s: string): string {
+  return stripPunctuation(s).toLowerCase();
+}
+
 /** Add a card name to a user's wishlist for a specific guild. */
 export async function addWishlistEntry(
   userId: string,
@@ -26,7 +31,7 @@ export async function addWishlistEntry(
   cardName: string
 ): Promise<void> {
   await prisma.wishlist.create({
-    data: { userId, guildId, cardName }
+    data: { userId, guildId, cardName, cardNameNormalized: normalizeCardName(cardName) }
   });
 }
 
@@ -36,13 +41,13 @@ export async function removeWishlistEntry(
   guildId: string,
   cardName: string
 ): Promise<boolean> {
-  const stripped = sqlStrip('"cardName"');
+  const normalized = normalizeCardName(cardName);
   const rows = await prisma.$queryRawUnsafe<{ id: number }[]>(
     `SELECT "id" FROM "Wishlist"
-     WHERE "userId" = ? AND "guildId" = ? AND ${stripped} COLLATE NOCASE = ?`,
+     WHERE "userId" = ? AND "guildId" = ? AND "cardNameNormalized" = ?`,
     userId,
     guildId,
-    stripPunctuation(cardName)
+    normalized
   );
   if (!rows.length) return false;
 
@@ -80,14 +85,14 @@ export async function wishlistEntryExists(
   guildId: string,
   cardName: string
 ): Promise<boolean> {
-  const stripped = sqlStrip('"cardName"');
+  const normalized = normalizeCardName(cardName);
   const rows = await prisma.$queryRawUnsafe<{ id: number }[]>(
     `SELECT "id" FROM "Wishlist"
-     WHERE "userId" = ? AND "guildId" = ? AND ${stripped} COLLATE NOCASE = ?
+     WHERE "userId" = ? AND "guildId" = ? AND "cardNameNormalized" = ?
      LIMIT 1`,
     userId,
     guildId,
-    stripPunctuation(cardName)
+    normalized
   );
   return rows.length > 0;
 }
@@ -106,8 +111,9 @@ export async function getWishlistCardCount(cardName: string): Promise<number> {
  * find all users who have any of those names on their wishlist.
  * Returns a map of cardName → userId[].
  *
- * Uses case-insensitive matching (COLLATE NOCASE) so that wishlist
- * entries still match even if card-name casing drifts between Scryfall syncs.
+ * Uses the pre-computed cardNameNormalized column for fast indexed lookups.
+ * Falls back to the legacy REPLACE-based query for rows that haven't been
+ * backfilled yet (cardNameNormalized IS NULL).
  */
 export async function findWishlistWatchers(
   guildId: string,
@@ -115,15 +121,16 @@ export async function findWishlistWatchers(
 ): Promise<Map<string, string[]>> {
   if (!cardNames.length) return new Map();
 
-  const stripped = sqlStrip('"cardName"');
-  const placeholders = cardNames.map(() => "?").join(", ");
+  const normalizedNames = cardNames.map(normalizeCardName);
+  const placeholders = normalizedNames.map(() => "?").join(", ");
+
   const entries = await prisma.$queryRawUnsafe<
     { cardName: string; userId: string }[]
   >(
     `SELECT "cardName", "userId" FROM "Wishlist"
-     WHERE "guildId" = ? AND ${stripped} COLLATE NOCASE IN (${placeholders})`,
+     WHERE "guildId" = ? AND "cardNameNormalized" IN (${placeholders})`,
     guildId,
-    ...cardNames.map(stripPunctuation)
+    ...normalizedNames
   );
 
   const map = new Map<string, string[]>();

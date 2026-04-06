@@ -133,14 +133,16 @@ model UserCardTag {
 }
 
 model Wishlist {
-  id        Int      @id @default(autoincrement())
-  userId    String
-  guildId   String
-  cardName  String   // exact card name (case-sensitive match from Card.name)
-  createdAt DateTime @default(now())
+  id                 Int      @id @default(autoincrement())
+  userId             String
+  guildId            String
+  cardName           String   // exact card name (case-sensitive match from Card.name)
+  cardNameNormalized String?  // pre-stripped punctuation, lowercased for fast indexed lookups
+  createdAt          DateTime @default(now())
 
   @@unique([userId, guildId, cardName])
   @@index([guildId, cardName])
+  @@index([guildId, cardNameNormalized])
 }
 
 model BotConfig {
