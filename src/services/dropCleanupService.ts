@@ -1,7 +1,9 @@
-import { prisma } from "../db.js";
+import { prisma, runPragmaOptimize, runWalCheckpoint, runIncrementalVacuum } from "../db.js";
 
 const DEFAULT_RETENTION_DAYS = 7;
 const CLEANUP_INTERVAL_MS = 6 * 60 * 60 * 1000; // every 6 hours
+const VACUUM_INTERVAL_MS = 24 * 60 * 60 * 1000; // full VACUUM once per day
+let lastVacuumAt = 0;
 
 /**
  * Delete fully-resolved drops (all 3 slots claimed OR expired) older than
@@ -60,6 +62,23 @@ export async function cleanupStaleDrops(
   return deleted;
 }
 
+async function runPeriodicMaintenance(): Promise<void> {
+  try {
+    await runPragmaOptimize();
+    await runWalCheckpoint();
+    await runIncrementalVacuum();
+
+    const now = Date.now();
+    if (now - lastVacuumAt >= VACUUM_INTERVAL_MS) {
+      await prisma.$executeRawUnsafe("VACUUM");
+      lastVacuumAt = now;
+      console.log("[DB MAINTENANCE] VACUUM completed.");
+    }
+  } catch (err) {
+    console.error("[DB MAINTENANCE] Failed:", err);
+  }
+}
+
 export function startDropCleanupScheduler(): void {
   const run = async () => {
     try {
@@ -70,6 +89,7 @@ export function startDropCleanupScheduler(): void {
     } catch (err) {
       console.error("[DROP CLEANUP] Failed:", err);
     }
+    await runPeriodicMaintenance();
   };
 
   // Run once at startup (after a short delay) then periodically.
