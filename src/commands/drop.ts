@@ -6,7 +6,7 @@ import {
 import { gameConfig } from "../config.js";
 import type { SlashCommand } from "./types.js";
 import { getRandomDroppableCards } from "../repositories/cardRepo.js";
-import { getDropCooldownRemainingMs, setDropUsed } from "../repositories/botConfigRepo.js";
+import { getDropCooldownRemainingMs, setDropUsed, clearDropCooldown } from "../repositories/botConfigRepo.js";
 import { buildDropCollage } from "../services/collageService.js";
 import { attachDropMessage, createDropRecord } from "../services/dropService.js";
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
@@ -90,6 +90,7 @@ export const dropCommand: SlashCommand = {
         expiresAt
       });
     } catch (error) {
+      await clearDropCooldown(interaction.user.id).catch(() => {});
       console.error("[DROP]", error);
       try {
         await interaction.editReply({

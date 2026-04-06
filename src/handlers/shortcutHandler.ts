@@ -8,7 +8,7 @@ import {
 import { getGuildSettings } from "../repositories/guildSettingsRepo.js";
 import { gameConfig } from "../config.js";
 import { getRandomDroppableCards, getRandomLandCards, getRandomCommanderCards, type DropColorSymbol } from "../repositories/cardRepo.js";
-import { getDropCooldownRemainingMs, setDropUsed, setLanddropUsed, setCommanderdropUsed, setColordropUsed } from "../repositories/botConfigRepo.js";
+import { getDropCooldownRemainingMs, setDropUsed, setLanddropUsed, setCommanderdropUsed, setColordropUsed, clearDropCooldown, clearColordropCooldown, clearCommanderdropCooldown, clearLanddropCooldown } from "../repositories/botConfigRepo.js";
 import { buildDropCollage } from "../services/collageService.js";
 import { attachDropMessage, createDropRecord } from "../services/dropService.js";
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
@@ -300,6 +300,7 @@ async function handleDrop(message: Message): Promise<void> {
       expiresAt
     });
   } catch (error) {
+    await clearDropCooldown(message.author.id).catch(() => {});
     await message.reply({ content: `Drop failed: ${(error as Error).message}` }).catch(() => {});
   }
 }
@@ -373,6 +374,9 @@ async function handleLanddrop(message: Message): Promise<void> {
       });
     }
   } catch (error) {
+    if (usedExtraLandDrop === null) {
+      await clearLanddropCooldown(message.author.id).catch(() => {});
+    }
     await message.reply({ content: `Land Drop failed: ${(error as Error).message}` }).catch(() => {});
   }
 }
@@ -446,6 +450,9 @@ async function handleCommanderdrop(message: Message): Promise<void> {
       });
     }
   } catch (error) {
+    if (usedExtraCommanderDrop === null) {
+      await clearCommanderdropCooldown(message.author.id).catch(() => {});
+    }
     await message.reply({ content: `Commander Drop failed: ${(error as Error).message}` }).catch(() => {});
   }
 }
@@ -515,6 +522,7 @@ async function handleColordrop(message: Message, args: string[], prefix: string)
       expiresAt
     });
   } catch (error) {
+    await clearColordropCooldown(message.author.id).catch(() => {});
     await message.reply({ content: `Color Drop failed: ${(error as Error).message}` }).catch(() => {});
   }
 }

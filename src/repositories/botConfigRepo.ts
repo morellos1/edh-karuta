@@ -91,6 +91,18 @@ export async function setLanddropUsed(userId: string): Promise<void> {
   });
 }
 
+export async function clearColordropCooldown(userId: string): Promise<void> {
+  await prisma.colordropCooldown.deleteMany({ where: { userId } });
+}
+
+export async function clearCommanderdropCooldown(userId: string): Promise<void> {
+  await prisma.commanderdropCooldown.deleteMany({ where: { userId } });
+}
+
+export async function clearLanddropCooldown(userId: string): Promise<void> {
+  await prisma.landdropCooldown.deleteMany({ where: { userId } });
+}
+
 function dropCooldownMs(): number {
   return gameConfig.dropCooldownSeconds * 1000;
 }
@@ -113,4 +125,8 @@ export async function setDropUsed(userId: string): Promise<void> {
     create: { userId, lastUsedAt: new Date() },
     update: { lastUsedAt: new Date() }
   });
+}
+
+export async function clearDropCooldown(userId: string): Promise<void> {
+  await prisma.dropCooldown.deleteMany({ where: { userId } });
 }

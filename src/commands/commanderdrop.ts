@@ -6,7 +6,7 @@ import {
 import { gameConfig } from "../config.js";
 import type { SlashCommand } from "./types.js";
 import { getRandomCommanderCards } from "../repositories/cardRepo.js";
-import { getCommanderdropCooldownRemainingMs, setCommanderdropUsed } from "../repositories/botConfigRepo.js";
+import { getCommanderdropCooldownRemainingMs, setCommanderdropUsed, clearCommanderdropCooldown } from "../repositories/botConfigRepo.js";
 import { consumeExtraCommanderDropTx } from "../repositories/extraCommanderDropRepo.js";
 import { prisma } from "../db.js";
 import { buildDropCollage } from "../services/collageService.js";
@@ -104,6 +104,9 @@ export const commanderdropCommand: SlashCommand = {
         });
       }
     } catch (error) {
+      if (usedExtraCommanderDrop === null) {
+        await clearCommanderdropCooldown(interaction.user.id).catch(() => {});
+      }
       console.error("[COMMANDERDROP]", error);
       try {
         await interaction.editReply({

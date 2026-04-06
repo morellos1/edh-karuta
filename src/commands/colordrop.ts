@@ -6,7 +6,7 @@ import {
 import { gameConfig } from "../config.js";
 import type { SlashCommand } from "./types.js";
 import { getRandomDroppableCards, type DropColorSymbol } from "../repositories/cardRepo.js";
-import { getColordropCooldownRemainingMs, setColordropUsed } from "../repositories/botConfigRepo.js";
+import { getColordropCooldownRemainingMs, setColordropUsed, clearColordropCooldown } from "../repositories/botConfigRepo.js";
 import { buildDropCollage } from "../services/collageService.js";
 import { attachDropMessage, createDropRecord } from "../services/dropService.js";
 import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimButton.js";
@@ -108,6 +108,7 @@ export const colordropCommand: SlashCommand = {
         expiresAt
       });
     } catch (error) {
+      await clearColordropCooldown(interaction.user.id).catch(() => {});
       console.error("[COLORDROP]", error);
       try {
         await interaction.editReply({

@@ -6,7 +6,7 @@ import {
 import { gameConfig } from "../config.js";
 import type { SlashCommand } from "./types.js";
 import { getRandomLandCards } from "../repositories/cardRepo.js";
-import { getLanddropCooldownRemainingMs, setLanddropUsed } from "../repositories/botConfigRepo.js";
+import { getLanddropCooldownRemainingMs, setLanddropUsed, clearLanddropCooldown } from "../repositories/botConfigRepo.js";
 import { consumeExtraLandDropTx } from "../repositories/extraLandDropRepo.js";
 import { prisma } from "../db.js";
 import { buildDropCollage } from "../services/collageService.js";
@@ -104,6 +104,9 @@ export const landdropCommand: SlashCommand = {
         });
       }
     } catch (error) {
+      if (usedExtraLandDrop === null) {
+        await clearLanddropCooldown(interaction.user.id).catch(() => {});
+      }
       console.error("[LANDDROP]", error);
       try {
         await interaction.editReply({
