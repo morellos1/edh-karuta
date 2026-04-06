@@ -44,6 +44,9 @@ function evictOldest(): void {
   if (oldestKey) imageCache.delete(oldestKey);
 }
 
+const RETRYABLE_CODES = new Set(["EPIPE", "ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "ECONNABORTED"]);
+const MAX_RETRIES = 2;
+
 async function loadCardImage(url: string): Promise<Buffer> {
   const cached = imageCache.get(url);
   if (cached) {
@@ -51,20 +54,34 @@ async function loadCardImage(url: string): Promise<Buffer> {
     return cached.buffer;
   }
 
-  const response = await axios.get<ArrayBuffer>(url, {
-    responseType: "arraybuffer",
-    timeout: 15000
-  });
-  const buffer = Buffer.from(response.data);
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const response = await axios.get<ArrayBuffer>(url, {
+        responseType: "arraybuffer",
+        timeout: 15000
+      });
+      const buffer = Buffer.from(response.data);
 
-  // Make room if needed
-  evictStaleEntries();
-  if (imageCache.size >= IMAGE_CACHE_MAX) {
-    evictOldest();
+      // Make room if needed
+      evictStaleEntries();
+      if (imageCache.size >= IMAGE_CACHE_MAX) {
+        evictOldest();
+      }
+
+      imageCache.set(url, { buffer, accessedAt: Date.now() });
+      return buffer;
+    } catch (err: unknown) {
+      lastError = err;
+      const code = (err as { code?: string }).code;
+      if (code && RETRYABLE_CODES.has(code) && attempt < MAX_RETRIES) {
+        await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
   }
-
-  imageCache.set(url, { buffer, accessedAt: Date.now() });
-  return buffer;
+  throw lastError;
 }
 
 export async function buildDropCollage(cards: CardLookup[]): Promise<Buffer> {

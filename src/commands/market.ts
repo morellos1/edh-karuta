@@ -99,9 +99,13 @@ export const marketCommand: SlashCommand = {
       });
     } catch (error) {
       console.error("[MARKET]", error);
-      await interaction.editReply({
-        content: `Market failed: ${(error as Error).message}`
-      });
+      try {
+        await interaction.editReply({
+          content: `Market failed: ${(error as Error).message}`
+        });
+      } catch {
+        // interaction expired or connection lost; already logged above
+      }
     }
   }
 };

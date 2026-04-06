@@ -109,9 +109,13 @@ export const colordropCommand: SlashCommand = {
       });
     } catch (error) {
       console.error("[COLORDROP]", error);
-      await interaction.editReply({
-        content: `Color Drop failed: ${(error as Error).message}`
-      });
+      try {
+        await interaction.editReply({
+          content: `Color Drop failed: ${(error as Error).message}`
+        });
+      } catch {
+        // interaction expired or connection lost; already logged above
+      }
     }
   }
 };
