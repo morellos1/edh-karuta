@@ -57,12 +57,12 @@ export function startBotDropScheduler(client: Client) {
       guildId,
       cards.map((c) => c.name)
     );
-    const content = wishNotification
-      ? `${wishNotification}\n\n${dropLine}`
-      : dropLine;
+    if (wishNotification) {
+      await channel.send(wishNotification);
+    }
 
     const message = await channel.send({
-      content,
+      content: dropLine,
       files: [attachment],
       components
     });
