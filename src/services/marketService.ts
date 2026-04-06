@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { CardLookup } from "../repositories/cardRepo.js";
 import { findCardPrintsByNames } from "../repositories/cardRepo.js";
+import { buildMarketGrid } from "./collageService.js";
 
 const EUR_TO_USD = 1.15;
 const MARKET_REFRESH_MS = 3 * 60 * 60 * 1000; // 3 hours
@@ -180,5 +181,52 @@ export function getMarketPage(entries: MarketCardEntry[], page: number): MarketC
 }
 
 export const MARKET_TOTAL_PAGES = 2;
+
+/* ------------------------------------------------------------------ */
+/*  Collage cache – avoids re-building the expensive image every view  */
+/* ------------------------------------------------------------------ */
+
+const collageCache = new Map<string, Buffer>();
+let collageCacheSlot = -1;
+const collageBuildLocks = new Map<string, Promise<Buffer>>();
+
+/** Get or build the market collage for a given slot and page.
+ *  Caches the result per slot+page and deduplicates concurrent builds. */
+export async function getOrBuildMarketCollage(
+  slotIndex: number,
+  page: number,
+  cards: CardLookup[],
+  labels: string[]
+): Promise<Buffer> {
+  // Invalidate entire cache when slot changes.
+  if (collageCacheSlot !== slotIndex) {
+    collageCache.clear();
+    collageBuildLocks.clear();
+    collageCacheSlot = slotIndex;
+  }
+
+  const key = `${slotIndex}:${page}`;
+
+  const cached = collageCache.get(key);
+  if (cached) return cached;
+
+  // If another request is already building this collage, share the promise.
+  const existing = collageBuildLocks.get(key);
+  if (existing) return existing;
+
+  const buildPromise = buildMarketGrid(cards, labels)
+    .then((buf) => {
+      collageCache.set(key, buf);
+      collageBuildLocks.delete(key);
+      return buf;
+    })
+    .catch((err) => {
+      collageBuildLocks.delete(key);
+      throw err;
+    });
+
+  collageBuildLocks.set(key, buildPromise);
+  return buildPromise;
+}
 
 export { MARKET_IDS };

@@ -190,8 +190,9 @@ export async function buildMarketGrid(cards: CardLookup[], labels: string[]): Pr
       .toBuffer();
   }
 
+  const MARKET_MAX_WIDTH = 1800;
   const cardWidth = Math.floor(
-    (MAX_CANVAS_WIDTH - (MARKET_COLS + 1) * MARKET_PADDING) / MARKET_COLS
+    (MARKET_MAX_WIDTH - (MARKET_COLS + 1) * MARKET_PADDING) / MARKET_COLS
   );
   const cardHeight = Math.round(cardWidth * CARD_ASPECT_RATIO);
   const canvasWidth = MARKET_PADDING + MARKET_COLS * (cardWidth + MARKET_PADDING);

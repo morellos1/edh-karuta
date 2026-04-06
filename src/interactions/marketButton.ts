@@ -4,9 +4,9 @@ import {
   getMarketSlot,
   getMarketCardsForSlot,
   getMarketPage,
+  getOrBuildMarketCollage,
   MARKET_TOTAL_PAGES
 } from "../services/marketService.js";
-import { buildMarketGrid } from "../services/collageService.js";
 
 export async function handleMarketPageButton(interaction: ButtonInteraction) {
   const parts = interaction.customId.split(":");
@@ -29,7 +29,9 @@ export async function handleMarketPageButton(interaction: ButtonInteraction) {
     return;
   }
 
-  const collage = await buildMarketGrid(
+  const collage = await getOrBuildMarketCollage(
+    slotIndex,
+    page,
     pageCards.map((c) => c.card),
     pageCards.map((c) => c.id)
   );

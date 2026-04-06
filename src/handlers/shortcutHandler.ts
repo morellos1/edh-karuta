@@ -27,13 +27,13 @@ import {
   getMarketSlot,
   getMarketCardsForSlot,
   getMarketPage,
+  getOrBuildMarketCollage,
   MARKET_IDS,
   type MarketCardId
 } from "../services/marketService.js";
 import { getGold } from "../repositories/inventoryRepo.js";
 import { generateDisplayId } from "../utils/displayId.js";
 import { prisma } from "../db.js";
-import { buildMarketGrid } from "../services/collageService.js";
 import { buildMarketEmbed, buildMarketButtons } from "../commands/market.js";
 import { buildToolshopEmbed } from "../commands/toolshop.js";
 import { isCommanderEligible } from "../services/clashService.js";
@@ -697,7 +697,9 @@ async function handleMarket(message: Message): Promise<void> {
 
   const page = 1;
   const pageCards = getMarketPage(allCards, page);
-  const collage = await buildMarketGrid(
+  const collage = await getOrBuildMarketCollage(
+    slotIndex,
+    page,
     pageCards.map((c) => c.card),
     pageCards.map((c) => c.id)
   );

@@ -13,10 +13,10 @@ import {
   getMarketCardsForSlot,
   getTimeUntilRefresh,
   getMarketPage,
+  getOrBuildMarketCollage,
   MARKET_TOTAL_PAGES,
   type MarketCardEntry
 } from "../services/marketService.js";
-import { buildMarketGrid } from "../services/collageService.js";
 
 export const MARKET_BUTTON_PREFIX = "market_page";
 
@@ -82,7 +82,9 @@ export const marketCommand: SlashCommand = {
 
     const page = 1;
     const pageCards = getMarketPage(allCards, page);
-    const collage = await buildMarketGrid(
+    const collage = await getOrBuildMarketCollage(
+      slotIndex,
+      page,
       pageCards.map((c) => c.card),
       pageCards.map((c) => c.id)
     );
