@@ -300,7 +300,7 @@ async function handleDrop(message: Message): Promise<void> {
       expiresAt
     });
   } catch (error) {
-    await message.reply({ content: `Drop failed: ${(error as Error).message}` });
+    await message.reply({ content: `Drop failed: ${(error as Error).message}` }).catch(() => {});
   }
 }
 
@@ -373,7 +373,7 @@ async function handleLanddrop(message: Message): Promise<void> {
       });
     }
   } catch (error) {
-    await message.reply({ content: `Land Drop failed: ${(error as Error).message}` });
+    await message.reply({ content: `Land Drop failed: ${(error as Error).message}` }).catch(() => {});
   }
 }
 
@@ -446,7 +446,7 @@ async function handleCommanderdrop(message: Message): Promise<void> {
       });
     }
   } catch (error) {
-    await message.reply({ content: `Commander Drop failed: ${(error as Error).message}` });
+    await message.reply({ content: `Commander Drop failed: ${(error as Error).message}` }).catch(() => {});
   }
 }
 
@@ -515,7 +515,7 @@ async function handleColordrop(message: Message, args: string[], prefix: string)
       expiresAt
     });
   } catch (error) {
-    await message.reply({ content: `Color Drop failed: ${(error as Error).message}` });
+    await message.reply({ content: `Color Drop failed: ${(error as Error).message}` }).catch(() => {});
   }
 }
 
