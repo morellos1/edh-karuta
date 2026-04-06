@@ -28,13 +28,13 @@ if (queryLoggingEnabled) {
 // the single biggest performance win for a read-heavy SQLite workload.
 // busy_timeout: wait up to 5s when the DB is locked instead of failing
 // immediately — important during Scryfall syncs or burst claim transactions.
-// cache_size: negative value = KiB.  -20000 ≈ 20 MB page cache (default is
-// ~2 MB), keeping hot index pages in memory.
+// cache_size: negative value = KiB.  -65536 = 64 MB page cache (default is
+// ~2 MB), keeping hot index/data pages in memory for the ~100 K-row Card table.
 async function configureSqlitePragmas(): Promise<void> {
   try {
     await prisma.$executeRawUnsafe("PRAGMA journal_mode = WAL");
     await prisma.$executeRawUnsafe("PRAGMA busy_timeout = 5000");
-    await prisma.$executeRawUnsafe("PRAGMA cache_size = -20000");
+    await prisma.$executeRawUnsafe("PRAGMA cache_size = -65536");
     await prisma.$executeRawUnsafe("PRAGMA foreign_keys = ON");
     await prisma.$executeRawUnsafe("PRAGMA optimize");
   } catch {
@@ -57,6 +57,24 @@ export async function runVacuum(): Promise<void> {
     await prisma.$executeRawUnsafe("VACUUM");
   } catch {
     // Non-fatal: VACUUM requires exclusive access and may fail under load.
+  }
+}
+
+/** Flush the WAL file back into the main DB and truncate it. */
+export async function runWalCheckpoint(): Promise<void> {
+  try {
+    await prisma.$executeRawUnsafe("PRAGMA wal_checkpoint(TRUNCATE)");
+  } catch {
+    // Non-fatal
+  }
+}
+
+/** Reclaim up to `pages` free pages without a full VACUUM. */
+export async function runIncrementalVacuum(pages = 1000): Promise<void> {
+  try {
+    await prisma.$executeRawUnsafe(`PRAGMA incremental_vacuum(${pages})`);
+  } catch {
+    // Non-fatal
   }
 }
 

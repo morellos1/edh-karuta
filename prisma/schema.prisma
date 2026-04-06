@@ -87,6 +87,9 @@ model Drop {
   createdAt     DateTime  @default(now())
   slots         DropSlot[]
   claims        UserCard[]
+
+  @@index([createdAt])
+  @@index([dropperUserId, createdAt])
 }
 
 model DropSlot {
