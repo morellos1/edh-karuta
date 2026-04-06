@@ -68,7 +68,7 @@ type CardPoolEntry = {
   expiresAt: number;
 };
 const cardPoolCache = new Map<string, CardPoolEntry>();
-const CARD_POOL_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CARD_POOL_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours (invalidated on Scryfall sync)
 
 /** Call after a Scryfall sync to force fresh groupBy data on the next drop. */
 export function invalidateCardPoolCache(): void {
@@ -510,14 +510,31 @@ export async function findCardPrintsByNames(
     result.set(card.name, existing);
   }
 
-  // For names with no NFC match, fall back to individual lookup
-  // (handles NFD normalization and accent-stripped names like "Lim-Dûl")
-  for (const name of unique) {
-    const nfc = name.normalize("NFC");
-    if (!result.has(nfc)) {
-      const fallback = await findCardPrintsByName(name);
-      if (fallback.length > 0) {
-        result.set(fallback[0].name, fallback);
+  // For names with no NFC match, try a batch NFD query first, then fall back
+  // to individual accent-stripped lookups only for remaining misses.
+  const unmatchedNames = unique.filter((n) => !result.has(n.normalize("NFC")));
+  if (unmatchedNames.length > 0) {
+    const nfdNames = unmatchedNames.map((n) => n.normalize("NFD"));
+    const nfdCards = await prisma.card.findMany({
+      where: { name: { in: nfdNames }, ...baseWhere },
+      orderBy,
+      select: cardSelect
+    });
+    for (const card of nfdCards) {
+      const existing = result.get(card.name) ?? [];
+      existing.push(card);
+      result.set(card.name, existing);
+    }
+
+    // Only fall back to individual accent-stripped lookups for remaining misses
+    for (const name of unmatchedNames) {
+      const nfc = name.normalize("NFC");
+      const nfd = name.normalize("NFD");
+      if (!result.has(nfc) && !result.has(nfd)) {
+        const fallback = await findCardPrintsByName(name);
+        if (fallback.length > 0) {
+          result.set(fallback[0].name, fallback);
+        }
       }
     }
   }

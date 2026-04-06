@@ -3,6 +3,31 @@ import { CONDITION_MULTIPLIERS } from "../config.js";
 
 const PAGE_SIZE = 10;
 
+/** Subset of Card fields needed for collection display, export, and grid views. */
+const cardSelectCollection = {
+  id: true,
+  scryfallId: true,
+  name: true,
+  setCode: true,
+  setName: true,
+  collectorNumber: true,
+  lang: true,
+  colors: true,
+  colorIdentity: true,
+  usdPrice: true,
+  eurPrice: true,
+  rarity: true,
+  imagePng: true,
+  imageLarge: true,
+  imageNormal: true,
+  imageSmall: true,
+  manaCost: true,
+  typeLine: true,
+  oracleText: true,
+  power: true,
+  toughness: true
+} as const;
+
 export type CollectionSort = "recent" | "color" | "color_white" | "color_blue" | "color_black" | "color_red" | "color_green" | "color_uncolored" | "price_asc" | "price_desc" | "rarity";
 
 export async function getCollectionPage(
@@ -119,7 +144,7 @@ export async function getCollectionPage(
     const cards = ids.length
       ? await prisma.userCard.findMany({
           where: { id: { in: ids } },
-          include: { card: true }
+          include: { card: { select: cardSelectCollection } }
         }).then((results) => {
           const byId = new Map(results.map((r) => [r.id, r]));
           return ids.map((id) => byId.get(id)!).filter(Boolean);
@@ -149,7 +174,7 @@ export async function getCollectionPage(
       prisma.userCard.count({ where: baseWhere }),
       prisma.userCard.findMany({
         where: baseWhere,
-        include: { card: true },
+        include: { card: { select: cardSelectCollection } },
         orderBy,
         skip,
         take: pageSize
@@ -230,7 +255,7 @@ export async function getCollectionPage(
   const cards = ids.length
     ? await prisma.userCard.findMany({
         where: { id: { in: ids } },
-        include: { card: true }
+        include: { card: { select: cardSelectCollection } }
       }).then((results) => {
         const byId = new Map(results.map((r) => [r.id, r]));
         return ids.map((id) => byId.get(id)!).filter(Boolean);
@@ -253,7 +278,7 @@ export async function getAllCardsByTag(userId: string, tagId: number) {
       userId,
       tags: { some: { tagId } }
     },
-    include: { card: true },
+    include: { card: { select: { name: true, setCode: true, collectorNumber: true, usdPrice: true, eurPrice: true } } },
     orderBy: { claimedAt: "desc" }
   });
 }
@@ -262,7 +287,7 @@ export async function getAllCardsByTag(userId: string, tagId: number) {
 export async function getAllForExport(userId: string) {
   return prisma.userCard.findMany({
     where: { userId },
-    include: { card: true },
+    include: { card: { select: { name: true, setCode: true, collectorNumber: true } } },
     orderBy: { claimedAt: "desc" }
   });
 }
