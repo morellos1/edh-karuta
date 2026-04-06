@@ -154,8 +154,12 @@ async function pickRandomCard(
   excludeNames: string[] = [],
   options: { uniformWeight?: boolean } = {}
 ): Promise<Card | null> {
-  // Get distinct card names with their print counts for weighted selection.
-  let groups = await getCardPoolGroups(where);
+  // Strip per-pick fields (like id exclusions) from the groupBy WHERE so
+  // the expensive groupBy result can be reused across picks within a drop.
+  // Name-based deduplication below handles uniqueness instead.
+  const { id: _id, ...groupByWhere } = where;
+
+  let groups = await getCardPoolGroups(groupByWhere);
 
   // Filter out card names already picked in this drop to prevent duplicate
   // names appearing (even as different prints) in the same drop.
@@ -183,6 +187,7 @@ async function pickRandomCard(
   }
 
   // Pick a random print of the selected card name.
+  // Use the full `where` (with id exclusions) for the final selection.
   const selectedName = groups[selectedIdx].name;
   const printCount = groups[selectedIdx]._count.name;
   const skip = Math.floor(Math.random() * printCount);
