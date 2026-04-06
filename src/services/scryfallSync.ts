@@ -6,7 +6,7 @@ import { pipeline } from "node:stream/promises";
 import { pathToFileURL } from "node:url";
 import streamJson from "stream-json";
 import StreamArray from "stream-json/streamers/StreamArray.js";
-import { prisma, runPragmaOptimize } from "../db.js";
+import { prisma, runPragmaOptimize, runVacuum } from "../db.js";
 import { invalidateCardPoolCache } from "../repositories/cardRepo.js";
 
 type ScryfallBulkEntry = {
@@ -222,6 +222,9 @@ export async function syncScryfallBulk() {
 
   // Re-analyze table statistics so SQLite's query planner uses the new data.
   await runPragmaOptimize();
+
+  // Defragment and reclaim space after the bulk upsert/delete cycle.
+  await runVacuum();
 }
 
 const isEntrypoint = process.argv[1]
