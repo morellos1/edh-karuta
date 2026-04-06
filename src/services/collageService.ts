@@ -105,7 +105,7 @@ export async function buildDropCollage(cards: CardLookup[]): Promise<Buffer> {
     }
   })
     .composite(composites)
-    .webp({ quality: 92 })
+    .webp({ quality: 80 })
     .toBuffer();
 }
 
@@ -162,7 +162,7 @@ export async function buildCollectionGrid(cards: CardLookup[]): Promise<Buffer> 
     }
   })
     .composite(composites)
-    .webp({ quality: 92 })
+    .webp({ quality: 80 })
     .toBuffer();
 }
 
@@ -232,7 +232,7 @@ export async function buildMarketGrid(cards: CardLookup[], labels: string[]): Pr
     }
   })
     .composite(composites)
-    .webp({ quality: 92 })
+    .webp({ quality: 80 })
     .toBuffer();
 }
 
@@ -282,7 +282,7 @@ export async function buildClashPairImage(left: CardLookup, right: CardLookup): 
       { input: rightResized, left: rightX, top: rightY },
       { input: buildVsBadge(), left: vsX, top: vsY }
     ])
-    .webp({ quality: 92 })
+    .webp({ quality: 80 })
     .toBuffer();
 }
 
@@ -335,6 +335,6 @@ export async function buildTradePairImage(left: CardLookup, right: CardLookup): 
       { input: rightResized, left: rightX, top: rightY },
       { input: buildTradeArrow(), left: arrowX, top: arrowY }
     ])
-    .webp({ quality: 92 })
+    .webp({ quality: 80 })
     .toBuffer();
 }
