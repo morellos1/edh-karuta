@@ -90,6 +90,7 @@ export const dropCommand: SlashCommand = {
         expiresAt
       });
     } catch (error) {
+      console.error("[DROP]", error);
       await interaction.editReply({
         content: `Drop failed: ${(error as Error).message}`
       });

@@ -13,10 +13,10 @@ import {
   getMarketCardsForSlot,
   getTimeUntilRefresh,
   getMarketPage,
+  getOrBuildMarketCollage,
   MARKET_TOTAL_PAGES,
   type MarketCardEntry
 } from "../services/marketService.js";
-import { buildMarketGrid } from "../services/collageService.js";
 
 export const MARKET_BUTTON_PREFIX = "market_page";
 
@@ -70,29 +70,38 @@ export const marketCommand: SlashCommand = {
   async execute(interaction: ChatInputCommandInteraction) {
     await interaction.deferReply();
 
-    const { slotIndex, nextRefreshAt } = getMarketSlot();
-    const allCards = await getMarketCardsForSlot(slotIndex);
+    try {
+      const { slotIndex, nextRefreshAt } = getMarketSlot();
+      const allCards = await getMarketCardsForSlot(slotIndex);
 
-    if (allCards.length === 0) {
+      if (allCards.length === 0) {
+        await interaction.editReply({
+          content: "The market has no listings right now. Try again after the next refresh."
+        });
+        return;
+      }
+
+      const page = 1;
+      const pageCards = getMarketPage(allCards, page);
+      const collage = await getOrBuildMarketCollage(
+        slotIndex,
+        page,
+        pageCards.map((c) => c.card),
+        pageCards.map((c) => c.id)
+      );
+
+      const { embed, attachment } = buildMarketEmbed(pageCards, page, nextRefreshAt, collage);
+
       await interaction.editReply({
-        content: "The market has no listings right now. Try again after the next refresh."
+        embeds: [embed],
+        files: [attachment],
+        components: [buildMarketButtons(page)]
       });
-      return;
+    } catch (error) {
+      console.error("[MARKET]", error);
+      await interaction.editReply({
+        content: `Market failed: ${(error as Error).message}`
+      });
     }
-
-    const page = 1;
-    const pageCards = getMarketPage(allCards, page);
-    const collage = await buildMarketGrid(
-      pageCards.map((c) => c.card),
-      pageCards.map((c) => c.id)
-    );
-
-    const { embed, attachment } = buildMarketEmbed(pageCards, page, nextRefreshAt, collage);
-
-    await interaction.editReply({
-      embeds: [embed],
-      files: [attachment],
-      components: [buildMarketButtons(page)]
-    });
   }
 };

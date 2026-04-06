@@ -1,7 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { env } from "./config.js";
 
-const slowQueryMs = env.LOG_SLOW_QUERY_MS;
+const slowQueryMs = env.LOG_SLOW_QUERY_MS ?? 500;
 const queryLoggingEnabled = slowQueryMs != null;
 
 export const prisma = new PrismaClient({

@@ -104,6 +104,7 @@ export const commanderdropCommand: SlashCommand = {
         });
       }
     } catch (error) {
+      console.error("[COMMANDERDROP]", error);
       await interaction.editReply({
         content: `Commander Drop failed: ${(error as Error).message}`
       });

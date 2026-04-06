@@ -108,6 +108,7 @@ export const colordropCommand: SlashCommand = {
         expiresAt
       });
     } catch (error) {
+      console.error("[COLORDROP]", error);
       await interaction.editReply({
         content: `Color Drop failed: ${(error as Error).message}`
       });
