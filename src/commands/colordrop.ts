@@ -13,6 +13,7 @@ import { buildDropComponents, scheduleDropTimeout } from "../interactions/claimB
 import { buildWishlistNotification } from "../services/wishlistService.js";
 import { formatCooldownRemaining } from "../utils/cooldownFormatting.js";
 import { createAsyncLock } from "../utils/asyncLock.js";
+import { editReplyWithRetry, isConnectionError } from "../utils/discordRetry.js";
 
 const DROP_SIZE = 3;
 const withColordropLock = createAsyncLock();
@@ -94,7 +95,7 @@ export const colordropCommand: SlashCommand = {
         await interaction.channel.send(wishNotification);
       }
 
-      const message = await interaction.editReply({
+      const message = await editReplyWithRetry(interaction, {
         content: dropLine,
         files: [attachment],
         components
@@ -110,10 +111,11 @@ export const colordropCommand: SlashCommand = {
     } catch (error) {
       await clearColordropCooldown(interaction.user.id).catch(() => {});
       console.error("[COLORDROP]", error);
+      const userMessage = isConnectionError(error)
+        ? "Color Drop failed due to a Discord connection issue. Your cooldown has been reset — please try again."
+        : `Color Drop failed: ${(error as Error).message}`;
       try {
-        await interaction.editReply({
-          content: `Color Drop failed: ${(error as Error).message}`
-        });
+        await interaction.editReply({ content: userMessage });
       } catch {
         // interaction expired or connection lost; already logged above
       }
