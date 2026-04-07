@@ -17,6 +17,7 @@ import {
   MARKET_TOTAL_PAGES,
   type MarketCardEntry
 } from "../services/marketService.js";
+import { editReplyWithRetry, isConnectionError } from "../utils/discordRetry.js";
 
 export const MARKET_BUTTON_PREFIX = "market_page";
 
@@ -92,17 +93,18 @@ export const marketCommand: SlashCommand = {
 
       const { embed, attachment } = buildMarketEmbed(pageCards, page, nextRefreshAt, collage);
 
-      await interaction.editReply({
+      await editReplyWithRetry(interaction, {
         embeds: [embed],
         files: [attachment],
         components: [buildMarketButtons(page)]
       });
     } catch (error) {
       console.error("[MARKET]", error);
+      const userMessage = isConnectionError(error)
+        ? "Market failed due to a Discord connection issue. Please try again."
+        : `Market failed: ${(error as Error).message}`;
       try {
-        await interaction.editReply({
-          content: `Market failed: ${(error as Error).message}`
-        });
+        await interaction.editReply({ content: userMessage });
       } catch {
         // interaction expired or connection lost; already logged above
       }
