@@ -1,3 +1,7 @@
+// MUST be the first import: installs the shared undici global dispatcher and
+// keep-alive Node http(s) agents before discord.js REST or axios can open
+// any sockets. See src/http/httpAgents.ts for details.
+import { closeHttpAgents } from "./http/httpAgents.js";
 import { Client, Collection, GatewayIntentBits, Interaction, Message, REST, Routes } from "discord.js";
 import { env } from "./config.js";
 import { dropCommand } from "./commands/drop.js";
@@ -329,6 +333,7 @@ void bootstrap().catch((error) => {
 const shutdown = async () => {
   await prisma.$disconnect();
   client.destroy();
+  await closeHttpAgents();
   process.exit(0);
 };
 

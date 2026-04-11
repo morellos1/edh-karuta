@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import streamJson from "stream-json";
 import StreamArray from "stream-json/streamers/StreamArray.js";
 import { prisma, runPragmaOptimize, runVacuum } from "../db.js";
+import { sharedHttpAgent, sharedHttpsAgent } from "../http/httpAgents.js";
 import { invalidateCardPoolCache } from "../repositories/cardRepo.js";
 
 type ScryfallBulkEntry = {
@@ -118,7 +119,10 @@ export function shouldKeepCard(card: ScryfallCard) {
 }
 
 async function getDefaultCardsDownloadUri() {
-  const response = await axios.get<{ data: ScryfallBulkEntry[] }>("https://api.scryfall.com/bulk-data");
+  const response = await axios.get<{ data: ScryfallBulkEntry[] }>("https://api.scryfall.com/bulk-data", {
+    httpAgent: sharedHttpAgent,
+    httpsAgent: sharedHttpsAgent
+  });
   const bulk = response.data.data.find((entry) => entry.type === "default_cards");
   if (!bulk?.download_uri) {
     throw new Error("Could not locate default_cards bulk feed.");
@@ -128,7 +132,11 @@ async function getDefaultCardsDownloadUri() {
 
 async function downloadBulkJson(downloadUri: string) {
   await mkdir(TMP_DIR, { recursive: true });
-  const response = await axios.get(downloadUri, { responseType: "stream" });
+  const response = await axios.get(downloadUri, {
+    responseType: "stream",
+    httpAgent: sharedHttpAgent,
+    httpsAgent: sharedHttpsAgent
+  });
   const writer = createWriteStream(BULK_PATH);
   await pipeline(response.data, writer);
 }
