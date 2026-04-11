@@ -1,5 +1,6 @@
 import axios from "axios";
 import sharp from "sharp";
+import { sharedHttpAgent, sharedHttpsAgent } from "../http/httpAgents.js";
 import type { CardLookup } from "../repositories/cardRepo.js";
 import { getCardImageUrl } from "../utils/cardFormatting.js";
 
@@ -59,7 +60,9 @@ async function loadCardImage(url: string): Promise<Buffer> {
     try {
       const response = await axios.get<ArrayBuffer>(url, {
         responseType: "arraybuffer",
-        timeout: 15000
+        timeout: 15000,
+        httpAgent: sharedHttpAgent,
+        httpsAgent: sharedHttpsAgent
       });
       const buffer = Buffer.from(response.data);
 
